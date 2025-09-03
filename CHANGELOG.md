@@ -1,32 +1,57 @@
-# 更新日志
+# Changelog
 
-本文档记录部门地图项目的所有重要更改。
+All notable changes to this project will be documented in this file.
 
-## [v0.1.0] - 2024-01-01
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### 新增
-- 初始化React+TypeScript+Express全栈项目
-- 配置Vite构建工具
-- 集成TailwindCSS样式框架
-- 添加Zustand状态管理
-- 添加d3-zoom地图缩放功能
-- 配置Express后端服务
-- 添加Zod数据验证
-- 集成Prisma ORM
-- 创建基础项目结构
-- 配置ESLint代码规范
-- 添加TypeScript类型支持
+## [1.0.0] - 2025-01-24
 
-### 技术栈
-- Frontend: React@18 + TypeScript@5 + Vite@4 + TailwindCSS@3 + d3-zoom@3 + Zustand@5
-- Backend: Express@4 + TypeScript@5 + Zod@3 + Prisma@5
-- Tools: ESLint + Prettier + Nodemon
+### Added - M0 里程碑完成
+- ✅ 初始化Git仓库和版本控制系统
+- ✅ 创建React + TypeScript + Vite前端项目结构
+- ✅ 集成TailwindCSS样式框架
+- ✅ 实现DeptMap核心组件，支持2D地图可视化
+- ✅ 集成d3-zoom库实现地图缩放和平移功能
+- ✅ 添加模拟数据：工位信息、员工分配、在线状态
+- ✅ 实现工位渲染逻辑：状态颜色区分、交互式点击
+- ✅ 创建响应式UI界面：顶部导航、部门选择器、搜索框
+- ✅ 添加地图控制面板：统计信息、重置视图按钮
+- ✅ 实现工位详情面板：点击工位显示详细信息
+- ✅ 添加图例说明：在线/离线/空闲状态标识
+- ✅ Express后端基础架构搭建
+- ✅ 项目文档：README.md和CHANGELOG.md
 
-### 项目结构
-```
-├── api/          # 后端API服务
-├── src/          # 前端源码
-├── public/       # 静态资源
-├── .trae/        # 项目文档
-└── package.json  # 项目配置
-```
+### Technical Details
+- Frontend: React 18 + TypeScript 5 + Vite 4
+- Styling: TailwindCSS 3
+- Visualization: d3-zoom 3 + d3-selection
+- Backend: Express 4 + TypeScript 5
+- Development: 并发开发服务器（前端5173端口，后端3001端口）
+
+### Features Implemented
+1. **地图可视化**：SVG-based 2D地图渲染
+2. **工位管理**：工位状态实时显示和交互
+3. **缩放平移**：d3-zoom支持的流畅地图操作
+4. **状态管理**：员工在线/离线状态可视化
+5. **响应式设计**：适配不同屏幕尺寸
+6. **交互体验**：工位点击、详情面板、控制按钮
+
+## [Unreleased]
+
+### Planned for M1
+- 后端API接口实现
+- 数据库集成（PostgreSQL + Prisma）
+- 用户认证系统
+- 实时状态更新
+- 人员搜索功能
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
