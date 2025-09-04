@@ -69,7 +69,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     const maxY = Math.max(...desksWithEmployees.map(d => d.y + d.h));
     
     const contentWidth = maxX - minX + 100; // 添加边距
-    const contentHeight = maxY - minY + 100; // 添加边距
+    const contentHeight = maxY - minY + 150; // 添加边距，为底部图例预留空间
     
     // 计算缩放比例以适应容器
     const scaleX = width / contentWidth;
@@ -175,12 +175,14 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         .attr('fill', (d: any) => d.employee!.status === 'online' ? '#22c55e' : '#ef4444');
     }
 
-    // 添加图例 - 根据是否为首页模式调整位置
+    // 添加图例 - 调整到底部中央位置，避免与工位重叠
+    const legendWidth = 200; // 图例总宽度
+    const legendX = (minX + maxX) / 2 - legendWidth / 2; // 水平居中
+    const legendY = maxY + 20; // 位于工位区域下方
+    
     const legend = g.append('g')
       .attr('class', 'legend')
-      .attr('transform', isHomepage ? 
-        `translate(${maxX - 120}, ${minY + 10})` : 
-        `translate(${maxX - 150}, ${minY + 30})`);
+      .attr('transform', `translate(${legendX}, ${legendY})`);
 
     const legendData = [
       { color: '#10b981', text: '在线', status: 'online' },
@@ -193,7 +195,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
       .enter()
       .append('g')
       .attr('class', 'legend-item')
-      .attr('transform', (d, i) => `translate(0, ${i * 25})`);
+      .attr('transform', (d, i) => `translate(${i * 65}, 0)`); // 水平排列图例项
 
     legendItems.append('rect')
       .attr('width', 16)
