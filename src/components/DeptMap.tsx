@@ -16,10 +16,11 @@ interface DeskWithEmployee extends DeskType {
 
 interface DeptMapProps {
   department: string;
+  searchQuery?: string; // 搜索查询字符串
   isHomepage?: boolean; // 新增：标识是否为首页模式
 }
 
-const DeptMap: React.FC<DeptMapProps> = ({ department, isHomepage = false }) => {
+const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomepage = false }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedDesk, setSelectedDesk] = useState<DeskWithEmployee | null>(null);
@@ -142,12 +143,12 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, isHomepage = false }) => 
         .text(d => d.employee?.name || '空闲');
 
       // 添加状态指示器
-      deskGroups.filter(d => d.employee)
+      deskGroups.filter((d: any) => d.employee)
         .append('circle')
-        .attr('cx', d => d.w - 8)
+        .attr('cx', (d: any) => d.w - 8)
         .attr('cy', 8)
         .attr('r', 4)
-        .attr('fill', d => d.employee!.status === 'online' ? '#22c55e' : '#ef4444');
+        .attr('fill', (d: any) => d.employee!.status === 'online' ? '#22c55e' : '#ef4444');
     }
 
     // 添加图例
@@ -184,7 +185,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, isHomepage = false }) => 
 
     // 重置缩放到初始状态
     const resetZoom = () => {
-      svg.transition()
+      (svg as any).transition()
         .duration(750)
         .call(zoomBehavior.transform, zoomIdentity);
     };
