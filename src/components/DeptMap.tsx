@@ -62,9 +62,27 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     // 清除之前的内容
     svg.selectAll('*').remove();
 
+    // 计算工位的边界
+    const minX = Math.min(...desksWithEmployees.map(d => d.x));
+    const maxX = Math.max(...desksWithEmployees.map(d => d.x + d.w));
+    const minY = Math.min(...desksWithEmployees.map(d => d.y));
+    const maxY = Math.max(...desksWithEmployees.map(d => d.y + d.h));
+    
+    const contentWidth = maxX - minX + 100; // 添加边距
+    const contentHeight = maxY - minY + 100; // 添加边距
+    
+    // 计算缩放比例以适应容器
+    const scaleX = width / contentWidth;
+    const scaleY = height / contentHeight;
+    const initialScale = Math.min(scaleX, scaleY, 1); // 不超过1倍缩放
+    
+    // 计算居中偏移
+    const offsetX = (width - contentWidth * initialScale) / 2;
+    const offsetY = (height - contentHeight * initialScale) / 2;
+
     // 创建缩放行为
     const zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.5, 3])
+      .scaleExtent([0.3, 3])
       .on('zoom', (event) => {
         const { transform } = event;
         g.attr('transform', transform.toString());
@@ -76,10 +94,16 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     // 创建主要的g元素用于缩放和平移
     const g = svg.append('g');
 
+    // 设置初始变换以适应内容
+    const initialTransform = `translate(${offsetX - minX * initialScale}, ${offsetY - minY * initialScale}) scale(${initialScale})`;
+    g.attr('transform', initialTransform);
+
     // 绘制地图背景
     g.append('rect')
-      .attr('width', 800)
-      .attr('height', 600)
+      .attr('x', minX - 50)
+      .attr('y', minY - 50)
+      .attr('width', contentWidth)
+      .attr('height', contentHeight)
       .attr('fill', '#f8fafc')
       .attr('stroke', '#e2e8f0')
       .attr('stroke-width', 2)
@@ -87,10 +111,10 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
 
     // 添加地图标题
     g.append('text')
-      .attr('x', 400)
-      .attr('y', 30)
+      .attr('x', (minX + maxX) / 2)
+      .attr('y', minY - 20)
       .attr('text-anchor', 'middle')
-      .attr('font-size', '18px')
+      .attr('font-size', isHomepage ? '14px' : '18px')
       .attr('font-weight', 'bold')
       .attr('fill', '#1e293b')
       .text(`${mapData.dept_name} 部门地图`);
@@ -151,10 +175,12 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         .attr('fill', (d: any) => d.employee!.status === 'online' ? '#22c55e' : '#ef4444');
     }
 
-    // 添加图例
+    // 添加图例 - 根据是否为首页模式调整位置
     const legend = g.append('g')
       .attr('class', 'legend')
-      .attr('transform', 'translate(650, 50)');
+      .attr('transform', isHomepage ? 
+        `translate(${maxX - 120}, ${minY + 10})` : 
+        `translate(${maxX - 150}, ${minY + 30})`);
 
     const legendData = [
       { color: '#10b981', text: '在线', status: 'online' },
@@ -183,11 +209,16 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
       .attr('fill', '#374151')
       .text(d => d.text);
 
-    // 重置缩放到初始状态
+    // 重置缩放到自适应初始状态
     const resetZoom = () => {
+      const transform = `translate(${offsetX - minX * initialScale}, ${offsetY - minY * initialScale}) scale(${initialScale})`;
       (svg as any).transition()
         .duration(750)
-        .call(zoomBehavior.transform, zoomIdentity);
+        .call(zoomBehavior.transform, 
+          zoomIdentity
+            .translate(offsetX - minX * initialScale, offsetY - minY * initialScale)
+            .scale(initialScale)
+        );
     };
 
     // 添加重置按钮事件监听
@@ -210,25 +241,27 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
       <svg
         ref={svgRef}
         className="w-full h-full"
-        style={{ minHeight: '600px' }}
+        style={{ minHeight: isHomepage ? '300px' : '500px' }}
       />
       
-      {/* 控制面板 */}
-      <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 min-w-48">
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">
-          {mapData.dept_name} 部门
-        </h3>
-        <div className="space-y-2 text-sm text-gray-600">
-          <div>总工位: {desksWithEmployees.length}</div>
-          <div>已占用: {desksWithEmployees.filter(d => d.employee).length}</div>
-          <div>在线: {desksWithEmployees.filter(d => d.employee?.status === 'online').length}</div>
+      {/* 控制面板 - 仅在详情页显示 */}
+      {!isHomepage && (
+        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 min-w-48">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">
+            {mapData.dept_name} 部门
+          </h3>
+          <div className="space-y-2 text-sm text-gray-600">
+            <div>总工位: {desksWithEmployees.length}</div>
+            <div>已占用: {desksWithEmployees.filter(d => d.employee).length}</div>
+            <div>在线: {desksWithEmployees.filter(d => d.employee?.status === 'online').length}</div>
+          </div>
+          <button 
+            className="reset-zoom mt-3 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
+          >
+            重置视图
+          </button>
         </div>
-        <button 
-          className="reset-zoom mt-3 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
-        >
-          重置视图
-        </button>
-      </div>
+      )}
 
       {/* 工位详情面板 */}
       {selectedDesk && (

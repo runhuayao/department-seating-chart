@@ -109,32 +109,76 @@ function App() {
 
           {/* 地图组件 */}
           {currentDept === null ? (
-            // 首页模式：显示所有部门的网格化布局
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {departments.map(dept => (
-                <div key={dept} className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-lg font-semibold text-gray-800">{dept}</h3>
-                    <button
-                      onClick={() => handleDepartmentChange(dept)}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      查看详情
-                    </button>
+            // 首页模式：显示所有部门的概况卡片
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {departments.map(dept => {
+                const overview = homepageOverview[dept];
+                const occupancyRate = overview ? Math.round((overview.onlineCount / overview.totalDesks) * 100) : 0;
+                
+                return (
+                  <div key={dept} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-200 hover:border-blue-300">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-semibold text-gray-800">{dept}</h3>
+                      <button
+                        onClick={() => handleDepartmentChange(dept)}
+                        className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
+                      >
+                        查看地图
+                      </button>
+                    </div>
+                    
+                    {/* 部门统计信息 */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">总工位数</span>
+                        <span className="text-2xl font-bold text-gray-800">{overview?.totalDesks || 0}</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">在线人数</span>
+                        <span className="text-2xl font-bold text-green-600">{overview?.onlineCount || 0}</span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">离线人数</span>
+                        <span className="text-2xl font-bold text-red-500">{(overview?.totalDesks || 0) - (overview?.onlineCount || 0)}</span>
+                      </div>
+                      
+                      {/* 使用率进度条 */}
+                      <div className="mt-4">
+                        <div className="flex justify-between text-sm text-gray-600 mb-1">
+                          <span>使用率</span>
+                          <span>{occupancyRate}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${occupancyRate}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      {/* 状态指示器 */}
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+                        <div className="flex items-center space-x-4 text-sm">
+                          <div className="flex items-center space-x-1">
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span className="text-gray-600">在线</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                            <span className="text-gray-600">离线</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                            <span className="text-gray-600">空闲</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="h-64">
-                    <DeptMap 
-                      department={dept} 
-                      searchQuery={searchQuery} 
-                      isHomepage={true}
-                    />
-                  </div>
-                  <div className="mt-3 text-sm text-gray-600">
-                    <div>总工位: {homepageOverview[dept]?.totalDesks || 0}</div>
-                    <div>在线: {homepageOverview[dept]?.onlineCount || 0}</div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             // 部门详情模式
@@ -159,7 +203,7 @@ function App() {
               <span>最后更新: {new Date().toLocaleTimeString()}</span>
             </div>
             <div className="text-sm text-gray-500">
-              版本 v1.0.0
+              版本 v1.0.2_M0
             </div>
           </div>
         </div>
