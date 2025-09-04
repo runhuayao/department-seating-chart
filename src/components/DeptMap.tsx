@@ -1,103 +1,51 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { zoom, zoomIdentity, ZoomBehavior } from 'd3-zoom';
 import { select } from 'd3-selection';
+import { 
+  getDepartmentConfig, 
+  getEmployeeById, 
+  Desk as DeskType, 
+  Employee, 
+  MapData 
+} from '../data/departmentData';
 
-// 类型定义
-interface Desk {
-  desk_id: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  label: string;
-  employee: string;
-  employee_id: number;
-  status: 'online' | 'offline';
-}
-
-interface MapData {
-  map_id: string;
-  type: string;
-  url: string;
-  dept_name: string;
+// 扩展Desk接口以包含员工信息
+interface DeskWithEmployee extends DeskType {
+  employee?: Employee;
 }
 
 interface DeptMapProps {
   department: string;
+  isHomepage?: boolean; // 新增：标识是否为首页模式
 }
 
-// 模拟数据
-const mockMapData: MapData = {
-  map_id: 'eng_floor_2',
-  type: 'svg',
-  url: '/maps/engineering_floor2.svg',
-  dept_name: 'Engineering'
-};
-
-const mockDesks: Desk[] = [
-  {
-    desk_id: 'ENG-001',
-    x: 100,
-    y: 100,
-    w: 60,
-    h: 40,
-    label: 'E01',
-    employee: '张三',
-    employee_id: 1,
-    status: 'online'
-  },
-  {
-    desk_id: 'ENG-002',
-    x: 200,
-    y: 100,
-    w: 60,
-    h: 40,
-    label: 'E02',
-    employee: '李四',
-    employee_id: 2,
-    status: 'offline'
-  },
-  {
-    desk_id: 'ENG-003',
-    x: 300,
-    y: 100,
-    w: 60,
-    h: 40,
-    label: 'E03',
-    employee: '王五',
-    employee_id: 3,
-    status: 'online'
-  },
-  {
-    desk_id: 'ENG-004',
-    x: 400,
-    y: 100,
-    w: 60,
-    h: 40,
-    label: 'E04',
-    employee: '',
-    employee_id: 0,
-    status: 'offline'
-  },
-  {
-    desk_id: 'ENG-005',
-    x: 500,
-    y: 100,
-    w: 60,
-    h: 40,
-    label: 'E05',
-    employee: '赵六',
-    employee_id: 4,
-    status: 'online'
-  }
-];
-
-const DeptMap: React.FC<DeptMapProps> = ({ department }) => {
+const DeptMap: React.FC<DeptMapProps> = ({ department, isHomepage = false }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedDesk, setSelectedDesk] = useState<Desk | null>(null);
-  const [mapData] = useState<MapData>(mockMapData);
-  const [desks] = useState<Desk[]>(mockDesks);
+  const [selectedDesk, setSelectedDesk] = useState<DeskWithEmployee | null>(null);
+  
+  // 获取当前部门的配置数据
+  const deptConfig = getDepartmentConfig(department);
+  
+  // 如果部门配置不存在，返回错误提示
+  if (!deptConfig) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">部门不存在</h3>
+          <p className="text-gray-600">未找到部门 "{department}" 的配置信息</p>
+        </div>
+      </div>
+    );
+  }
+  
+  const { mapData, desks } = deptConfig;
+  
+  // 为工位数据添加员工信息
+  const desksWithEmployees: DeskWithEmployee[] = desks.map(desk => ({
+    ...desk,
+    employee: desk.employee_id ? getEmployeeById(desk.employee_id) : undefined
+  }));
 
   useEffect(() => {
     if (!svgRef.current || !containerRef.current) return;
@@ -148,14 +96,16 @@ const DeptMap: React.FC<DeptMapProps> = ({ department }) => {
 
     // 绘制工位
     const deskGroups = g.selectAll('.desk')
-      .data(desks)
+      .data(desksWithEmployees)
       .enter()
       .append('g')
       .attr('class', 'desk')
       .attr('transform', d => `translate(${d.x}, ${d.y})`)
       .style('cursor', 'pointer')
       .on('click', (event, d) => {
-        setSelectedDesk(d);
+        if (!isHomepage) { // 首页模式下不显示详情
+          setSelectedDesk(d);
+        }
       });
 
     // 绘制工位矩形
@@ -163,8 +113,8 @@ const DeptMap: React.FC<DeptMapProps> = ({ department }) => {
       .attr('width', d => d.w)
       .attr('height', d => d.h)
       .attr('fill', d => {
-        if (!d.employee) return '#f1f5f9'; // 空工位
-        return d.status === 'online' ? '#10b981' : '#ef4444'; // 在线/离线
+        if (!d.employee) return '#f1f5f9'; // 空工位 - 白色
+        return d.employee.status === 'online' ? '#10b981' : '#ef4444'; // 在线绿色/离线红色
       })
       .attr('stroke', '#64748b')
       .attr('stroke-width', 1)
@@ -175,27 +125,30 @@ const DeptMap: React.FC<DeptMapProps> = ({ department }) => {
       .attr('x', d => d.w / 2)
       .attr('y', d => d.h / 2 - 5)
       .attr('text-anchor', 'middle')
-      .attr('font-size', '12px')
+      .attr('font-size', isHomepage ? '10px' : '12px')
       .attr('font-weight', 'bold')
       .attr('fill', '#1e293b')
       .text(d => d.label);
 
-    // 添加员工姓名
-    deskGroups.append('text')
-      .attr('x', d => d.w / 2)
-      .attr('y', d => d.h / 2 + 8)
-      .attr('text-anchor', 'middle')
-      .attr('font-size', '10px')
-      .attr('fill', '#475569')
-      .text(d => d.employee || '空闲');
+    // 首页模式下不显示员工姓名，只显示工位状态颜色
+    if (!isHomepage) {
+      // 添加员工姓名
+      deskGroups.append('text')
+        .attr('x', d => d.w / 2)
+        .attr('y', d => d.h / 2 + 8)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '10px')
+        .attr('fill', '#475569')
+        .text(d => d.employee?.name || '空闲');
 
-    // 添加状态指示器
-    deskGroups.filter(d => d.employee)
-      .append('circle')
-      .attr('cx', d => d.w - 8)
-      .attr('cy', 8)
-      .attr('r', 4)
-      .attr('fill', d => d.status === 'online' ? '#22c55e' : '#ef4444');
+      // 添加状态指示器
+      deskGroups.filter(d => d.employee)
+        .append('circle')
+        .attr('cx', d => d.w - 8)
+        .attr('cy', 8)
+        .attr('r', 4)
+        .attr('fill', d => d.employee!.status === 'online' ? '#22c55e' : '#ef4444');
+    }
 
     // 添加图例
     const legend = g.append('g')
@@ -248,7 +201,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department }) => {
         resetButton.removeEventListener('click', resetZoom);
       }
     };
-  }, [department, mapData, desks]);
+  }, [department, mapData, desksWithEmployees, isHomepage]);
 
   return (
     <div className="relative w-full h-full bg-gray-50" ref={containerRef}>
@@ -265,9 +218,9 @@ const DeptMap: React.FC<DeptMapProps> = ({ department }) => {
           {mapData.dept_name} 部门
         </h3>
         <div className="space-y-2 text-sm text-gray-600">
-          <div>总工位: {desks.length}</div>
-          <div>已占用: {desks.filter(d => d.employee).length}</div>
-          <div>在线: {desks.filter(d => d.status === 'online').length}</div>
+          <div>总工位: {desksWithEmployees.length}</div>
+          <div>已占用: {desksWithEmployees.filter(d => d.employee).length}</div>
+          <div>在线: {desksWithEmployees.filter(d => d.employee?.status === 'online').length}</div>
         </div>
         <button 
           className="reset-zoom mt-3 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
@@ -298,23 +251,27 @@ const DeptMap: React.FC<DeptMapProps> = ({ department }) => {
             <div className="flex justify-between">
               <span className="text-gray-600">员工:</span>
               <span className="font-medium">
-                {selectedDesk.employee || '无'}
+                {selectedDesk.employee?.name || '无'}
               </span>
             </div>
             {selectedDesk.employee && (
               <>
                 <div className="flex justify-between">
                   <span className="text-gray-600">员工ID:</span>
-                  <span className="font-medium">{selectedDesk.employee_id}</span>
+                  <span className="font-medium">{selectedDesk.employee.employee_id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">部门:</span>
+                  <span className="font-medium">{selectedDesk.employee.department}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">状态:</span>
                   <span className={`font-medium ${
-                    selectedDesk.status === 'online' 
+                    selectedDesk.employee.status === 'online' 
                       ? 'text-green-600' 
                       : 'text-red-600'
                   }`}>
-                    {selectedDesk.status === 'online' ? '在线' : '离线'}
+                    {selectedDesk.employee.status === 'online' ? '在线' : '离线'}
                   </span>
                 </div>
               </>

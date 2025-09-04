@@ -1,11 +1,27 @@
 import React, { useState } from 'react';
 import DeptMap from './components/DeptMap';
+import { getAllDepartments, getHomepageOverview } from './data/departmentData';
 
 function App() {
-  const [currentDept, setCurrentDept] = useState('Engineering');
+  const [currentDept, setCurrentDept] = useState<string | null>(null); // null表示首页模式
   const [searchQuery, setSearchQuery] = useState('');
 
-  const departments = ['Engineering', 'Marketing', 'Sales', 'HR'];
+  const departments = getAllDepartments();
+  const homepageOverview = getHomepageOverview();
+  
+  // 处理部门选择
+  const handleDepartmentChange = (dept: string) => {
+    if (dept === 'home') {
+      setCurrentDept(null); // 返回首页
+    } else {
+      setCurrentDept(dept);
+    }
+  };
+  
+  // 处理首页按钮点击
+  const handleHomeClick = () => {
+    setCurrentDept(null);
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -18,16 +34,29 @@ function App() {
                 部门地图系统
               </h1>
               
-              {/* 部门选择器 */}
-              <select 
-                value={currentDept}
-                onChange={(e) => setCurrentDept(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {departments.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
+              {/* 导航按钮和部门选择器 */}
+              <nav className="flex items-center space-x-6">
+                <button
+                  onClick={handleHomeClick}
+                  className={`px-4 py-2 rounded-md transition-colors ${
+                    currentDept === null 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  首页
+                </button>
+                <select 
+                  value={currentDept || ''} 
+                  onChange={(e) => handleDepartmentChange(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">选择部门</option>
+                  {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </nav>
             </div>
             
             {/* 搜索框 */}
@@ -59,28 +88,64 @@ function App() {
       <main className="flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* 面包屑导航 */}
-          <nav className="flex mb-6" aria-label="Breadcrumb">
-            <ol className="flex items-center space-x-2">
-              <li>
-                <div className="flex items-center">
-                  <span className="text-gray-500 text-sm">首页</span>
-                </div>
-              </li>
-              <li>
-                <div className="flex items-center">
-                  <svg className="flex-shrink-0 h-4 w-4 text-gray-400 mx-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-gray-900 text-sm font-medium">{currentDept} 部门</span>
-                </div>
-              </li>
-            </ol>
-          </nav>
-
-          {/* 地图容器 */}
-          <div className="bg-white rounded-lg shadow-sm border h-[calc(100vh-200px)]">
-            <DeptMap department={currentDept} />
+          <div className="mb-4">
+            <nav className="text-sm text-gray-600">
+              {currentDept === null ? (
+                <span className="text-gray-900 font-medium">首页 - 全部门概览</span>
+              ) : (
+                <>
+                  <button 
+                    onClick={handleHomeClick}
+                    className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                  >
+                    首页
+                  </button>
+                  <span className="mx-2">/</span>
+                  <span className="text-gray-900 font-medium">{currentDept}</span>
+                </>
+              )}
+            </nav>
           </div>
+
+          {/* 地图组件 */}
+          {currentDept === null ? (
+            // 首页模式：显示所有部门的网格化布局
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {departments.map(dept => (
+                <div key={dept} className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-lg font-semibold text-gray-800">{dept}</h3>
+                    <button
+                      onClick={() => handleDepartmentChange(dept)}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      查看详情
+                    </button>
+                  </div>
+                  <div className="h-64">
+                    <DeptMap 
+                      department={dept} 
+                      searchQuery={searchQuery} 
+                      isHomepage={true}
+                    />
+                  </div>
+                  <div className="mt-3 text-sm text-gray-600">
+                    <div>总工位: {homepageOverview[dept]?.totalDesks || 0}</div>
+                    <div>在线: {homepageOverview[dept]?.onlineCount || 0}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            // 部门详情模式
+            <div className="bg-white rounded-lg shadow-sm border h-[calc(100vh-200px)]">
+              <DeptMap 
+                department={currentDept} 
+                searchQuery={searchQuery} 
+                isHomepage={false}
+              />
+            </div>
+          )}
         </div>
       </main>
 
