@@ -22,8 +22,15 @@ class RBACService {
       { id: '6', name: '用户创建', resource: 'user', action: 'create', description: '创建新用户' },
       { id: '7', name: '用户更新', resource: 'user', action: 'update', description: '更新用户信息' },
       { id: '8', name: '用户删除', resource: 'user', action: 'delete', description: '删除用户' },
-      { id: '9', name: '系统配置', resource: 'system', action: 'config', description: '修改系统配置' },
-      { id: '10', name: '系统日志', resource: 'system', action: 'logs', description: '查看系统日志' },
+      { id: '9', name: '工位查看', resource: 'workstation', action: 'read', description: '查看工位信息' },
+      { id: '10', name: '工位创建', resource: 'workstation', action: 'create', description: '创建新工位' },
+      { id: '11', name: '工位更新', resource: 'workstation', action: 'update', description: '更新工位信息' },
+      { id: '12', name: '工位删除', resource: 'workstation', action: 'delete', description: '删除工位' },
+      { id: '13', name: '工位搜索', resource: 'workstation', action: 'search', description: '搜索工位' },
+      { id: '14', name: '工位统计', resource: 'workstation', action: 'stats', description: '查看工位统计' },
+      { id: '15', name: '工位批量操作', resource: 'workstation', action: 'batch', description: '批量导入工位' },
+      { id: '16', name: '系统配置', resource: 'system', action: 'config', description: '修改系统配置' },
+      { id: '17', name: '系统日志', resource: 'system', action: 'logs', description: '查看系统日志' },
     ];
 
     // 初始化角色
@@ -45,15 +52,25 @@ class RBACService {
       {
         id: '3',
         name: '操作员',
-        description: '可以操作服务器但不能管理用户',
-        permissions: this.permissions.filter(p => p.resource === 'server'),
+        description: '可以操作服务器和管理工位',
+        permissions: this.permissions.filter(p => p.resource === 'server' || p.resource === 'workstation'),
         isSystem: true
       },
       {
         id: '4',
         name: '观察者',
         description: '只能查看信息',
-        permissions: this.permissions.filter(p => p.action === 'read' || p.action === 'monitor'),
+        permissions: this.permissions.filter(p => p.action === 'read' || p.action === 'monitor' || p.action === 'search'),
+        isSystem: true
+      },
+      {
+        id: '5',
+        name: '工位用户',
+        description: '可以添加和查看工位信息',
+        permissions: this.permissions.filter(p => 
+          (p.resource === 'workstation' && ['read', 'create', 'search'].includes(p.action)) ||
+          (p.resource === 'server' && p.action === 'read')
+        ),
         isSystem: true
       }
     ];
@@ -75,6 +92,14 @@ class RBACService {
         roles: [this.roles[2]], // 操作员
         isActive: true,
         createdAt: new Date()
+      },
+      {
+        id: '3',
+        username: 'workstation_user',
+        email: 'workstation@m1server.com',
+        roles: [this.roles[4]], // 工位用户
+        isActive: true,
+        createdAt: new Date()
       }
     ];
   }
@@ -90,7 +115,8 @@ class RBACService {
     // 简单密码验证（实际应用中应该使用bcrypt等）
     const validPasswords: { [key: string]: string } = {
       'admin': 'admin123',
-      'operator': 'op123'
+      'operator': 'op123',
+      'workstation_user': 'ws123'
     };
 
     if (validPasswords[username] !== password) {
