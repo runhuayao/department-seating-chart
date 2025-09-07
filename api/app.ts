@@ -8,6 +8,11 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
+import departmentsRoutes from './routes/departments.js';
+import employeesRoutes from './routes/employees.js';
+import desksRoutes from './routes/desks.js';
+import statusRoutes from './routes/status.js';
+import overviewRoutes from './routes/overview.js';
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url);
@@ -27,14 +32,25 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
  * API Routes
  */
 app.use('/api/auth', authRoutes);
+app.use('/api/departments', departmentsRoutes);
+app.use('/api/employees', employeesRoutes);
+app.use('/api/desks', desksRoutes);
+app.use('/api/status', statusRoutes);
+app.use('/api/overview', overviewRoutes);
 
 /**
- * health
+ * Health Check
  */
-app.use('/api/health', (req: Request, res: Response, next: NextFunction): void => {
+app.get('/api/health', (req: Request, res: Response): void => {
   res.status(200).json({
     success: true,
-    message: 'ok'
+    data: {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      version: '1.1.0-M1',
+      uptime: process.uptime()
+    },
+    message: 'API server is healthy'
   });
 });
 
