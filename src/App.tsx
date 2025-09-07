@@ -1,14 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import DeptMap from './components/DeptMap';
 import M1ServerManagement from './pages/M1ServerManagement';
+import LoginForm from './components/LoginForm';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { getAllDepartments, getHomepageOverview } from './data/departmentData';
+import { workstationAPI } from './utils/api';
+import { LogOut, User } from 'lucide-react';
 import './styles/m1-theme.css';
 
 // 主页面组件
 function HomePage() {
+  const { user, logout, isAuthenticated } = useAuth();
   const [currentDept, setCurrentDept] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddWorkstation, setShowAddWorkstation] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [workstationForm, setWorkstationForm] = useState({
+    name: '',
+    department: '',
+    ipAddress: '',
+    username: '',
+    description: ''
+  });
+  const [searchResults, setSearchResults] = useState({
+    employees: [],
+    workstations: [],
+    total: 0
+  });
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const departments = getAllDepartments();
   const homepageOverview = getHomepageOverview();
@@ -24,6 +46,155 @@ function HomePage() {
   const handleHomeClick = () => {
     setCurrentDept(null);
   };
+
+  // 处理工位表单提交
+  const handleWorkstationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isAuthenticated) {
+      alert('请先登录');
+      setShowLoginModal(true);
+      return;
+    }
+    
+    if (!workstationForm.name || !workstationForm.ipAddress || !workstationForm.department) {
+      alert('请填写所有必填字段');
+      return;
+    }
+
+    try {
+      // 使用API工具添加工位
+      const result = await workstationAPI.create({
+        name: workstationForm.name,
+        department: workstationForm.department,
+        ipAddress: workstationForm.ipAddress,
+        username: workstationForm.username,
+        description: workstationForm.description,
+        status: 'active'
+      });
+      
+      console.log('工位添加成功:', result);
+        
+        alert('工位添加成功！');
+        setShowAddWorkstation(false);
+        setWorkstationForm({
+          name: '',
+          department: '',
+          ipAddress: '',
+          username: '',
+          description: ''
+        });
+      } else {
+        const error = await response.json();
+        alert(`添加工位失败: ${error.error || '未知错误'}`);
+      }
+    } catch (error) {
+      console.error('添加工位请求错误:', error);
+      alert('添加工位失败，请检查网络连接');
+    }
+  };
+
+  // 处理表单输入变化
+  const handleFormChange = (field: string, value: string) => {
+    setWorkstationForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // 搜索处理函数
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults(null);
+      setShowSearchResults(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      // 使用API工具进行搜索
+      const data = await workstationAPI.search(query);
+      setSearchResults(data);
+      setShowSearchResults(true);
+    } catch (error) {
+      console.error('搜索错误:', error);
+      setSearchResults(null);
+      setShowSearchResults(false);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // 搜索输入变化处理（防抖）
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    
+    // 清除之前的定时器
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // 设置新的定时器，300ms后执行搜索
+    searchTimeoutRef.current = setTimeout(async () => {
+      if (value.trim()) {
+        try {
+          // 调用真实的搜索API
+          const response = await fetch(`http://localhost:3004/api/search?q=${encodeURIComponent(value)}`);
+          if (response.ok) {
+            const results = await response.json();
+            setSearchResults(results);
+            setShowSearchResults(true);
+          } else {
+            console.error('搜索请求失败:', response.statusText);
+            setSearchResults({ employees: [], workstations: [], total: 0 });
+            setShowSearchResults(false);
+          }
+        } catch (error) {
+          console.error('搜索请求错误:', error);
+          setSearchResults({ employees: [], workstations: [], total: 0 });
+          setShowSearchResults(false);
+        }
+      } else {
+        setSearchResults({ employees: [], workstations: [], total: 0 });
+        setShowSearchResults(false);
+      }
+    }, 300);
+  };
+
+  // 处理搜索结果点击
+  const handleSearchResultClick = (item: any, type: 'employee' | 'workstation') => {
+    if (type === 'workstation' && item.department) {
+      // 如果是工位，切换到对应部门并高亮该工位
+      setCurrentDept(item.department);
+      setSearchQuery(item.name);
+    } else if (type === 'employee' && item.department) {
+      // 如果是员工，切换到对应部门并搜索该员工
+      setCurrentDept(item.department);
+      setSearchQuery(item.name);
+    }
+    setShowSearchResults(false);
+  };
+
+  // 点击外部区域关闭搜索结果
+  const handleClickOutside = (event: MouseEvent) => {
+    const searchContainer = document.querySelector('.search-container');
+    if (searchContainer && !searchContainer.contains(event.target as Node)) {
+      setShowSearchResults(false);
+    }
+  };
+
+  // 添加和移除点击外部事件监听
+  React.useEffect(() => {
+    if (showSearchResults) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSearchResults]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -61,26 +232,113 @@ function HomePage() {
               </nav>
             </div>
             
-            {/* 搜索框 */}
+            {/* 搜索框和工位管理 */}
             <div className="flex items-center space-x-4">
-              <div className="relative">
+              <div className="relative search-container">
                 <input
                   type="text"
-                  placeholder="搜索员工..."
+                  placeholder="搜索员工或工位..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  </div>
+                )}
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
+                
+                {/* 搜索结果下拉框 */}
+                {showSearchResults && searchResults && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+                    {searchResults.employees && searchResults.employees.length > 0 && (
+                      <div className="p-2">
+                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">员工 ({searchResults.employees.length})</div>
+                        {searchResults.employees.map((employee, index) => (
+                           <div 
+                             key={index} 
+                             className="px-3 py-2 hover:bg-gray-100 cursor-pointer rounded-md"
+                             onClick={() => handleSearchResultClick(employee, 'employee')}
+                           >
+                             <div className="font-medium text-gray-900">{employee.name}</div>
+                             <div className="text-sm text-gray-500">{employee.department} - {employee.position}</div>
+                           </div>
+                         ))}
+                      </div>
+                    )}
+                    
+                    {searchResults.workstations && searchResults.workstations.length > 0 && (
+                      <div className="p-2 border-t border-gray-100">
+                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">工位 ({searchResults.workstations.length})</div>
+                        {searchResults.workstations.map((workstation, index) => (
+                           <div 
+                             key={index} 
+                             className="px-3 py-2 hover:bg-gray-100 cursor-pointer rounded-md"
+                             onClick={() => handleSearchResultClick(workstation, 'workstation')}
+                           >
+                             <div className="font-medium text-gray-900">{workstation.name}</div>
+                             <div className="text-sm text-gray-500">{workstation.department} - {workstation.ipAddress}</div>
+                             {workstation.username && (
+                               <div className="text-xs text-gray-400">用户: {workstation.username}</div>
+                             )}
+                           </div>
+                         ))}
+                      </div>
+                    )}
+                    
+                    {(!searchResults.employees || searchResults.employees.length === 0) && 
+                     (!searchResults.workstations || searchResults.workstations.length === 0) && (
+                      <div className="p-4 text-center text-gray-500">
+                        <div className="text-sm">未找到相关结果</div>
+                        <div className="text-xs mt-1">请尝试其他关键词</div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors">
-                登录
+              {/* 添加工位按钮 */}
+              <button 
+                onClick={() => setShowAddWorkstation(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors flex items-center space-x-2"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span>添加工位</span>
               </button>
+              
+              {/* 用户认证区域 */}
+              {isAuthenticated ? (
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <User className="h-4 w-4" />
+                    <span>{user?.username}</span>
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                      {user?.role === 'admin' ? '管理员' : user?.role === 'manager' ? '经理' : '员工'}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={logout}
+                    className="px-3 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors flex items-center space-x-1"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>退出</span>
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setShowLoginModal(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
+                >
+                  登录
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -151,6 +409,122 @@ function HomePage() {
         </div>
       </main>
 
+      {/* 添加工位弹窗 */}
+      {showAddWorkstation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">添加新工位</h3>
+              <button
+                onClick={() => setShowAddWorkstation(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleWorkstationSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">工位名称</label>
+                <input
+                  type="text"
+                  required
+                  value={workstationForm.name}
+                  onChange={(e) => handleFormChange('name', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="请输入工位名称"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">所属部门</label>
+                <select
+                  required
+                  value={workstationForm.department}
+                  onChange={(e) => handleFormChange('department', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">请选择部门</option>
+                  {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">IP地址</label>
+                <input
+                  type="text"
+                  required
+                  value={workstationForm.ipAddress}
+                  onChange={(e) => handleFormChange('ipAddress', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="例如: 192.168.1.100"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                <input
+                  type="text"
+                  required
+                  value={workstationForm.username}
+                  onChange={(e) => handleFormChange('username', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="请输入用户名"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">描述信息</label>
+                <textarea
+                  value={workstationForm.description}
+                  onChange={(e) => handleFormChange('description', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="请输入描述信息（可选）"
+                  rows={3}
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddWorkstation(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  添加工位
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 登录模态框 */}
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="relative">
+            <button
+              onClick={() => setShowLoginModal(false)}
+              className="absolute -top-4 -right-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 z-10"
+            >
+              <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <LoginForm onClose={() => setShowLoginModal(false)} />
+          </div>
+        </div>
+      )}
+
       {/* 底部状态栏 */}
       <footer className="bg-white border-t">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -219,15 +593,17 @@ function Navigation() {
 // 主应用组件
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Navigation />
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/m1-server" element={<M1ServerManagement />} />
-        </Routes>
-      </div>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <div className="min-h-screen bg-gray-50">
+          <Navigation />
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/m1-server" element={<M1ServerManagement />} />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 

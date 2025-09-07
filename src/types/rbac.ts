@@ -40,15 +40,6 @@ export const PERMISSIONS = {
   USER_UPDATE: 'user:update',
   USER_DELETE: 'user:delete',
   
-  // 工位管理权限
-  WORKSTATION_READ: 'workstation:read',
-  WORKSTATION_CREATE: 'workstation:create',
-  WORKSTATION_UPDATE: 'workstation:update',
-  WORKSTATION_DELETE: 'workstation:delete',
-  WORKSTATION_SEARCH: 'workstation:search',
-  WORKSTATION_STATS: 'workstation:stats',
-  WORKSTATION_BATCH: 'workstation:batch',
-  
   // 系统管理权限
   SYSTEM_CONFIG: 'system:config',
   SYSTEM_LOGS: 'system:logs',

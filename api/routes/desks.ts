@@ -2,97 +2,40 @@
  * 工位管理API路由
  * 处理工位信息、分配关系等相关接口
  */
-import { Router, type Request, type Response } from 'express';
+import { Router, Request, Response } from 'express';
+import { z } from 'zod';
+import { DeskDAO, EmployeeDAO, SystemLogDAO } from '../database/dao.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
 /**
- * 根据部门ID获取工位列表（包含分配信息）
- * GET /api/desks/by-dept/:deptId
+ * 根据部门ID获取工位列表
+ * GET /api/desks/department/:departmentId
  */
-router.get('/by-dept/:deptId', async (req: Request, res: Response): Promise<void> => {
+router.get('/department/:departmentId', async (req: Request, res: Response) => {
   try {
-    const deptId = parseInt(req.params.deptId);
+    const departmentId = parseInt(req.params.departmentId);
     
-    if (isNaN(deptId)) {
-      res.status(400).json({
+    if (isNaN(departmentId)) {
+      return res.status(400).json({
         success: false,
-        error: 'Invalid department ID'
+        message: '无效的部门ID'
       });
-      return;
     }
-    
-    // TODO: 从数据库获取工位和分配信息
-    // 临时返回模拟数据
-    const mockDesksWithAssignments = [
-      {
-        desk: {
-          id: 1,
-          desk_number: 'A001',
-          department_id: deptId,
-          position_x: 100,
-          position_y: 100,
-          width: 80,
-          height: 60,
-          status: 'occupied',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        assignment: {
-          id: 1,
-          desk_id: 1,
-          employee_id: 1,
-          assigned_at: new Date().toISOString(),
-          status: 'active'
-        }
-      },
-      {
-        desk: {
-          id: 2,
-          desk_number: 'A002',
-          department_id: deptId,
-          position_x: 200,
-          position_y: 100,
-          width: 80,
-          height: 60,
-          status: 'available',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        assignment: null
-      },
-      {
-        desk: {
-          id: 3,
-          desk_number: 'A003',
-          department_id: deptId,
-          position_x: 300,
-          position_y: 100,
-          width: 80,
-          height: 60,
-          status: 'occupied',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        assignment: {
-          id: 2,
-          desk_id: 3,
-          employee_id: 2,
-          assigned_at: new Date().toISOString(),
-          status: 'active'
-        }
-      }
-    ];
+
+    const desks = await DeskDAO.findByDepartmentId(departmentId);
     
     res.json({
       success: true,
-      data: mockDesksWithAssignments
+      data: desks,
+      message: '获取工位列表成功'
     });
   } catch (error) {
-    console.error('获取部门工位列表失败:', error);
+    console.error('获取工位列表失败:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch desks by department'
+      message: '服务器内部错误'
     });
   }
 });
@@ -101,86 +44,108 @@ router.get('/by-dept/:deptId', async (req: Request, res: Response): Promise<void
  * 根据工位ID获取工位详情
  * GET /api/desks/:id
  */
-router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
     const deskId = parseInt(req.params.id);
     
     if (isNaN(deskId)) {
-      res.status(400).json({
+      return res.status(400).json({
         success: false,
-        error: 'Invalid desk ID'
+        message: '无效的工位ID'
       });
-      return;
     }
-    
-    // TODO: 从数据库获取工位详情
-    const mockDesk = {
-      id: deskId,
-      desk_number: `A${String(deskId).padStart(3, '0')}`,
-      department_id: 1,
-      position_x: 100 + (deskId - 1) * 100,
-      position_y: 100,
-      width: 80,
-      height: 60,
-      status: deskId % 2 === 0 ? 'available' : 'occupied',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    
-    res.json({
-      success: true,
-      data: mockDesk
+
+    // 通过部门获取所有工位，然后找到指定工位
+    // 这里需要先获取工位所属部门，简化处理，我们可以添加一个直接查询工位的方法
+    // 暂时返回错误，提示需要通过部门查询
+    return res.status(400).json({
+      success: false,
+      message: '请通过部门ID查询工位列表获取工位详情'
     });
   } catch (error) {
     console.error('获取工位详情失败:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch desk details'
+      message: '服务器内部错误'
     });
   }
+});
+
+
+// 验证工位分配请求的数据结构
+const assignDeskSchema = z.object({
+  employee_id: z.number().int().positive('员工ID必须是正整数')
 });
 
 /**
  * 分配工位给员工
  * POST /api/desks/:id/assign
  */
-router.post('/:id/assign', async (req: Request, res: Response): Promise<void> => {
+router.post('/:id/assign', authenticateToken, async (req: Request, res: Response) => {
   try {
     const deskId = parseInt(req.params.id);
-    const { employee_id } = req.body;
     
-    if (isNaN(deskId) || !employee_id) {
-      res.status(400).json({
+    if (isNaN(deskId)) {
+      return res.status(400).json({
         success: false,
-        error: 'Invalid desk ID or employee ID'
+        message: '无效的工位ID'
       });
-      return;
     }
+
+    // 验证请求数据
+    const validation = assignDeskSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: '请求数据格式错误',
+        errors: validation.error.errors
+      });
+    }
+
+    const { employee_id } = validation.data;
+    const userId = (req as any).user?.id;
+
+    // 检查员工是否存在
+    const employee = await EmployeeDAO.findById(employee_id);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: '员工不存在'
+      });
+    }
+
+    // 分配工位
+    const assignment = await DeskDAO.assignDesk(deskId, employee_id, userId);
     
-    // TODO: 实现工位分配逻辑
-    // 1. 检查工位是否可用
-    // 2. 检查员工是否已有工位
-    // 3. 创建分配记录
-    // 4. 更新工位状态
-    
-    const mockAssignment = {
-      id: Date.now(), // 临时ID
-      desk_id: deskId,
-      employee_id: employee_id,
-      assigned_at: new Date().toISOString(),
-      status: 'active'
-    };
+    // 记录操作日志
+    await SystemLogDAO.log({
+      user_id: userId,
+      action: 'assign_desk',
+      resource_type: 'desk',
+      resource_id: deskId.toString(),
+      details: { employee_id, assignment_id: assignment.id },
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
+    });
     
     res.json({
       success: true,
-      data: mockAssignment,
-      message: 'Desk assigned successfully'
+      data: assignment,
+      message: '工位分配成功'
     });
   } catch (error) {
-    console.error('分配工位失败:', error);
+    console.error('工位分配失败:', error);
+    
+    if (error instanceof Error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      error: 'Failed to assign desk'
+      message: '服务器内部错误'
     });
   }
 });
@@ -189,32 +154,164 @@ router.post('/:id/assign', async (req: Request, res: Response): Promise<void> =>
  * 释放工位
  * POST /api/desks/:id/release
  */
-router.post('/:id/release', async (req: Request, res: Response): Promise<void> => {
+router.post('/:id/release', authenticateToken, async (req: Request, res: Response) => {
   try {
     const deskId = parseInt(req.params.id);
     
     if (isNaN(deskId)) {
-      res.status(400).json({
+      return res.status(400).json({
         success: false,
-        error: 'Invalid desk ID'
+        message: '无效的工位ID'
       });
-      return;
+    }
+
+    const userId = (req as any).user?.id;
+    
+    // 释放工位
+    const success = await DeskDAO.releaseDesk(deskId);
+    
+    if (!success) {
+      return res.status(400).json({
+        success: false,
+        message: '工位未分配或已释放'
+      });
     }
     
-    // TODO: 实现工位释放逻辑
-    // 1. 查找当前分配记录
-    // 2. 更新分配状态为inactive
-    // 3. 更新工位状态为available
+    // 记录操作日志
+    await SystemLogDAO.log({
+      user_id: userId,
+      action: 'release_desk',
+      resource_type: 'desk',
+      resource_id: deskId.toString(),
+      details: { released_at: new Date().toISOString() },
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
+    });
     
     res.json({
       success: true,
-      message: 'Desk released successfully'
+      data: {
+        desk_id: deskId,
+        released_at: new Date().toISOString(),
+        status: 'released'
+      },
+      message: '工位释放成功'
     });
   } catch (error) {
-    console.error('释放工位失败:', error);
+    console.error('工位释放失败:', error);
+    
+    if (error instanceof Error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      error: 'Failed to release desk'
+      message: '服务器内部错误'
+    });
+  }
+});
+
+/**
+ * 搜索工位
+ * GET /api/desks/search
+ */
+router.get('/search', async (req: Request, res: Response) => {
+  try {
+    const keyword = req.query.keyword as string;
+    
+    if (!keyword || keyword.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '搜索关键词不能为空'
+      });
+    }
+    
+    const desks = await DeskDAO.search(keyword.trim());
+    
+    res.json({
+      success: true,
+      data: desks,
+      message: '搜索工位成功'
+    });
+  } catch (error) {
+    console.error('搜索工位失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '服务器内部错误'
+    });
+  }
+});
+
+// 验证创建工位请求的数据结构
+const createDeskSchema = z.object({
+  desk_number: z.string().min(1, '工位编号不能为空'),
+  department_id: z.number().int().positive('部门ID必须是正整数'),
+  position_x: z.number().min(0, 'X坐标不能为负数'),
+  position_y: z.number().min(0, 'Y坐标不能为负数'),
+  width: z.number().positive('宽度必须大于0'),
+  height: z.number().positive('高度必须大于0'),
+  ip_address: z.string().optional(),
+  computer_name: z.string().optional(),
+  equipment_info: z.any().optional()
+});
+
+/**
+ * 创建新工位
+ * POST /api/desks
+ */
+router.post('/', authenticateToken, requireRole(['admin', 'manager']), async (req: Request, res: Response) => {
+  try {
+    // 验证请求数据
+    const validation = createDeskSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: '请求数据格式错误',
+        errors: validation.error.errors
+      });
+    }
+
+    const deskData = validation.data;
+    const userId = (req as any).user?.id;
+    
+    // 创建工位
+    const newDesk = await DeskDAO.create({
+      ...deskData,
+      status: 'available'
+    });
+    
+    // 记录操作日志
+    await SystemLogDAO.log({
+      user_id: userId,
+      action: 'create_desk',
+      resource_type: 'desk',
+      resource_id: newDesk.id.toString(),
+      details: { desk_number: newDesk.desk_number, department_id: newDesk.department_id },
+      ip_address: req.ip,
+      user_agent: req.get('User-Agent')
+    });
+    
+    res.status(201).json({
+      success: true,
+      data: newDesk,
+      message: '工位创建成功'
+    });
+  } catch (error) {
+    console.error('创建工位失败:', error);
+    
+    if (error instanceof Error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: '服务器内部错误'
     });
   }
 });

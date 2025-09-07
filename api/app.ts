@@ -14,7 +14,6 @@ import desksRoutes from './routes/desks.js';
 import statusRoutes from './routes/status.js';
 import overviewRoutes from './routes/overview.js';
 import serverMonitorRoutes from './routes/server-monitor.js';
-import workstationsRoutes from './routes/workstations.js';
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url);
@@ -40,7 +39,6 @@ app.use('/api/desks', desksRoutes);
 app.use('/api/status', statusRoutes);
 app.use('/api/overview', overviewRoutes);
 app.use('/api/server-monitor', serverMonitorRoutes);
-app.use('/api/workstations', workstationsRoutes);
 
 /**
  * Health Check

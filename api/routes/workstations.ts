@@ -1,442 +1,228 @@
-/**
- * Workstations API Routes
- * 工位管理相关API接口
- */
+import { Router } from 'express';
+import db from '../models/database.js';
+import { authenticateToken, requireAdmin, requireUserOrAdmin, rateLimit } from '../middleware/auth.js';
 
-import express, { type Request, type Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
+const router = Router();
 
-const router = express.Router();
+// 错误处理包装器
+const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
 
-// 模拟数据库存储（实际项目中应使用真实数据库）
-interface Workstation {
-  id: string;
-  name: string;
-  ip_address: string;
-  username: string;
-  department: string;
-  metadata: Record<string, any>;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  status: 'active' | 'inactive' | 'maintenance';
-}
+// 应用频率限制
+router.use(rateLimit(50, 15 * 60 * 1000)); // 每15分钟最多50次请求
 
-// 内存存储（实际应用中应使用数据库）
-let workstations: Workstation[] = [
-  {
-    id: '1',
-    name: '开发工位-001',
-    ip_address: '192.168.1.101',
-    username: 'dev001',
-    department: '技术部',
-    metadata: {
-      location: 'A区-1楼-001',
-      equipment: ['台式机', '双显示器', '机械键盘'],
-      specs: {
-        cpu: 'Intel i7-12700K',
-        ram: '32GB',
-        storage: '1TB SSD'
-      }
-    },
-    created_by: 'admin',
-    created_at: '2024-01-15T08:00:00Z',
-    updated_at: '2024-01-15T08:00:00Z',
-    status: 'active'
-  },
-  {
-    id: '2',
-    name: '设计工位-002',
-    ip_address: '192.168.1.102',
-    username: 'design001',
-    department: '设计部',
-    metadata: {
-      location: 'B区-2楼-015',
-      equipment: ['MacBook Pro', '4K显示器', '数位板'],
-      specs: {
-        cpu: 'Apple M2 Pro',
-        ram: '32GB',
-        storage: '1TB SSD'
-      }
-    },
-    created_by: 'user_design001',
-    created_at: '2024-01-16T09:30:00Z',
-    updated_at: '2024-01-16T09:30:00Z',
-    status: 'active'
+// 获取所有工作站 - 需要用户权限
+router.get('/', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+  const { department, status, assignedUser } = req.query;
+  let workstations = await db.getWorkstations();
+  
+  // 过滤条件
+  if (department) {
+    workstations = workstations.filter(ws => ws.department === department);
   }
-];
+  
+  if (status) {
+    workstations = workstations.filter(ws => ws.status === status);
+  }
+  
+  if (assignedUser) {
+    workstations = workstations.filter(ws => ws.assignedUser === assignedUser);
+  }
+  
+  res.json(workstations);
+}));
 
-/**
- * GET /api/workstations
- * 获取工位列表
- */
-router.get('/', (req: Request, res: Response): void => {
-  try {
-    const { department, status, page = 1, limit = 10 } = req.query;
-    
-    let filteredWorkstations = [...workstations];
-    
-    // 按部门筛选
-    if (department && typeof department === 'string') {
-      filteredWorkstations = filteredWorkstations.filter(
-        ws => ws.department.toLowerCase().includes(department.toLowerCase())
-      );
-    }
-    
-    // 按状态筛选
-    if (status && typeof status === 'string') {
-      filteredWorkstations = filteredWorkstations.filter(
-        ws => ws.status === status
-      );
-    }
-    
-    // 分页
-    const pageNum = parseInt(page as string, 10);
-    const limitNum = parseInt(limit as string, 10);
-    const startIndex = (pageNum - 1) * limitNum;
-    const endIndex = startIndex + limitNum;
-    
-    const paginatedWorkstations = filteredWorkstations.slice(startIndex, endIndex);
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        workstations: paginatedWorkstations,
-        pagination: {
-          current_page: pageNum,
-          per_page: limitNum,
-          total: filteredWorkstations.length,
-          total_pages: Math.ceil(filteredWorkstations.length / limitNum)
-        }
-      },
-      message: 'Workstations retrieved successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve workstations'
+// 获取单个工作站 - 需要用户权限
+router.get('/:id', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+  const { id } = req.params;
+  const workstation = await db.getWorkstationById(id);
+  
+  if (!workstation) {
+    return res.status(404).json({ error: '工作站不存在' });
+  }
+  
+  res.json(workstation);
+}));
+
+// 创建新工作站 - 需要用户权限
+router.post('/', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+  const { 
+    name, 
+    ipAddress, 
+    macAddress, 
+    location, 
+    department, 
+    specifications, 
+    assignedUser 
+  } = req.body;
+  
+  // 验证必填字段
+  if (!name || !ipAddress || !location || !department) {
+    return res.status(400).json({ 
+      error: '缺少必要参数',
+      required: ['name', 'ipAddress', 'location', 'department']
     });
   }
-});
-
-/**
- * POST /api/workstations
- * 用户添加工位
- */
-router.post('/', (req: Request, res: Response): void => {
+  
+  // 验证IP地址格式
+  const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  if (!ipRegex.test(ipAddress)) {
+    return res.status(400).json({ error: 'IP地址格式不正确' });
+  }
+  
+  // 检查IP地址是否已存在
+  const existingWorkstations = await db.getWorkstations();
+  const ipExists = existingWorkstations.some(ws => ws.ipAddress === ipAddress);
+  if (ipExists) {
+    return res.status(409).json({ error: 'IP地址已被使用' });
+  }
+  
   try {
-    const { name, ip_address, username, department, metadata = {} } = req.body;
-    
-    // 基础验证
-    if (!name || !ip_address || !username || !department) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required fields: name, ip_address, username, department'
-      });
-      return;
-    }
-    
-    // IP地址格式验证
-    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    if (!ipRegex.test(ip_address)) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid IP address format'
-      });
-      return;
-    }
-    
-    // 检查IP地址是否已存在
-    const existingWorkstation = workstations.find(ws => ws.ip_address === ip_address);
-    if (existingWorkstation) {
-      res.status(409).json({
-        success: false,
-        error: 'IP address already exists'
-      });
-      return;
-    }
-    
-    // 创建新工位
-    const newWorkstation: Workstation = {
-      id: uuidv4(),
+    const newWorkstation = await db.createWorkstation({
       name,
-      ip_address,
-      username,
+      ipAddress,
+      macAddress: macAddress || '',
+      location,
       department,
-      metadata,
-      created_by: req.headers['x-user-id'] as string || 'anonymous',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      status: 'active'
-    };
-    
-    workstations.push(newWorkstation);
-    
+      status: 'offline',
+      specifications: specifications || {},
+      assignedUser: assignedUser || null
+    });
+
     res.status(201).json({
-      success: true,
-      data: newWorkstation,
-      message: 'Workstation created successfully'
+      message: '工作站创建成功',
+      workstation: newWorkstation
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create workstation'
-    });
+    console.error('创建工作站失败:', error);
+    res.status(500).json({ error: '创建工作站失败' });
   }
-});
+}));
 
-/**
- * GET /api/workstations/search
- * 搜索工位
- */
-router.get('/search', (req: Request, res: Response): void => {
-  try {
-    const { q, type = 'all' } = req.query;
-    
-    if (!q || typeof q !== 'string') {
-      res.status(400).json({
-        success: false,
-        error: 'Search query is required'
-      });
-      return;
+// 更新工作站 - 需要用户权限
+router.put('/:id', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+  const { id } = req.params;
+  const updates = req.body;
+  
+  // 如果更新IP地址，检查是否重复
+  if (updates.ipAddress) {
+    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    if (!ipRegex.test(updates.ipAddress)) {
+      return res.status(400).json({ error: 'IP地址格式不正确' });
     }
     
-    const searchTerm = q.toLowerCase();
-    let results: Workstation[] = [];
-    
-    switch (type) {
-      case 'name':
-        results = workstations.filter(ws => 
-          ws.name.toLowerCase().includes(searchTerm)
-        );
-        break;
-      case 'ip':
-        results = workstations.filter(ws => 
-          ws.ip_address.includes(searchTerm)
-        );
-        break;
-      case 'username':
-        results = workstations.filter(ws => 
-          ws.username.toLowerCase().includes(searchTerm)
-        );
-        break;
-      case 'department':
-        results = workstations.filter(ws => 
-          ws.department.toLowerCase().includes(searchTerm)
-        );
-        break;
-      default:
-        results = workstations.filter(ws => 
-          ws.name.toLowerCase().includes(searchTerm) ||
-          ws.ip_address.includes(searchTerm) ||
-          ws.username.toLowerCase().includes(searchTerm) ||
-          ws.department.toLowerCase().includes(searchTerm)
-        );
+    const existingWorkstations = await db.getWorkstations();
+    const ipExists = existingWorkstations.some(ws => ws.ipAddress === updates.ipAddress && ws.id !== id);
+    if (ipExists) {
+      return res.status(409).json({ error: 'IP地址已被使用' });
     }
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        workstations: results,
-        count: results.length,
-        search_term: q,
-        search_type: type
-      },
-      message: 'Search completed successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Search failed'
-    });
   }
-});
-
-/**
- * GET /api/workstations/:id
- * 获取单个工位详情
- */
-router.get('/:id', (req: Request, res: Response): void => {
-  try {
-    const { id } = req.params;
-    const workstation = workstations.find(ws => ws.id === id);
-    
-    if (!workstation) {
-      res.status(404).json({
-        success: false,
-        error: 'Workstation not found'
-      });
-      return;
-    }
-    
-    res.status(200).json({
-      success: true,
-      data: workstation,
-      message: 'Workstation retrieved successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve workstation'
-    });
+  
+  const updatedWorkstation = await db.updateWorkstation(id, updates);
+  
+  if (!updatedWorkstation) {
+    return res.status(404).json({ error: '工作站不存在' });
   }
-});
+  
+  res.json({
+    message: '工作站更新成功',
+    workstation: updatedWorkstation
+  });
+}));
 
-/**
- * PUT /api/workstations/:id
- * 管理员修改工位（需要管理员权限）
- */
-router.put('/:id', (req: Request, res: Response): void => {
-  try {
-    const { id } = req.params;
-    const { name, ip_address, username, department, metadata, status } = req.body;
-    
-    // 简单的权限检查（实际应用中应使用更完善的RBAC系统）
-    const userRole = req.headers['x-user-role'] as string;
-    if (userRole !== 'admin') {
-      res.status(403).json({
-        success: false,
-        error: 'Admin privileges required'
-      });
-      return;
-    }
-    
-    const workstationIndex = workstations.findIndex(ws => ws.id === id);
-    if (workstationIndex === -1) {
-      res.status(404).json({
-        success: false,
-        error: 'Workstation not found'
-      });
-      return;
-    }
-    
-    // IP地址格式验证（如果提供了新的IP地址）
-    if (ip_address) {
-      const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-      if (!ipRegex.test(ip_address)) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid IP address format'
-        });
-        return;
+// 删除工作站 - 需要管理员权限
+router.delete('/:id', requireAdmin, asyncHandler(async (req: any, res: any) => {
+  const { id } = req.params;
+  const deleted = await db.deleteWorkstation(id);
+  
+  if (!deleted) {
+    return res.status(404).json({ error: '工作站不存在' });
+  }
+  
+  res.json({ message: '工作站删除成功' });
+}));
+
+// 批量操作 - 需要管理员权限
+router.post('/batch', requireAdmin, asyncHandler(async (req: any, res: any) => {
+  const { action, ids } = req.body;
+  
+  if (!action || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: '缺少操作类型或工作站ID列表' });
+  }
+  
+  const results = [];
+  
+  for (const id of ids) {
+    try {
+      switch (action) {
+        case 'delete':
+          const deleted = await db.deleteWorkstation(id);
+          results.push({ id, success: deleted, action: 'delete' });
+          break;
+        case 'offline':
+          const offlineWs = await db.updateWorkstation(id, { status: 'offline' });
+          results.push({ id, success: !!offlineWs, action: 'offline' });
+          break;
+        case 'online':
+          const onlineWs = await db.updateWorkstation(id, { status: 'online' });
+          results.push({ id, success: !!onlineWs, action: 'online' });
+          break;
+        case 'maintenance':
+          const maintenanceWs = await db.updateWorkstation(id, { status: 'maintenance' });
+          results.push({ id, success: !!maintenanceWs, action: 'maintenance' });
+          break;
+        default:
+          results.push({ id, success: false, error: '不支持的操作类型' });
       }
-      
-      // 检查IP地址是否已被其他工位使用
-      const existingWorkstation = workstations.find(ws => ws.ip_address === ip_address && ws.id !== id);
-      if (existingWorkstation) {
-        res.status(409).json({
-          success: false,
-          error: 'IP address already exists'
-        });
-        return;
-      }
+    } catch (error) {
+      results.push({ id, success: false, error: '操作失败' });
     }
-    
-    // 更新工位信息
-    const updatedWorkstation = {
-      ...workstations[workstationIndex],
-      ...(name && { name }),
-      ...(ip_address && { ip_address }),
-      ...(username && { username }),
-      ...(department && { department }),
-      ...(metadata && { metadata: { ...workstations[workstationIndex].metadata, ...metadata } }),
-      ...(status && { status }),
-      updated_at: new Date().toISOString()
-    };
-    
-    workstations[workstationIndex] = updatedWorkstation;
-    
-    res.status(200).json({
-      success: true,
-      data: updatedWorkstation,
-      message: 'Workstation updated successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update workstation'
-    });
   }
-});
+  
+  res.json({
+    message: '批量操作完成',
+    results
+  });
+}));
 
-/**
- * DELETE /api/workstations/:id
- * 管理员删除工位（需要管理员权限）
- */
-router.delete('/:id', (req: Request, res: Response): void => {
-  try {
-    const { id } = req.params;
-    
-    // 简单的权限检查（实际应用中应使用更完善的RBAC系统）
-    const userRole = req.headers['x-user-role'] as string;
-    if (userRole !== 'admin') {
-      res.status(403).json({
-        success: false,
-        error: 'Admin privileges required'
-      });
-      return;
-    }
-    
-    const workstationIndex = workstations.findIndex(ws => ws.id === id);
-    if (workstationIndex === -1) {
-      res.status(404).json({
-        success: false,
-        error: 'Workstation not found'
-      });
-      return;
-    }
-    
-    const deletedWorkstation = workstations[workstationIndex];
-    workstations.splice(workstationIndex, 1);
-    
-    res.status(200).json({
-      success: true,
-      data: deletedWorkstation,
-      message: 'Workstation deleted successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete workstation'
-    });
-  }
-});
+// 工作站状态统计 - 需要用户权限
+router.get('/stats/status', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+  const workstations = await db.getWorkstations();
+  
+  const stats = {
+    total: workstations.length,
+    online: workstations.filter(ws => ws.status === 'online').length,
+    offline: workstations.filter(ws => ws.status === 'offline').length,
+    maintenance: workstations.filter(ws => ws.status === 'maintenance').length,
+    assigned: workstations.filter(ws => ws.assignedUser).length,
+    unassigned: workstations.filter(ws => !ws.assignedUser).length
+  };
+  
+  res.json(stats);
+}));
 
-/**
- * GET /api/workstations/stats/summary
- * 获取工位统计信息
- */
-router.get('/stats/summary', (req: Request, res: Response): void => {
-  try {
-    const totalWorkstations = workstations.length;
-    const activeWorkstations = workstations.filter(ws => ws.status === 'active').length;
-    const inactiveWorkstations = workstations.filter(ws => ws.status === 'inactive').length;
-    const maintenanceWorkstations = workstations.filter(ws => ws.status === 'maintenance').length;
+// 按部门统计
+router.get('/stats/department', asyncHandler(async (req: any, res: any) => {
+  const workstations = await db.getWorkstations();
+  
+  const departmentStats = workstations.reduce((acc: any, ws) => {
+    if (!acc[ws.department]) {
+      acc[ws.department] = {
+        total: 0,
+        online: 0,
+        offline: 0,
+        maintenance: 0
+      };
+    }
     
-    // 按部门统计
-    const departmentStats = workstations.reduce((acc, ws) => {
-      acc[ws.department] = (acc[ws.department] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    acc[ws.department].total++;
+    acc[ws.department][ws.status]++;
     
-    res.status(200).json({
-      success: true,
-      data: {
-        total: totalWorkstations,
-        active: activeWorkstations,
-        inactive: inactiveWorkstations,
-        maintenance: maintenanceWorkstations,
-        by_department: departmentStats,
-        last_updated: new Date().toISOString()
-      },
-      message: 'Workstation statistics retrieved successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve workstation statistics'
-    });
-  }
-});
+    return acc;
+  }, {});
+  
+  res.json(departmentStats);
+}));
 
 export default router;

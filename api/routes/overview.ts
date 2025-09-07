@@ -3,8 +3,14 @@
  * 提供首页概览、统计数据等相关接口
  */
 import { Router, type Request, type Response } from 'express';
+import { authenticateToken, requireUserOrAdmin, rateLimit } from '../middleware/auth.js';
 
 const router = Router();
+
+// 应用频率限制和认证
+router.use(rateLimit(60, 15 * 60 * 1000)); // 每15分钟最多60次请求
+router.use(authenticateToken); // 所有概览API都需要认证
+router.use(requireUserOrAdmin); // 需要用户或管理员权限
 
 /**
  * 获取首页概览数据
