@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { db } from '../database/memory.js';
 import { SystemLogDAO } from '../database/dao.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, generateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -70,16 +70,11 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     // 生成JWT token
-    const jwtSecret = process.env.JWT_SECRET || 'default-secret-key';
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        username: user.username, 
-        role: user.role 
-      },
-      jwtSecret,
-      { expiresIn: '24h' }
-    );
+    const token = generateToken({
+      id: user.id.toString(),
+      username: user.username,
+      role: user.role
+    });
 
     // 更新最后登录时间
     await db.query({

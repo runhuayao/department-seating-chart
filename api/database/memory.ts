@@ -498,12 +498,12 @@ export function initializeMemoryDatabase(): void {
     }
   ];
   
-  // 插入默认用户（密码: admin123）
+  // 插入默认用户（密码: 123456）
   store.users = [
     {
       id: 1,
       username: 'admin',
-      password_hash: '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.s5uO.G', // admin123
+      password_hash: '$2b$12$Mz.2uGUBIsUUTqfrYzV2P.bEuwCwES.k19u7fG3HED44OnHKc30.G', // 123456
       email: 'admin@company.com',
       role: 'admin',
       employee_id: 1,

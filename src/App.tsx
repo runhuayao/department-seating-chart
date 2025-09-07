@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import DeptMap from './components/DeptMap';
 import M1ServerManagement from './pages/M1ServerManagement';
+import MapTest from './test/MapTest';
 import LoginForm from './components/LoginForm';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { getAllDepartments, getHomepageOverview } from './data/departmentData';
@@ -30,6 +31,7 @@ function HomePage() {
   });
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [highlightDeskId, setHighlightDeskId] = useState<string | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const departments = getAllDepartments();
@@ -41,10 +43,18 @@ function HomePage() {
     } else {
       setCurrentDept(dept);
     }
+    setSearchQuery('');
+    setSearchResults({ employees: [], workstations: [], total: 0 });
+    setShowSearchResults(false);
+    setHighlightDeskId(null); // 清除工位高亮状态
   };
   
   const handleHomeClick = () => {
     setCurrentDept(null);
+    setSearchQuery('');
+    setSearchResults({ employees: [], workstations: [], total: 0 });
+    setShowSearchResults(false);
+    setHighlightDeskId(null); // 清除工位高亮状态
   };
 
   // 处理工位表单提交
@@ -133,12 +143,32 @@ function HomePage() {
     searchTimeoutRef.current = setTimeout(async () => {
       if (value.trim()) {
         try {
+          // 获取认证token
+          const token = localStorage.getItem('auth_token');
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json'
+          };
+          
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
+          
           // 调用真实的搜索API
-          const response = await fetch(`http://localhost:3004/api/search?q=${encodeURIComponent(value)}`);
+          const response = await fetch(`http://localhost:8080/api/search?q=${encodeURIComponent(value)}`, {
+            headers
+          });
+          
           if (response.ok) {
             const results = await response.json();
-            setSearchResults(results);
+            // 处理API返回的数据结构
+            const searchData = results.success ? results.data : { employees: [], workstations: [], total: 0 };
+            setSearchResults(searchData);
             setShowSearchResults(true);
+          } else if (response.status === 401) {
+            // 认证失败，可能需要重新登录
+            console.warn('搜索需要登录认证');
+            setSearchResults({ employees: [], workstations: [], total: 0 });
+            setShowSearchResults(false);
           } else {
             console.error('搜索请求失败:', response.statusText);
             setSearchResults({ employees: [], workstations: [], total: 0 });
@@ -158,14 +188,24 @@ function HomePage() {
 
   // 处理搜索结果点击
   const handleSearchResultClick = (item: any, type: 'employee' | 'workstation') => {
-    if (type === 'workstation' && item.department) {
+    const departmentName = item.department_name || item.department;
+    
+    if (type === 'workstation' && departmentName) {
       // 如果是工位，切换到对应部门并高亮该工位
-      setCurrentDept(item.department);
+      setCurrentDept(departmentName);
       setSearchQuery(item.name);
-    } else if (type === 'employee' && item.department) {
+      // 设置需要高亮的工位ID
+      if (item.desk_id || item.id) {
+        setHighlightDeskId(item.desk_id || item.id);
+      }
+    } else if (type === 'employee' && departmentName) {
       // 如果是员工，切换到对应部门并搜索该员工
-      setCurrentDept(item.department);
+      setCurrentDept(departmentName);
       setSearchQuery(item.name);
+      // 如果员工有关联的工位，也进行高亮
+      if (item.desk_id) {
+        setHighlightDeskId(item.desk_id);
+      }
     }
     setShowSearchResults(false);
   };
@@ -261,7 +301,7 @@ function HomePage() {
                              onClick={() => handleSearchResultClick(employee, 'employee')}
                            >
                              <div className="font-medium text-gray-900">{employee.name}</div>
-                             <div className="text-sm text-gray-500">{employee.department} - {employee.position}</div>
+                             <div className="text-sm text-gray-500">{employee.department_name || employee.department} - {employee.position}</div>
                            </div>
                          ))}
                       </div>
@@ -277,7 +317,7 @@ function HomePage() {
                              onClick={() => handleSearchResultClick(workstation, 'workstation')}
                            >
                              <div className="font-medium text-gray-900">{workstation.name}</div>
-                             <div className="text-sm text-gray-500">{workstation.department} - {workstation.ipAddress}</div>
+                             <div className="text-sm text-gray-500">{workstation.department_name || workstation.department} - {workstation.ip_address || workstation.ipAddress}</div>
                              {workstation.username && (
                                <div className="text-xs text-gray-400">用户: {workstation.username}</div>
                              )}
@@ -382,6 +422,7 @@ function HomePage() {
                       department={dept} 
                       searchQuery={searchQuery} 
                       isHomepage={true}
+                      highlightDeskId={currentDept === dept ? highlightDeskId : null}
                     />
                   </div>
                   <div className="mt-3 text-sm text-gray-600">
@@ -398,6 +439,7 @@ function HomePage() {
                 department={currentDept} 
                 searchQuery={searchQuery} 
                 isHomepage={false}
+                highlightDeskId={highlightDeskId}
               />
             </div>
           )}
@@ -595,6 +637,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/m1-server" element={<M1ServerManagement />} />
+            <Route path="/test-map" element={<MapTest />} />
           </Routes>
         </div>
       </Router>

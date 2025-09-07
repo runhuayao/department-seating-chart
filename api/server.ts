@@ -1,6 +1,10 @@
 /**
  * local server entry file, for local development
  */
+import dotenv from 'dotenv';
+// 加载环境变量
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';

@@ -42,54 +42,54 @@ router.get('/', async (req, res) => {
         SELECT e.*, d.name as department_name 
         FROM employees e 
         LEFT JOIN departments d ON e.department_id = d.id 
-        WHERE (e.name LIKE ? OR e.email LIKE ? OR e.position LIKE ?)
+        WHERE (e.name LIKE $1 OR e.email LIKE $2 OR e.position LIKE $3)
       `;
       const params = [`%${query}%`, `%${query}%`, `%${query}%`];
       
       if (department) {
-        employeeQuery += ' AND d.name = ?';
+        employeeQuery += ' AND d.name = $4';
         params.push(department);
       }
       
       employeeQuery += ' ORDER BY e.name LIMIT 20';
       
-      const employees = await db.query(employeeQuery, params);
-      searchResults.employees = employees;
+      const employees = await db.query({ text: employeeQuery, values: params });
+      searchResults.employees = employees.rows;
     }
 
-    // 搜索工位
+    // 搜索工位 - 使用desks表而不是workstations表
     if (type === 'all' || type === 'workstation') {
       let workstationQuery = `
-        SELECT w.*, d.name as department_name 
-        FROM workstations w 
-        LEFT JOIN departments d ON w.department_id = d.id 
-        WHERE (w.name LIKE ? OR w.ip_address LIKE ? OR w.username LIKE ? OR w.description LIKE ?)
+        SELECT d.*, dept.name as department_name 
+        FROM desks d 
+        LEFT JOIN departments dept ON d.department_id = dept.id 
+        WHERE (d.desk_number LIKE $1 OR d.area LIKE $2 OR d.ip_address LIKE $3 OR d.computer_name LIKE $4)
       `;
       const params = [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`];
       
       if (department) {
-        workstationQuery += ' AND d.name = ?';
+        workstationQuery += ' AND dept.name = $5';
         params.push(department);
       }
       
-      workstationQuery += ' ORDER BY w.name LIMIT 20';
+      workstationQuery += ' ORDER BY d.desk_number LIMIT 20';
       
-      const workstations = await db.query(workstationQuery, params);
-      searchResults.workstations = workstations;
+      const workstations = await db.query({ text: workstationQuery, values: params });
+      searchResults.workstations = workstations.rows;
     }
 
     searchResults.total = searchResults.employees.length + searchResults.workstations.length;
 
     // 记录搜索日志
-    await db.query(
-      'INSERT INTO system_logs (action, details, ip_address, created_at) VALUES (?, ?, ?, ?)',
-      [
+    await db.query({
+      text: 'INSERT INTO system_logs (action, details, ip_address, created_at) VALUES ($1, $2, $3, $4)',
+      values: [
         'search',
         JSON.stringify({ query, type, department, results_count: searchResults.total }),
         req.ip || 'unknown',
         new Date().toISOString()
       ]
-    );
+    });
 
     res.json({
       success: true,
@@ -119,27 +119,27 @@ router.get('/suggestions', async (req, res) => {
     }
 
     // 获取员工姓名建议
-    const employeeNames = await db.query(
-      'SELECT DISTINCT name FROM employees WHERE name LIKE ? LIMIT 5',
-      [`%${query}%`]
-    );
+    const employeeNames = await db.query({
+      text: 'SELECT DISTINCT name FROM employees WHERE name LIKE $1 LIMIT 5',
+      values: [`%${query}%`]
+    });
 
     // 获取工位名称建议
-    const workstationNames = await db.query(
-      'SELECT DISTINCT name FROM workstations WHERE name LIKE ? LIMIT 5',
-      [`%${query}%`]
-    );
+    const workstationNames = await db.query({
+      text: 'SELECT DISTINCT desk_number FROM desks WHERE desk_number LIKE $1 LIMIT 5',
+      values: [`%${query}%`]
+    });
 
     // 获取部门名称建议
-    const departmentNames = await db.query(
-      'SELECT DISTINCT name FROM departments WHERE name LIKE ? LIMIT 3',
-      [`%${query}%`]
-    );
+    const departmentNames = await db.query({
+      text: 'SELECT DISTINCT name FROM departments WHERE name LIKE $1 LIMIT 3',
+      values: [`%${query}%`]
+    });
 
     const suggestions = [
-      ...employeeNames.map((item: any) => ({ type: 'employee', value: item.name })),
-      ...workstationNames.map((item: any) => ({ type: 'workstation', value: item.name })),
-      ...departmentNames.map((item: any) => ({ type: 'department', value: item.name }))
+      ...employeeNames.rows.map((item: any) => ({ type: 'employee', value: item.name })),
+      ...workstationNames.rows.map((item: any) => ({ type: 'workstation', value: item.desk_number })),
+      ...departmentNames.rows.map((item: any) => ({ type: 'department', value: item.name }))
     ];
 
     res.json({

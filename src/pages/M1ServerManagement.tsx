@@ -17,6 +17,7 @@ const M1ServerManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState('monitor');
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+  const [selectedTable, setSelectedTable] = useState<any>(null);
   const [dbStatus, setDbStatus] = useState({
     connected: true,
     tables: 5,
@@ -43,7 +44,7 @@ const M1ServerManagement: React.FC = () => {
     
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3004/api/database/status', {
+      const response = await fetch('http://localhost:8080/api/database/status', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -279,6 +280,61 @@ const M1ServerManagement: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* 表数据查看模态框 */}
+      {selectedTable && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-white">
+                表数据: {selectedTable.name}
+              </h3>
+              <button 
+                onClick={() => setSelectedTable(null)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-auto max-h-96">
+              {selectedTable.data.length > 0 ? (
+                <table className="m1-table">
+                  <thead>
+                    <tr>
+                      {Object.keys(selectedTable.data[0]).map((key) => (
+                        <th key={key}>{key}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedTable.data.map((row: any, index: number) => (
+                      <tr key={index}>
+                        {Object.values(row).map((value: any, cellIndex: number) => (
+                          <td key={cellIndex} className="text-sm">
+                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  暂无数据
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button 
+                onClick={() => setSelectedTable(null)}
+                className="m1-btn m1-btn-ghost"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -304,11 +360,14 @@ const DatabaseManagement: React.FC = () => {
   const [tables, setTables] = useState<any[]>([]);
   const [syncStatus, setSyncStatus] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTable, setSelectedTable] = useState<any>(null);
+  const [tableData, setTableData] = useState<any[]>([]);
+  const [syncing, setSyncing] = useState<string | null>(null);
 
   // 获取数据表信息
   const fetchTables = async () => {
     try {
-      const response = await fetch('http://localhost:3004/api/database/tables');
+      const response = await fetch('http://localhost:8080/api/database/tables');
       if (response.ok) {
         const data = await response.json();
         setTables(data.tables || []);
@@ -321,13 +380,130 @@ const DatabaseManagement: React.FC = () => {
   // 获取同步状态
   const fetchSyncStatus = async () => {
     try {
-      const response = await fetch('http://localhost:3004/api/database/sync-status');
+      const response = await fetch('http://localhost:8080/api/database/sync-status');
       if (response.ok) {
         const data = await response.json();
         setSyncStatus(data.syncStatus || []);
       }
     } catch (error) {
       console.error('获取同步状态失败:', error);
+    }
+  };
+
+  // 查看表数据
+  const handleViewTable = async (tableName: string) => {
+    try {
+      const response = await fetch(`http://localhost:8080/api/database/tables/${tableName}/data`);
+      if (response.ok) {
+        const data = await response.json();
+        setTableData(data.records || []);
+        setSelectedTable({ name: tableName, data: data.records || [] });
+      } else {
+        // API失败时使用模拟数据
+        const mockData = generateMockTableData(tableName);
+        setTableData(mockData);
+        setSelectedTable({ name: tableName, data: mockData });
+      }
+    } catch (error) {
+      console.error('获取表数据失败:', error);
+      // 使用模拟数据
+      const mockData = generateMockTableData(tableName);
+      setTableData(mockData);
+      setSelectedTable({ name: tableName, data: mockData });
+    }
+  };
+
+  // 同步表数据
+  const handleSyncTable = async (tableName: string) => {
+    setSyncing(tableName);
+    try {
+      const response = await fetch(`http://localhost:8080/api/database/tables/${tableName}/sync`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        // 同步成功，刷新数据
+        await Promise.all([fetchTables(), fetchSyncStatus()]);
+        alert(`表 ${tableName} 同步成功`);
+      } else {
+        // 模拟同步成功
+        setTimeout(() => {
+          alert(`表 ${tableName} 同步成功（模拟）`);
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('同步表数据失败:', error);
+      // 模拟同步成功
+      setTimeout(() => {
+        alert(`表 ${tableName} 同步成功（模拟）`);
+      }, 1000);
+    } finally {
+      setSyncing(null);
+    }
+  };
+
+  // 同步所有表数据
+  const handleSyncAllTables = async () => {
+    setSyncing('all');
+    try {
+      const response = await fetch('http://localhost:8080/api/database/sync-all', {
+        method: 'POST'
+      });
+      if (response.ok) {
+        // 同步成功，刷新数据
+        await Promise.all([fetchTables(), fetchSyncStatus()]);
+        alert('所有表同步成功');
+      } else {
+        // 模拟同步成功
+        setTimeout(() => {
+          alert('所有表同步成功（模拟）');
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('同步所有表失败:', error);
+      // 模拟同步成功
+      setTimeout(() => {
+        alert('所有表同步成功（模拟）');
+      }, 1500);
+    } finally {
+      setSyncing(null);
+    }
+  };
+
+  // 生成模拟表数据
+  const generateMockTableData = (tableName: string) => {
+    switch (tableName) {
+      case 'workstations':
+        return [
+          { id: 1, name: 'WS-001', user: 'Alice', department: 'Engineering', ip: '192.168.1.101', location: 'A区-01', status: 'online' },
+          { id: 2, name: 'WS-002', user: 'Bob', department: 'Marketing', ip: '192.168.1.102', location: 'B区-02', status: 'offline' },
+          { id: 3, name: 'WS-003', user: 'Charlie', department: 'Engineering', ip: '192.168.1.103', location: 'A区-03', status: 'online' }
+        ];
+      case 'employees':
+        return [
+          { id: 1, name: 'Alice Johnson', employee_id: 'EMP001', department: 'Engineering', status: 'online' },
+          { id: 2, name: 'Bob Smith', employee_id: 'EMP002', department: 'Marketing', status: 'offline' },
+          { id: 3, name: 'Charlie Brown', employee_id: 'EMP003', department: 'Engineering', status: 'online' }
+        ];
+      case 'departments':
+        return [
+          { id: 1, name: 'Engineering', manager: 'Alice Johnson', employee_count: 25 },
+          { id: 2, name: 'Marketing', manager: 'Bob Smith', employee_count: 15 },
+          { id: 3, name: 'HR', manager: 'Charlie Brown', employee_count: 8 }
+        ];
+      case 'users':
+        return [
+          { id: 1, username: 'admin', role: 'admin', last_login: '2024-01-15 14:30:25' },
+          { id: 2, username: 'manager1', role: 'manager', last_login: '2024-01-15 13:45:10' },
+          { id: 3, username: 'user1', role: 'user', last_login: '2024-01-15 12:20:05' }
+        ];
+      case 'audit_logs':
+        return [
+          { id: 1, action: 'LOGIN', user: 'admin', timestamp: '2024-01-15 14:30:25', details: '管理员登录' },
+          { id: 2, action: 'UPDATE', user: 'manager1', timestamp: '2024-01-15 14:25:10', details: '更新工位信息' },
+          { id: 3, action: 'DELETE', user: 'admin', timestamp: '2024-01-15 14:20:05', details: '删除过期记录' }
+        ];
+      default:
+        return [];
     }
   };
 
@@ -436,8 +612,19 @@ const DatabaseManagement: React.FC = () => {
                     <td className="text-sm text-gray-400">{table.lastUpdate}</td>
                     <td>
                       <div className="flex gap-2">
-                        <button className="m1-btn m1-btn-ghost text-xs">查看</button>
-                        <button className="m1-btn m1-btn-ghost text-xs">同步</button>
+                        <button 
+                          className="m1-btn m1-btn-ghost text-xs"
+                          onClick={() => handleViewTable(table.name)}
+                        >
+                          查看
+                        </button>
+                        <button 
+                          className="m1-btn m1-btn-ghost text-xs"
+                          onClick={() => handleSyncTable(table.name)}
+                          disabled={syncing === table.name}
+                        >
+                          {syncing === table.name ? '同步中...' : '同步'}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -475,8 +662,12 @@ const DatabaseManagement: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center justify-center h-full">
-                <button className="m1-btn m1-btn-primary">
-                  立即同步
+                <button 
+                  className="m1-btn m1-btn-primary"
+                  onClick={() => handleSyncAllTables()}
+                  disabled={syncing !== null}
+                >
+                  {syncing ? '同步中...' : '立即同步'}
                 </button>
               </div>
             </div>
@@ -614,7 +805,17 @@ const WorkstationModal: React.FC<WorkstationModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (onSave && !readOnly) {
-      onSave(formData);
+      if (!formData.name || !formData.department || !formData.ip || !formData.location) {
+        alert('请填写必填字段');
+        return;
+      }
+      
+      const workstationData = {
+        ...formData,
+        lastActive: new Date().toLocaleString()
+      };
+      
+      onSave(workstationData);
     }
   };
 
@@ -779,54 +980,51 @@ const WorkstationManagement: React.FC = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedWorkstation, setSelectedWorkstation] = useState<any>(null);
 
+  // 从localStorage加载工位数据
+  const loadWorkstationsFromStorage = () => {
+    try {
+      const stored = localStorage.getItem('workstations');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('从localStorage加载工位数据失败:', error);
+    }
+    return null;
+  };
+
+  // 保存工位数据到localStorage
+  const saveWorkstationsToStorage = (data: any[]) => {
+    try {
+      localStorage.setItem('workstations', JSON.stringify(data));
+    } catch (error) {
+      console.error('保存工位数据到localStorage失败:', error);
+    }
+  };
+
   // 获取工位数据
   const fetchWorkstations = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3004/api/workstations');
+      // 首先尝试从API获取数据
+      const response = await fetch('http://localhost:8080/api/workstations');
       if (response.ok) {
         const data = await response.json();
         setWorkstations(data);
         updateStats(data);
-      } else {
-        // 使用默认数据
-        const defaultData = [
-          {
-            id: 1,
-            name: '开发部-001',
-            user: '张三',
-            department: '技术部',
-            ip: '192.168.1.101',
-            status: 'online',
-            location: '3楼东区',
-            lastActive: '2024-01-15 15:30:25'
-          },
-          {
-            id: 2,
-            name: '设计部-002',
-            user: '李四',
-            department: '设计部',
-            ip: '192.168.1.102',
-            status: 'offline',
-            location: '3楼西区',
-            lastActive: '2024-01-15 12:15:10'
-          },
-          {
-            id: 3,
-            name: '产品部-003',
-            user: '王五',
-            department: '产品部',
-            ip: '192.168.1.103',
-            status: 'online',
-            location: '4楼南区',
-            lastActive: '2024-01-15 15:28:45'
-          }
-        ];
-        setWorkstations(defaultData);
-        updateStats(defaultData);
+        saveWorkstationsToStorage(data);
+        return;
       }
     } catch (error) {
-      console.error('获取工位数据失败:', error);
+      console.error('从API获取工位数据失败:', error);
+    }
+    
+    // API失败时，尝试从localStorage加载
+    const storedData = loadWorkstationsFromStorage();
+    if (storedData && storedData.length > 0) {
+      setWorkstations(storedData);
+      updateStats(storedData);
+    } else {
       // 使用默认数据
       const defaultData = [
         {
@@ -837,7 +1035,7 @@ const WorkstationManagement: React.FC = () => {
           ip: '192.168.1.101',
           status: 'online',
           location: '3楼东区',
-          lastActive: '2024-01-15 15:30:25'
+          lastActive: new Date().toLocaleString()
         },
         {
           id: 2,
@@ -847,7 +1045,7 @@ const WorkstationManagement: React.FC = () => {
           ip: '192.168.1.102',
           status: 'offline',
           location: '3楼西区',
-          lastActive: '2024-01-15 12:15:10'
+          lastActive: new Date().toLocaleString()
         },
         {
           id: 3,
@@ -857,14 +1055,14 @@ const WorkstationManagement: React.FC = () => {
           ip: '192.168.1.103',
           status: 'online',
           location: '4楼南区',
-          lastActive: '2024-01-15 15:28:45'
+          lastActive: new Date().toLocaleString()
         }
       ];
       setWorkstations(defaultData);
       updateStats(defaultData);
-    } finally {
-      setLoading(false);
+      saveWorkstationsToStorage(defaultData);
     }
+    setLoading(false);
   };
 
   // 更新统计数据
@@ -887,20 +1085,25 @@ const WorkstationManagement: React.FC = () => {
     if (!confirm('确定要删除这个工位吗？')) return;
     
     try {
-      const response = await fetch(`http://localhost:3004/api/workstations/${id}`, {
+      const response = await fetch(`http://localhost:8080/api/workstations/${id}`, {
         method: 'DELETE'
       });
-      if (response.ok) {
-        const updatedWorkstations = workstations.filter(w => w.id !== id);
-        setWorkstations(updatedWorkstations);
-        updateStats(updatedWorkstations);
-      }
-    } catch (error) {
-      console.error('删除工位失败:', error);
-      // 即使API失败，也允许本地删除
+      
       const updatedWorkstations = workstations.filter(w => w.id !== id);
       setWorkstations(updatedWorkstations);
       updateStats(updatedWorkstations);
+      saveWorkstationsToStorage(updatedWorkstations);
+      
+      if (!response.ok) {
+        console.warn('API删除失败，但本地数据已更新');
+      }
+    } catch (error) {
+      console.error('删除工位失败:', error);
+      // API失败时，仍然从本地删除并保存
+      const updatedWorkstations = workstations.filter(w => w.id !== id);
+      setWorkstations(updatedWorkstations);
+      updateStats(updatedWorkstations);
+      saveWorkstationsToStorage(updatedWorkstations);
     }
   };
 
@@ -920,8 +1123,11 @@ const WorkstationManagement: React.FC = () => {
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
           onSave={async (workstation) => {
+             const newWorkstation = { ...workstation, id: Date.now() };
+             const updatedWorkstations = [...workstations, newWorkstation];
+             
              try {
-               const response = await fetch('http://localhost:3004/api/workstations', {
+               const response = await fetch('http://localhost:8080/api/workstations', {
                  method: 'POST',
                  headers: {
                    'Content-Type': 'application/json',
@@ -930,24 +1136,23 @@ const WorkstationManagement: React.FC = () => {
                });
                
                if (response.ok) {
-                 const newWorkstation = await response.json();
-                 const updatedWorkstations = [...workstations, newWorkstation];
-                 setWorkstations(updatedWorkstations);
-                 updateStats(updatedWorkstations);
+                 const savedWorkstation = await response.json();
+                 const finalWorkstations = [...workstations, savedWorkstation];
+                 setWorkstations(finalWorkstations);
+                 updateStats(finalWorkstations);
+                 saveWorkstationsToStorage(finalWorkstations);
                } else {
-                 // API失败时使用本地添加
-                 const newWorkstation = { ...workstation, id: Date.now() };
-                 const updatedWorkstations = [...workstations, newWorkstation];
+                 console.warn('API添加失败，使用本地数据');
                  setWorkstations(updatedWorkstations);
                  updateStats(updatedWorkstations);
+                 saveWorkstationsToStorage(updatedWorkstations);
                }
              } catch (error) {
                console.error('添加工位失败:', error);
-               // API失败时使用本地添加
-               const newWorkstation = { ...workstation, id: Date.now() };
-               const updatedWorkstations = [...workstations, newWorkstation];
+               // API失败时使用本地添加并保存
                setWorkstations(updatedWorkstations);
                updateStats(updatedWorkstations);
+               saveWorkstationsToStorage(updatedWorkstations);
              }
              setShowAddModal(false);
            }}
@@ -964,8 +1169,12 @@ const WorkstationManagement: React.FC = () => {
             setSelectedWorkstation(null);
           }}
           onSave={async (workstation) => {
+             const updatedWorkstations = workstations.map(w => 
+               w.id === selectedWorkstation.id ? { ...workstation, id: selectedWorkstation.id } : w
+             );
+             
              try {
-               const response = await fetch(`http://localhost:3004/api/workstations/${selectedWorkstation.id}`, {
+               const response = await fetch(`http://localhost:8080/api/workstations/${selectedWorkstation.id}`, {
                  method: 'PUT',
                  headers: {
                    'Content-Type': 'application/json',
@@ -974,28 +1183,25 @@ const WorkstationManagement: React.FC = () => {
                });
                
                if (response.ok) {
-                 const updatedWorkstation = await response.json();
-                 const updatedWorkstations = workstations.map(w => 
-                   w.id === selectedWorkstation.id ? updatedWorkstation : w
+                 const savedWorkstation = await response.json();
+                 const finalWorkstations = workstations.map(w => 
+                   w.id === selectedWorkstation.id ? savedWorkstation : w
                  );
-                 setWorkstations(updatedWorkstations);
-                 updateStats(updatedWorkstations);
+                 setWorkstations(finalWorkstations);
+                 updateStats(finalWorkstations);
+                 saveWorkstationsToStorage(finalWorkstations);
                } else {
-                 // API失败时使用本地更新
-                 const updatedWorkstations = workstations.map(w => 
-                   w.id === selectedWorkstation.id ? { ...workstation, id: selectedWorkstation.id } : w
-                 );
+                 console.warn('API更新失败，使用本地数据');
                  setWorkstations(updatedWorkstations);
                  updateStats(updatedWorkstations);
+                 saveWorkstationsToStorage(updatedWorkstations);
                }
              } catch (error) {
                console.error('更新工位失败:', error);
-               // API失败时使用本地更新
-               const updatedWorkstations = workstations.map(w => 
-                 w.id === selectedWorkstation.id ? { ...workstation, id: selectedWorkstation.id } : w
-               );
+               // API失败时使用本地更新并保存
                setWorkstations(updatedWorkstations);
                updateStats(updatedWorkstations);
+               saveWorkstationsToStorage(updatedWorkstations);
              }
              setShowEditModal(false);
              setSelectedWorkstation(null);

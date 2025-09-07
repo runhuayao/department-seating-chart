@@ -18,12 +18,14 @@ interface DeptMapProps {
   department: string;
   searchQuery?: string; // 搜索查询字符串
   isHomepage?: boolean; // 新增：标识是否为首页模式
+  highlightDeskId?: string; // 需要高亮的工位ID
 }
 
-const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomepage = false }) => {
+const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomepage = false, highlightDeskId }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedDesk, setSelectedDesk] = useState<DeskWithEmployee | null>(null);
+  const [highlightedDesk, setHighlightedDesk] = useState<string | null>(null);
   
   // 获取当前部门的配置数据
   const deptConfig = getDepartmentConfig(department);
@@ -47,6 +49,47 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     ...desk,
     employee: desk.employee_id ? getEmployeeById(desk.employee_id) : undefined
   }));
+
+  // 处理工位高亮
+  useEffect(() => {
+    if (highlightDeskId) {
+      setHighlightedDesk(highlightDeskId);
+      
+      // 找到对应的工位并聚焦
+      const targetDesk = desksWithEmployees.find(desk => desk.desk_id === highlightDeskId);
+      if (targetDesk && svgRef.current) {
+        const svg = select(svgRef.current);
+        const container = containerRef.current;
+        if (container) {
+          const containerRect = container.getBoundingClientRect();
+          const centerX = containerRect.width / 2;
+          const centerY = containerRect.height / 2;
+          
+          // 计算目标工位的中心点
+          const deskCenterX = targetDesk.x + targetDesk.w / 2;
+          const deskCenterY = targetDesk.y + targetDesk.h / 2;
+          
+          // 设置缩放级别为1.5倍
+          const scale = 1.5;
+          const translateX = centerX - deskCenterX * scale;
+          const translateY = centerY - deskCenterY * scale;
+          
+          // 平滑过渡到目标位置
+          (svg as any).transition()
+            .duration(1000)
+            .call((svg as any).node().__zoom.transform, 
+              zoomIdentity.translate(translateX, translateY).scale(scale)
+            );
+        }
+      }
+      
+      // 3秒后取消高亮
+      const timer = setTimeout(() => {
+        setHighlightedDesk(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightDeskId, desksWithEmployees]);
 
   useEffect(() => {
     if (!svgRef.current || !containerRef.current) return;
@@ -141,9 +184,10 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         if (!d.employee) return '#f1f5f9'; // 空工位 - 白色
         return d.employee.status === 'online' ? '#10b981' : '#ef4444'; // 在线绿色/离线红色
       })
-      .attr('stroke', '#64748b')
-      .attr('stroke-width', 1)
-      .attr('rx', 4);
+      .attr('stroke', d => highlightedDesk === d.desk_id ? '#fbbf24' : '#64748b')
+      .attr('stroke-width', d => highlightedDesk === d.desk_id ? 3 : 1)
+      .attr('rx', 4)
+      .style('filter', d => highlightedDesk === d.desk_id ? 'drop-shadow(0 0 8px #fbbf24)' : 'none');
 
     // 添加工位标签
     deskGroups.append('text')

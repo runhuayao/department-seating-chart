@@ -3,11 +3,12 @@ import { Request, Response, NextFunction } from 'express';
 
 // JWT密钥 - 在生产环境中应该使用环境变量
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+console.log('🔑 JWT_SECRET loaded in auth middleware:', JWT_SECRET);
 
 // 扩展Request接口以包含用户信息
 interface AuthenticatedRequest extends Request {
   user?: {
-    id: string;
+    userId: string;
     username: string;
     role: string;
   };
@@ -15,15 +16,18 @@ interface AuthenticatedRequest extends Request {
 
 // 生成JWT令牌
 export const generateToken = (user: { id: string; username: string; role: string }) => {
-  return jwt.sign(
+  console.log('🔑 Generating token with JWT_SECRET:', JWT_SECRET);
+  const token = jwt.sign(
     {
-      id: user.id,
+      userId: user.id,
       username: user.username,
       role: user.role
     },
     JWT_SECRET,
     { expiresIn: '24h' }
   );
+  console.log('✅ Token generated:', token);
+  return token;
 };
 
 // 验证JWT令牌中间件
@@ -35,10 +39,15 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
     return res.status(401).json({ error: '访问令牌缺失' });
   }
 
+  console.log('🔍 Verifying token:', token);
+  console.log('🔑 Using JWT_SECRET for verification:', JWT_SECRET);
+  
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
     if (err) {
+      console.log('❌ Token verification failed:', err.message);
       return res.status(403).json({ error: '令牌无效或已过期' });
     }
+    console.log('✅ Token verified successfully:', user);
     req.user = user;
     next();
   });
