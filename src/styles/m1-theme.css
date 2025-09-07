@@ -1,0 +1,511 @@
+/* M1服务器管理平台专属主题样式 */
+
+:root {
+  /* M1主题色彩系统 */
+  --m1-primary: #1e40af;
+  --m1-primary-light: #3b82f6;
+  --m1-primary-dark: #1e3a8a;
+  --m1-secondary: #059669;
+  --m1-secondary-light: #10b981;
+  --m1-secondary-dark: #047857;
+  
+  /* 状态色彩 */
+  --m1-success: #22c55e;
+  --m1-warning: #f59e0b;
+  --m1-error: #ef4444;
+  --m1-info: #06b6d4;
+  
+  /* 背景色系 */
+  --m1-bg-primary: #0f172a;
+  --m1-bg-secondary: #1e293b;
+  --m1-bg-tertiary: #334155;
+  --m1-bg-card: #1e293b;
+  --m1-bg-hover: #334155;
+  
+  /* 文字色系 */
+  --m1-text-primary: #f8fafc;
+  --m1-text-secondary: #cbd5e1;
+  --m1-text-muted: #94a3b8;
+  --m1-text-accent: #3b82f6;
+  
+  /* 边框色系 */
+  --m1-border-primary: #334155;
+  --m1-border-secondary: #475569;
+  --m1-border-accent: #3b82f6;
+  
+  /* 阴影系统 */
+  --m1-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --m1-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --m1-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --m1-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  
+  /* 渐变系统 */
+  --m1-gradient-primary: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  --m1-gradient-secondary: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  --m1-gradient-dark: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  
+  /* 动画时长 */
+  --m1-transition-fast: 0.15s;
+  --m1-transition-normal: 0.3s;
+  --m1-transition-slow: 0.5s;
+}
+
+/* M1主题基础样式 */
+.m1-theme {
+  background: var(--m1-bg-primary);
+  color: var(--m1-text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+/* M1卡片样式 */
+.m1-card {
+  background: var(--m1-bg-card);
+  border: 1px solid var(--m1-border-primary);
+  border-radius: 12px;
+  box-shadow: var(--m1-shadow-md);
+  transition: all var(--m1-transition-normal) ease;
+}
+
+.m1-card:hover {
+  border-color: var(--m1-border-accent);
+  box-shadow: var(--m1-shadow-lg);
+  transform: translateY(-2px);
+}
+
+.m1-card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--m1-border-primary);
+  background: var(--m1-gradient-dark);
+  border-radius: 12px 12px 0 0;
+}
+
+.m1-card-body {
+  padding: 1.5rem;
+}
+
+.m1-card-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--m1-border-primary);
+  background: var(--m1-bg-secondary);
+  border-radius: 0 0 12px 12px;
+}
+
+/* M1按钮样式 */
+.m1-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  transition: all var(--m1-transition-fast) ease;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+}
+
+.m1-btn-primary {
+  background: var(--m1-gradient-primary);
+  color: white;
+  box-shadow: var(--m1-shadow-sm);
+}
+
+.m1-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--m1-shadow-md);
+}
+
+.m1-btn-secondary {
+  background: var(--m1-gradient-secondary);
+  color: white;
+  box-shadow: var(--m1-shadow-sm);
+}
+
+.m1-btn-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--m1-shadow-md);
+}
+
+.m1-btn-outline {
+  background: transparent;
+  color: var(--m1-text-primary);
+  border: 2px solid var(--m1-border-accent);
+}
+
+.m1-btn-outline:hover {
+  background: var(--m1-primary);
+  color: white;
+}
+
+.m1-btn-ghost {
+  background: transparent;
+  color: var(--m1-text-secondary);
+  border: 1px solid transparent;
+}
+
+.m1-btn-ghost:hover {
+  background: var(--m1-bg-hover);
+  color: var(--m1-text-primary);
+}
+
+/* M1输入框样式 */
+.m1-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--m1-bg-secondary);
+  border: 2px solid var(--m1-border-primary);
+  border-radius: 8px;
+  color: var(--m1-text-primary);
+  font-size: 0.875rem;
+  transition: all var(--m1-transition-fast) ease;
+}
+
+.m1-input:focus {
+  outline: none;
+  border-color: var(--m1-border-accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.m1-input::placeholder {
+  color: var(--m1-text-muted);
+}
+
+/* M1标签样式 */
+.m1-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.m1-badge-success {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--m1-success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.m1-badge-warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--m1-warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.m1-badge-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--m1-error);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.m1-badge-info {
+  background: rgba(6, 182, 212, 0.2);
+  color: var(--m1-info);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+/* M1导航样式 */
+.m1-nav {
+  background: var(--m1-bg-secondary);
+  border-bottom: 1px solid var(--m1-border-primary);
+  box-shadow: var(--m1-shadow-sm);
+}
+
+.m1-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  color: var(--m1-text-secondary);
+  text-decoration: none;
+  transition: all var(--m1-transition-fast) ease;
+  border-left: 3px solid transparent;
+}
+
+.m1-nav-item:hover {
+  background: var(--m1-bg-hover);
+  color: var(--m1-text-primary);
+  border-left-color: var(--m1-primary-light);
+}
+
+.m1-nav-item.active {
+  background: var(--m1-bg-hover);
+  color: var(--m1-text-accent);
+  border-left-color: var(--m1-primary);
+}
+
+/* M1指标卡片样式 */
+.m1-metric-card {
+  background: var(--m1-gradient-dark);
+  border: 1px solid var(--m1-border-primary);
+  border-radius: 12px;
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--m1-transition-normal) ease;
+}
+
+.m1-metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--m1-gradient-primary);
+}
+
+.m1-metric-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--m1-shadow-xl);
+}
+
+.m1-metric-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--m1-text-primary);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.m1-metric-label {
+  font-size: 0.875rem;
+  color: var(--m1-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.m1-metric-trend {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.m1-metric-trend.up {
+  color: var(--m1-success);
+}
+
+.m1-metric-trend.down {
+  color: var(--m1-error);
+}
+
+/* M1表格样式 */
+.m1-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--m1-bg-card);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--m1-shadow-md);
+}
+
+.m1-table th {
+  background: var(--m1-bg-secondary);
+  padding: 1rem 1.5rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--m1-text-primary);
+  border-bottom: 1px solid var(--m1-border-primary);
+}
+
+.m1-table td {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--m1-border-primary);
+  color: var(--m1-text-secondary);
+}
+
+.m1-table tr:hover {
+  background: var(--m1-bg-hover);
+}
+
+.m1-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* M1进度条样式 */
+.m1-progress {
+  width: 100%;
+  height: 8px;
+  background: var(--m1-bg-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.m1-progress-bar {
+  height: 100%;
+  background: var(--m1-gradient-primary);
+  border-radius: 4px;
+  transition: width var(--m1-transition-normal) ease;
+  position: relative;
+}
+
+.m1-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: m1-progress-shine 2s infinite;
+}
+
+@keyframes m1-progress-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* M1状态指示器 */
+.m1-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.m1-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: m1-pulse 2s infinite;
+}
+
+.m1-status-dot.online {
+  background: var(--m1-success);
+}
+
+.m1-status-dot.offline {
+  background: var(--m1-error);
+}
+
+.m1-status-dot.warning {
+  background: var(--m1-warning);
+}
+
+@keyframes m1-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .m1-card {
+    border-radius: 8px;
+  }
+  
+  .m1-card-header,
+  .m1-card-body,
+  .m1-card-footer {
+    padding: 1rem;
+  }
+  
+  .m1-metric-card {
+    padding: 1rem;
+  }
+  
+  .m1-metric-value {
+    font-size: 2rem;
+  }
+  
+  .m1-table th,
+  .m1-table td {
+    padding: 0.75rem 1rem;
+  }
+  
+  .m1-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .m1-card-header,
+  .m1-card-body,
+  .m1-card-footer {
+    padding: 0.75rem;
+  }
+  
+  .m1-metric-value {
+    font-size: 1.75rem;
+  }
+  
+  .m1-table {
+    font-size: 0.875rem;
+  }
+  
+  .m1-table th,
+  .m1-table td {
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* M1动画效果 */
+.m1-fade-in {
+  animation: m1-fadeIn 0.5s ease-out;
+}
+
+.m1-slide-up {
+  animation: m1-slideUp 0.5s ease-out;
+}
+
+.m1-scale-in {
+  animation: m1-scaleIn 0.3s ease-out;
+}
+
+@keyframes m1-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes m1-slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes m1-scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* M1滚动条样式 */
+.m1-theme ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.m1-theme ::-webkit-scrollbar-track {
+  background: var(--m1-bg-secondary);
+  border-radius: 4px;
+}
+
+.m1-theme ::-webkit-scrollbar-thumb {
+  background: var(--m1-border-secondary);
+  border-radius: 4px;
+  transition: background var(--m1-transition-fast) ease;
+}
+
+.m1-theme ::-webkit-scrollbar-thumb:hover {
+  background: var(--m1-border-accent);
+}
