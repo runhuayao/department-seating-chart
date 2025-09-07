@@ -33,10 +33,14 @@ const corsOptions = {
   credentials: true, // 允许携带认证信息
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  maxAge: 86400 // 预检请求缓存时间（24小时）
+  maxAge: 86400, // 预检请求缓存时间（24小时）
+  optionsSuccessStatus: 200 // 支持旧版浏览器
 };
 
 app.use(cors(corsOptions));
+
+// 处理预检请求
+app.options('*', cors(corsOptions));
 
 // 安全头配置
 app.use((req, res, next) => {
@@ -56,8 +60,27 @@ app.use((req, res, next) => {
 });
 
 // 请求体大小限制
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ 
+  limit: '10mb',
+  verify: (req, res, buf, encoding) => {
+    if (buf.length > 10 * 1024 * 1024) {
+      const error = new Error('请求体过大');
+      error.status = 413;
+      throw error;
+    }
+  }
+}));
+app.use(express.urlencoded({ 
+  extended: true, 
+  limit: '10mb',
+  verify: (req, res, buf, encoding) => {
+    if (buf.length > 10 * 1024 * 1024) {
+      const error = new Error('请求体过大');
+      error.status = 413;
+      throw error;
+    }
+  }
+}));
 app.use(express.static(join(__dirname, '../dist')));
 
 // 错误处理中间件
@@ -144,6 +167,10 @@ app.get('*', (req, res) => {
  */
 const PORT = process.env.PORT || 8080;
 
+// 全局server变量
+let server: any = null;
+let serverMonitorWS: any = null;
+
 // 启动服务器
 async function startServer() {
   try {
@@ -151,10 +178,10 @@ async function startServer() {
     await initializeDatabase();
     
     // Create HTTP server
-    const server = createServer(app);
+    server = createServer(app);
 
     // Initialize WebSocket for server monitoring
-    const serverMonitorWS = new ServerMonitorWebSocket(server);
+    serverMonitorWS = new ServerMonitorWebSocket(server);
 
     server.listen(PORT, () => {
       console.log(`🚀 服务器运行在端口 ${PORT}`);
@@ -176,16 +203,26 @@ startServer();
 const gracefulShutdown = async (signal: string) => {
   console.log(`🔄 收到${signal}信号，正在关闭服务器...`);
   
-  // 关闭HTTP服务器
-  server.close(async () => {
-    console.log('✅ HTTP服务器已关闭');
-    
-    // 关闭数据库连接
-    await closeDatabaseConnections();
-    
-    console.log('✅ 所有服务已安全关闭');
+  if (server) {
+    // 关闭HTTP服务器
+    server.close(async () => {
+      console.log('✅ HTTP服务器已关闭');
+      
+      // 关闭WebSocket
+      if (serverMonitorWS) {
+        serverMonitorWS.close();
+      }
+      
+      // 关闭数据库连接
+      await closeDatabaseConnections();
+      
+      console.log('✅ 所有服务已安全关闭');
+      process.exit(0);
+    });
+  } else {
+    console.log('✅ 服务器未启动，直接退出');
     process.exit(0);
-  });
+  }
   
   // 强制关闭超时
   setTimeout(() => {

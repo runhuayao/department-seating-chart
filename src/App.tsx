@@ -74,20 +74,15 @@ function HomePage() {
       });
       
       console.log('工位添加成功:', result);
-        
-        alert('工位添加成功！');
-        setShowAddWorkstation(false);
-        setWorkstationForm({
-          name: '',
-          department: '',
-          ipAddress: '',
-          username: '',
-          description: ''
-        });
-      } else {
-        const error = await response.json();
-        alert(`添加工位失败: ${error.error || '未知错误'}`);
-      }
+      alert('工位添加成功！');
+      setShowAddWorkstation(false);
+      setWorkstationForm({
+        name: '',
+        department: '',
+        ipAddress: '',
+        username: '',
+        description: ''
+      });
     } catch (error) {
       console.error('添加工位请求错误:', error);
       alert('添加工位失败，请检查网络连接');

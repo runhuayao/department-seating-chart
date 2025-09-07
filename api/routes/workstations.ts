@@ -13,7 +13,7 @@ const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
 router.use(rateLimit(50, 15 * 60 * 1000)); // 每15分钟最多50次请求
 
 // 获取所有工作站 - 需要用户权限
-router.get('/', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+router.get('/', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
   const { department, status, assignedUser } = req.query;
   let workstations = await db.getWorkstations();
   
@@ -34,7 +34,7 @@ router.get('/', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
 }));
 
 // 获取单个工作站 - 需要用户权限
-router.get('/:id', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+router.get('/:id', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
   const workstation = await db.getWorkstationById(id);
   
@@ -46,7 +46,7 @@ router.get('/:id', requireUserOrAdmin, asyncHandler(async (req: any, res: any) =
 }));
 
 // 创建新工作站 - 需要用户权限
-router.post('/', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+router.post('/', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
   const { 
     name, 
     ipAddress, 
@@ -101,7 +101,7 @@ router.post('/', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => 
 }));
 
 // 更新工作站 - 需要用户权限
-router.put('/:id', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+router.put('/:id', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
   const updates = req.body;
   
@@ -132,7 +132,7 @@ router.put('/:id', requireUserOrAdmin, asyncHandler(async (req: any, res: any) =
 }));
 
 // 删除工作站 - 需要管理员权限
-router.delete('/:id', requireAdmin, asyncHandler(async (req: any, res: any) => {
+router.delete('/:id', authenticateToken, requireAdmin, asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
   const deleted = await db.deleteWorkstation(id);
   
@@ -144,7 +144,7 @@ router.delete('/:id', requireAdmin, asyncHandler(async (req: any, res: any) => {
 }));
 
 // 批量操作 - 需要管理员权限
-router.post('/batch', requireAdmin, asyncHandler(async (req: any, res: any) => {
+router.post('/batch', authenticateToken, requireAdmin, asyncHandler(async (req: any, res: any) => {
   const { action, ids } = req.body;
   
   if (!action || !Array.isArray(ids) || ids.length === 0) {
@@ -187,7 +187,7 @@ router.post('/batch', requireAdmin, asyncHandler(async (req: any, res: any) => {
 }));
 
 // 工作站状态统计 - 需要用户权限
-router.get('/stats/status', requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+router.get('/stats/status', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
   const workstations = await db.getWorkstations();
   
   const stats = {

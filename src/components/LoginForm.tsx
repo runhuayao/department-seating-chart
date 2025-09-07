@@ -130,4 +130,4 @@ const LoginForm: React.FC<LoginFormProps> = ({ onClose }) => {
   );
 };
 
-export default Login
+export default LoginForm;

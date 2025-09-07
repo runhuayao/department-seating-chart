@@ -63,7 +63,7 @@ export const requireRole = (roles: string[]) => {
 export const requireAdmin = requireRole(['admin']);
 
 // 用户或管理员权限验证
-export const requireUserOrAdmin = requireRole(['user', 'admin']);
+export const requireUserOrAdmin = requireRole(['employee', 'manager', 'admin']);
 
 // API密钥验证中间件（用于内部API调用）
 export const validateApiKey = (req: Request, res: Response, next: NextFunction) => {
