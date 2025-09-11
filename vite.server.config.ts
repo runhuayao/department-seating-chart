@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tsconfigPaths from "vite-tsconfig-paths";
 import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 
-// https://vite.dev/config/
+// 服务器管理系统的Vite配置
 export default defineConfig({
   plugins: [
     react({
@@ -24,8 +24,15 @@ export default defineConfig({
     }), 
     tsconfigPaths(),
   ],
+  root: '.',
+  build: {
+    rollupOptions: {
+      input: './server.html'
+    },
+    outDir: 'dist-server'
+  },
   server: {
-    port: 5173,
+    port: 3000,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

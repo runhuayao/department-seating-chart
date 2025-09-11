@@ -1,14 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import DeptMap from './components/DeptMap';
-import M1ServerManagement from './pages/M1ServerManagement';
-import MapTest from './test/MapTest';
 import LoginForm from './components/LoginForm';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { getAllDepartments, getHomepageOverview } from './data/departmentData';
 import { workstationAPI } from './utils/api';
 import { LogOut, User } from 'lucide-react';
-import './styles/m1-theme.css';
 
 // 主页面组件
 function HomePage() {
@@ -616,62 +612,13 @@ function HomePage() {
   );
 }
 
-// 导航组件
-function Navigation() {
-  const location = useLocation();
-  
-  return (
-    <nav className="bg-white shadow-sm border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-8">
-            <h1 className="text-xl font-bold text-gray-900">
-              企业管理系统
-            </h1>
-            
-            <div className="flex space-x-6">
-              <Link
-                to="/"
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  location.pathname === '/' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >部门地图</Link>
-              <Link
-                to="/m1-server"
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  location.pathname === '/m1-server' 
-                    ? 'bg-indigo-600 text-white' 
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >M1服务器管理</Link>
-            </div>
-          </div>
-          
-          <div className="text-sm text-gray-500">
-            v1.2.0-M1服务器管理平台
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
-}
+
 
 // 主应用组件
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-gray-50">
-          <Navigation />
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/m1-server" element={<M1ServerManagement />} />
-            <Route path="/test-map" element={<MapTest />} />
-          </Routes>
-        </div>
-      </Router>
+      <HomePage />
     </AuthProvider>
   );
 }
