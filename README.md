@@ -136,12 +136,22 @@ NODE_ENV=development
 
 ### 启动开发服务器
 
+#### 前后端分离部署 (推荐)
+```bash
+# 启动前端开发服务器 (端口: 5173)
+npm run client:dev
+
+# 启动后端服务器 (端口: 8080)
+npm run server:dev
+
+# 前端访问地址: http://localhost:5173
+# 后端API地址: http://localhost:8080/api
+```
+
+#### 传统部署方式
 ```bash
 # 启动前端开发服务器 (默认端口: 5173)
 npm run dev
-
-# 启动后端服务器 (默认端口: 8080)
-npm run server:dev
 
 # 同时启动前后端
 npm run dev:full
