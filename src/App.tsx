@@ -117,13 +117,35 @@ function HomePage() {
 
     setIsSearching(true);
     try {
-      // 使用API工具进行搜索
-      const data = await workstationAPI.search(query);
-      setSearchResults(data);
-      setShowSearchResults(true);
+      // 获取认证token
+      const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      // 调用真实的搜索API
+      const response = await fetch(`http://localhost:8080/api/search?q=${encodeURIComponent(query)}`, {
+        headers
+      });
+      
+      if (response.ok) {
+        const results = await response.json();
+        // 处理API返回的数据结构
+        const searchData = results.success ? results.data : { employees: [], workstations: [], total: 0 };
+        setSearchResults(searchData);
+        setShowSearchResults(true);
+      } else {
+        console.error('搜索请求失败:', response.statusText);
+        setSearchResults({ employees: [], workstations: [], total: 0 });
+        setShowSearchResults(false);
+      }
     } catch (error) {
       console.error('搜索错误:', error);
-      setSearchResults(null);
+      setSearchResults({ employees: [], workstations: [], total: 0 });
       setShowSearchResults(false);
     } finally {
       setIsSearching(false);
@@ -275,6 +297,12 @@ function HomePage() {
                   placeholder="搜索员工或工位..."
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearch(searchQuery);
+                    }
+                  }}
                   className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {isSearching && (
@@ -282,8 +310,14 @@ function HomePage() {
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                   </div>
                 )}
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
+                  <svg 
+                    className="h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                    onClick={() => handleSearch(searchQuery)}
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>

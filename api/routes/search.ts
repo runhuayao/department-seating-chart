@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { db } from '../database/memory.js';
+import { executeQuery } from '../config/database.js';
 import { authenticateToken, requireUserOrAdmin, rateLimit } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -42,8 +42,8 @@ router.get('/', async (req, res) => {
       let employeeQuery = `
         SELECT e.*, d.name as department_name 
         FROM employees e 
-        LEFT JOIN departments d ON e.department_id = d.id 
-        WHERE (e.name LIKE $1 OR e.email LIKE $2 OR e.position LIKE $3)
+        LEFT JOIN departments d ON e.department_id = d.id
+        WHERE (e.name ILIKE $1 OR e.employee_id ILIKE $2 OR e.email ILIKE $3)
       `;
       const params = [`%${query}%`, `%${query}%`, `%${query}%`];
       
@@ -52,45 +52,49 @@ router.get('/', async (req, res) => {
         params.push(department);
       }
       
-      employeeQuery += ' ORDER BY e.name LIMIT 20';
+      employeeQuery += ' ORDER BY e.name LIMIT 50';
       
-      const employees = await db.query({ text: employeeQuery, values: params });
-      searchResults.employees = employees.rows;
+      const employees = await executeQuery<any[]>(employeeQuery, params);
+      searchResults.employees = employees;
     }
 
-    // 搜索工位 - 使用desks表而不是workstations表
+    // 搜索工位 - 使用workstations表
     if (type === 'all' || type === 'workstation') {
       let workstationQuery = `
-        SELECT d.*, dept.name as department_name 
-        FROM desks d 
-        LEFT JOIN departments dept ON d.department_id = dept.id 
-        WHERE (d.desk_number LIKE $1 OR d.area LIKE $2 OR d.ip_address LIKE $3 OR d.computer_name LIKE $4)
+        SELECT w.*, dept.name as department_name 
+        FROM workstations w 
+        LEFT JOIN departments dept ON w.department_id = dept.id
+        WHERE (w.name ILIKE $1 OR w.equipment ILIKE $2 OR w.notes ILIKE $3)
       `;
-      const params = [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`];
+      const params = [`%${query}%`, `%${query}%`, `%${query}%`];
       
       if (department) {
-        workstationQuery += ' AND dept.name = $5';
+        workstationQuery += ' AND dept.name = $4';
         params.push(department);
       }
       
-      workstationQuery += ' ORDER BY d.desk_number LIMIT 20';
+      workstationQuery += ' ORDER BY w.name LIMIT 20';
       
-      const workstations = await db.query({ text: workstationQuery, values: params });
-      searchResults.workstations = workstations.rows;
+      const workstations = await executeQuery<any[]>(workstationQuery, params);
+      searchResults.workstations = workstations;
     }
 
     searchResults.total = searchResults.employees.length + searchResults.workstations.length;
 
     // 记录搜索日志
-    await db.query({
-      text: 'INSERT INTO system_logs (action, details, ip_address, created_at) VALUES ($1, $2, $3, $4)',
-      values: [
-        'search',
-        JSON.stringify({ query, type, department, results_count: searchResults.total }),
-        req.ip || 'unknown',
-        new Date().toISOString()
-      ]
-    });
+    try {
+      await executeQuery(
+        'INSERT INTO system_logs (action, details, ip_address, created_at) VALUES ($1, $2, $3, $4)',
+        [
+          'search',
+          JSON.stringify({ query, type, department, results_count: searchResults.total }),
+          req.ip || 'unknown',
+          new Date().toISOString()
+        ]
+      );
+    } catch (logError) {
+      console.warn('记录搜索日志失败:', logError);
+    }
 
     res.json({
       success: true,
@@ -120,27 +124,27 @@ router.get('/suggestions', async (req, res) => {
     }
 
     // 获取员工姓名建议
-    const employeeNames = await db.query({
-      text: 'SELECT DISTINCT name FROM employees WHERE name LIKE $1 LIMIT 5',
-      values: [`%${query}%`]
-    });
+    const employeeNames = await executeQuery<{name: string}[]>(
+      'SELECT DISTINCT name FROM employees WHERE name LIKE $1 LIMIT 5',
+      [`%${query}%`]
+    );
 
     // 获取工位名称建议
-    const workstationNames = await db.query({
-      text: 'SELECT DISTINCT desk_number FROM desks WHERE desk_number LIKE $1 LIMIT 5',
-      values: [`%${query}%`]
-    });
+    const workstationNames = await executeQuery<{desk_number: string}[]>(
+      'SELECT DISTINCT desk_number FROM desks WHERE desk_number LIKE $1 LIMIT 5',
+      [`%${query}%`]
+    );
 
     // 获取部门名称建议
-    const departmentNames = await db.query({
-      text: 'SELECT DISTINCT name FROM departments WHERE name LIKE $1 LIMIT 3',
-      values: [`%${query}%`]
-    });
+    const departmentNames = await executeQuery<{name: string}[]>(
+      'SELECT DISTINCT name FROM departments WHERE name LIKE $1 LIMIT 3',
+      [`%${query}%`]
+    );
 
     const suggestions = [
-      ...employeeNames.rows.map((item: any) => ({ type: 'employee', value: item.name })),
-      ...workstationNames.rows.map((item: any) => ({ type: 'workstation', value: item.desk_number })),
-      ...departmentNames.rows.map((item: any) => ({ type: 'department', value: item.name }))
+      ...employeeNames.map((item: any) => ({ type: 'employee', value: item.name })),
+      ...workstationNames.map((item: any) => ({ type: 'workstation', value: item.desk_number })),
+      ...departmentNames.map((item: any) => ({ type: 'department', value: item.name }))
     ];
 
     res.json({
