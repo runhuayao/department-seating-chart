@@ -61,26 +61,27 @@ function HomePage() {
   const handleWorkstationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isAuthenticated) {
-      alert('请先登录');
-      setShowLoginModal(true);
-      return;
-    }
-    
     if (!workstationForm.name || !workstationForm.ipAddress || !workstationForm.department) {
       alert('请填写所有必填字段');
       return;
     }
 
     try {
-      // 使用API工具添加工位
+      // 使用API工具添加工位，构造符合Workstation接口的数据结构
       const result = await workstationAPI.create({
         name: workstationForm.name,
-        department: workstationForm.department,
         ipAddress: workstationForm.ipAddress,
-        username: workstationForm.username,
-        description: workstationForm.description,
-        status: 'active'
+        macAddress: '', // 可选字段，暂时为空
+        location: workstationForm.description || `Floor 3, Building A`, // 使用描述作为位置信息
+        department: workstationForm.department,
+        status: 'available', // 修改为符合接口的状态值
+        specifications: {
+          cpu: 'Intel i5',
+          memory: '8GB',
+          storage: '256GB SSD',
+          os: 'Windows 10'
+        },
+        assignedUser: workstationForm.username || undefined
       });
       
       console.log('工位添加成功:', result);
