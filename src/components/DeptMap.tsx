@@ -30,7 +30,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   // 获取当前部门的配置数据
   const deptConfig = getDepartmentConfig(department);
   
-  // 如果部门配置不存在，返回错误提示
+  // 如果部门配置不存在，显示错误提示
   if (!deptConfig) {
     return (
       <div className="flex items-center justify-center h-full">

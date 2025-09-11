@@ -13,7 +13,8 @@ router.use(rateLimit(100, 15 * 60 * 1000)); // 每15分钟最多100次搜索请�
 
 // 搜索验证schema
 const searchSchema = z.object({
-  query: z.string().min(1, '搜索关键词不能为空'),
+  q: z.string().min(1, '搜索关键词不能为空'),
+  query: z.string().min(1, '搜索关键词不能为空').optional(),
   type: z.enum(['all', 'employee', 'workstation']).optional().default('all'),
   department: z.string().optional()
 });
@@ -30,7 +31,8 @@ router.get('/', async (req, res) => {
       });
     }
 
-    const { query, type, department } = validation.data;
+    const { q, query, type, department } = validation.data;
+    const searchQuery = q || query; // 兼容前端发送的'q'参数和'query'参数
     const searchResults = {
       employees: [],
       workstations: [],
@@ -42,38 +44,47 @@ router.get('/', async (req, res) => {
       let employeeQuery = `
         SELECT e.*, d.name as department_name 
         FROM employees e 
-        LEFT JOIN departments d ON e.department_id = d.id
-        WHERE (e.name ILIKE $1 OR e.employee_id ILIKE $2 OR e.email ILIKE $3)
+        LEFT JOIN departments d ON e.department_id = d.id 
+        WHERE 1=1
       `;
-      const params = [`%${query}%`, `%${query}%`, `%${query}%`];
+      const params: any[] = [];
+      
+      if (searchQuery) {
+        employeeQuery += ' AND (e.name ILIKE $1 OR e.employee_number ILIKE $1)';
+        params.push(`%${searchQuery}%`);
+      }
       
       if (department) {
         employeeQuery += ' AND d.name = $4';
         params.push(department);
       }
       
-      employeeQuery += ' ORDER BY e.name LIMIT 50';
+      employeeQuery += ' ORDER BY e.id LIMIT 10'
       
       const employees = await executeQuery<any[]>(employeeQuery, params);
       searchResults.employees = employees;
     }
 
-    // 搜索工位 - 使用workstations表
+    // 搜索工位 - 使用desks表，并关联员工信息
     if (type === 'all' || type === 'workstation') {
       let workstationQuery = `
-        SELECT w.*, dept.name as department_name 
-        FROM workstations w 
-        LEFT JOIN departments dept ON w.department_id = dept.id
-        WHERE (w.name ILIKE $1 OR w.equipment ILIKE $2 OR w.notes ILIKE $3)
+        SELECT d.*, dept.name as department_name, 
+               e.name as employee_name, e.employee_number as employee_code,
+               d.desk_number as name
+        FROM desks d 
+        LEFT JOIN departments dept ON d.department_id = dept.id
+        LEFT JOIN desk_assignments da ON d.id = da.desk_id AND da.status = 'active'
+        LEFT JOIN employees e ON da.employee_id = e.id
+        WHERE (d.desk_number ILIKE $1 OR d.equipment::text ILIKE $2 OR e.name ILIKE $3)
       `;
-      const params = [`%${query}%`, `%${query}%`, `%${query}%`];
+      const params = [`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`];
       
       if (department) {
         workstationQuery += ' AND dept.name = $4';
         params.push(department);
       }
       
-      workstationQuery += ' ORDER BY w.name LIMIT 20';
+      workstationQuery += ' ORDER BY d.desk_number LIMIT 20';
       
       const workstations = await executeQuery<any[]>(workstationQuery, params);
       searchResults.workstations = workstations;
@@ -87,7 +98,7 @@ router.get('/', async (req, res) => {
         'INSERT INTO system_logs (action, details, ip_address, created_at) VALUES ($1, $2, $3, $4)',
         [
           'search',
-          JSON.stringify({ query, type, department, results_count: searchResults.total }),
+          JSON.stringify({ query: searchQuery, type, department, results_count: searchResults.total }),
           req.ip || 'unknown',
           new Date().toISOString()
         ]
@@ -96,10 +107,12 @@ router.get('/', async (req, res) => {
       console.warn('记录搜索日志失败:', logError);
     }
 
+    const message = searchResults.total === 0 ? "未找到相关结果\n请尝试其他关键词" : `找到 ${searchResults.total} 条结果`;
+    
     res.json({
       success: true,
       data: searchResults,
-      message: `找到 ${searchResults.total} 条结果`
+      message
     });
 
   } catch (error) {
@@ -125,19 +138,19 @@ router.get('/suggestions', async (req, res) => {
 
     // 获取员工姓名建议
     const employeeNames = await executeQuery<{name: string}[]>(
-      'SELECT DISTINCT name FROM employees WHERE name LIKE $1 LIMIT 5',
+      'SELECT DISTINCT name FROM employees WHERE name ILIKE $1 LIMIT 5',
       [`%${query}%`]
     );
 
     // 获取工位名称建议
     const workstationNames = await executeQuery<{desk_number: string}[]>(
-      'SELECT DISTINCT desk_number FROM desks WHERE desk_number LIKE $1 LIMIT 5',
+      'SELECT DISTINCT desk_number FROM desks WHERE desk_number ILIKE $1 LIMIT 5',
       [`%${query}%`]
     );
 
     // 获取部门名称建议
     const departmentNames = await executeQuery<{name: string}[]>(
-      'SELECT DISTINCT name FROM departments WHERE name LIKE $1 LIMIT 3',
+      'SELECT DISTINCT name FROM departments WHERE name ILIKE $1 LIMIT 3',
       [`%${query}%`]
     );
 

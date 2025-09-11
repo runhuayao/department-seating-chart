@@ -350,10 +350,10 @@ function HomePage() {
                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer rounded-md"
                              onClick={() => handleSearchResultClick(workstation, 'workstation')}
                            >
-                             <div className="font-medium text-gray-900">{workstation.name}</div>
-                             <div className="text-sm text-gray-500">{workstation.department_name || workstation.department} - {workstation.ip_address || workstation.ipAddress}</div>
-                             {workstation.username && (
-                               <div className="text-xs text-gray-400">用户: {workstation.username}</div>
+                             <div className="font-medium text-gray-900">工位 {workstation.desk_number}</div>
+                             <div className="text-sm text-gray-500">{workstation.department_name || workstation.department}</div>
+                             {workstation.employee_name && (
+                               <div className="text-xs text-gray-400">使用者: {workstation.employee_name}</div>
                              )}
                            </div>
                          ))}
