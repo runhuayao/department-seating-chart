@@ -1,63 +1,25 @@
 import express from 'express';
 import { authenticateToken, requireUserOrAdmin } from '../middleware/auth.js';
-import { pool } from '../config/database.js';
+import db from '../models/database.js';
 
 const router = express.Router();
 
-// 获取数据库状态 - 需要用户权限
-router.get('/status', authenticateToken, requireUserOrAdmin, async (req, res) => {
+// 获取数据库状态 - 无需认证
+router.get('/status', async (req, res) => {
   try {
-    // 获取数据库连接状态
-    const connection = await pool.getConnection();
-    
-    // 获取表数量
-    const [tablesResult] = await connection.execute(
-      "SELECT COUNT(*) as table_count FROM information_schema.tables WHERE table_schema = DATABASE()"
-    );
-    const tableCount = (tablesResult as any[])[0].table_count;
-    
-    // 获取总记录数（主要表）
-    let totalRecords = 0;
-    try {
-      const [workstationsCount] = await connection.execute('SELECT COUNT(*) as count FROM workstations');
-      const [usersCount] = await connection.execute('SELECT COUNT(*) as count FROM users');
-      const [departmentsCount] = await connection.execute('SELECT COUNT(*) as count FROM departments');
-      
-      totalRecords = 
-        (workstationsCount as any[])[0].count +
-        (usersCount as any[])[0].count +
-        (departmentsCount as any[])[0].count;
-    } catch (error) {
-      console.log('某些表可能不存在，使用默认值');
-      totalRecords = 0;
-    }
-    
-    // 获取最后同步时间（使用当前时间作为示例）
-    const lastSync = new Date();
-    
-    connection.release();
+    // 使用混合数据库模型获取状态
+    const status = await db.getStatus();
     
     res.json({
-      connected: true,
-      tables: tableCount,
-      totalRecords,
-      lastSync: lastSync.toISOString(),
-      status: 'healthy',
-      version: '8.0.0',
+      ...status,
       uptime: process.uptime()
     });
     
   } catch (error) {
     console.error('获取数据库状态失败:', error);
-    // 返回内存模式状态（200状态码，表示API正常但使用内存数据）
-    res.json({
-      connected: false,
-      tables: 3, // 模拟表数量
-      totalRecords: 50, // 模拟记录数
-      lastSync: new Date().toISOString(),
-      status: 'memory_mode',
-      mode: 'in-memory',
-      message: '使用内存数据库模式'
+    res.status(500).json({
+      error: 'Failed to get database status',
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });

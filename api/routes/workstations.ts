@@ -12,8 +12,8 @@ const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
 // 应用频率限制
 router.use(rateLimit(50, 15 * 60 * 1000)); // 每15分钟最多50次请求
 
-// 获取所有工作站 - 需要用户权限
-router.get('/', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+// 获取所有工作站 - 已移除登录验证
+router.get('/', asyncHandler(async (req: any, res: any) => {
   const { department, status, assignedUser } = req.query;
   let workstations = await db.getWorkstations();
   
@@ -33,8 +33,8 @@ router.get('/', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: 
   res.json(workstations);
 }));
 
-// 获取单个工作站 - 需要用户权限
-router.get('/:id', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+// 获取单个工作站 - 已移除登录验证
+router.get('/:id', asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
   const workstation = await db.getWorkstationById(id);
   
@@ -45,49 +45,45 @@ router.get('/:id', authenticateToken, requireUserOrAdmin, asyncHandler(async (re
   res.json(workstation);
 }));
 
-// 创建新工作站 - 需要用户权限
-router.post('/', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+// 创建新工作站 - 已移除登录验证，允许直接添加工作站
+router.post('/', asyncHandler(async (req: any, res: any) => {
   const { 
     name, 
-    ipAddress, 
-    macAddress, 
-    location, 
-    department, 
-    specifications, 
-    assignedUser 
+    status,
+    building,
+    floor_number,
+    x_position,
+    y_position,
+    width,
+    height,
+    equipment,
+    notes,
+    department_id,
+    employee_id
   } = req.body;
   
   // 验证必填字段
-  if (!name || !ipAddress || !location || !department) {
+  if (!name) {
     return res.status(400).json({ 
       error: '缺少必要参数',
-      required: ['name', 'ipAddress', 'location', 'department']
+      required: ['name']
     });
-  }
-  
-  // 验证IP地址格式
-  const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-  if (!ipRegex.test(ipAddress)) {
-    return res.status(400).json({ error: 'IP地址格式不正确' });
-  }
-  
-  // 检查IP地址是否已存在
-  const existingWorkstations = await db.getWorkstations();
-  const ipExists = existingWorkstations.some(ws => ws.ipAddress === ipAddress);
-  if (ipExists) {
-    return res.status(409).json({ error: 'IP地址已被使用' });
   }
   
   try {
     const newWorkstation = await db.createWorkstation({
       name,
-      ipAddress,
-      macAddress: macAddress || '',
-      location,
-      department,
-      status: 'offline',
-      specifications: specifications || {},
-      assignedUser: assignedUser || null
+      status: status || 'available',
+      building: building || 'Main Building',
+      floor_number: floor_number || 1,
+      x_position: x_position || 0,
+      y_position: y_position || 0,
+      width: width || 120,
+      height: height || 80,
+      equipment: equipment || null,
+      notes: notes || null,
+      department_id: department_id || null,
+      employee_id: employee_id || null
     });
 
     res.status(201).json({
@@ -100,8 +96,8 @@ router.post('/', authenticateToken, requireUserOrAdmin, asyncHandler(async (req:
   }
 }));
 
-// 更新工作站 - 需要用户权限
-router.put('/:id', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+// 更新工作站 - 已移除登录验证
+router.put('/:id', asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
   const updates = req.body;
   
@@ -131,8 +127,8 @@ router.put('/:id', authenticateToken, requireUserOrAdmin, asyncHandler(async (re
   });
 }));
 
-// 删除工作站 - 需要管理员权限
-router.delete('/:id', authenticateToken, requireAdmin, asyncHandler(async (req: any, res: any) => {
+// 删除工作站 - 已移除登录验证
+router.delete('/:id', asyncHandler(async (req: any, res: any) => {
   const { id } = req.params;
   const deleted = await db.deleteWorkstation(id);
   
@@ -143,8 +139,8 @@ router.delete('/:id', authenticateToken, requireAdmin, asyncHandler(async (req: 
   res.json({ message: '工作站删除成功' });
 }));
 
-// 批量操作 - 需要管理员权限
-router.post('/batch', authenticateToken, requireAdmin, asyncHandler(async (req: any, res: any) => {
+// 批量操作 - 已移除登录验证
+router.post('/batch', asyncHandler(async (req: any, res: any) => {
   const { action, ids } = req.body;
   
   if (!action || !Array.isArray(ids) || ids.length === 0) {
@@ -186,8 +182,8 @@ router.post('/batch', authenticateToken, requireAdmin, asyncHandler(async (req: 
   });
 }));
 
-// 工作站状态统计 - 需要用户权限
-router.get('/stats/status', authenticateToken, requireUserOrAdmin, asyncHandler(async (req: any, res: any) => {
+// 工作站状态统计 - 已移除登录验证
+router.get('/stats/status', asyncHandler(async (req: any, res: any) => {
   const workstations = await db.getWorkstations();
   
   const stats = {

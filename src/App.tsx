@@ -602,9 +602,7 @@ function Navigation() {
                     ? 'bg-blue-600 text-white' 
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
-              >
-                部门地图
-              </Link>
+              >部门地图</Link>
               <Link
                 to="/m1-server"
                 className={`px-4 py-2 rounded-md transition-colors ${
@@ -612,9 +610,7 @@ function Navigation() {
                     ? 'bg-indigo-600 text-white' 
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
-              >
-                M1服务器管理
-              </Link>
+              >M1服务器管理</Link>
             </div>
           </div>
           

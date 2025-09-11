@@ -1,14 +1,16 @@
-// 数据库模型和操作类
+// 混合数据库模型和操作类（PostgreSQL + 内存备用模式）
 import { Workstation, Employee, Department, User, AuditLog, DatabaseStatus } from '../../shared/types.js';
+import { pool, executeQuery, executeTransaction, isUsingPostgreSQL } from '../config/database.js';
 
-// 内存数据库类（模拟真实数据库）
-class MemoryDatabase {
-  private workstations: Map<string, Workstation> = new Map();
-  private employees: Map<string, Employee> = new Map();
-  private departments: Map<string, Department> = new Map();
-  private users: Map<string, User> = new Map();
-  private auditLogs: AuditLog[] = [];
+// 混合数据库类（PostgreSQL + 内存备用模式）
+class HybridDatabase {
   private connectionStatus: DatabaseStatus;
+  
+  // 内存数据库备用存储
+  private memoryWorkstations: Map<string, Workstation> = new Map();
+  private memoryEmployees: Map<string, Employee> = new Map();
+  private memoryDepartments: Map<string, Department> = new Map();
+  private memoryAuditLogs: AuditLog[] = [];
 
   constructor() {
     this.connectionStatus = {
@@ -19,399 +21,531 @@ class MemoryDatabase {
       health: 'healthy'
     };
     
-    // 初始化示例数据
-    this.initializeData();
+    // 初始化内存数据
+    this.initializeMemoryData();
   }
-
-  // 初始化示例数据
-  private initializeData() {
-    // 初始化部门数据
-    const departments: Department[] = [
-      {
-        id: 'dept-001',
-        name: '技术部',
-        code: 'TECH',
-        description: '负责技术开发和维护',
-        location: { building: 'A栋', floor: 3, area: '东区' },
-        workstationCount: 25,
-        employeeCount: 20,
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-15')
-      },
-      {
-        id: 'dept-002',
-        name: '市场部',
-        code: 'MKT',
-        description: '负责市场推广和销售',
-        location: { building: 'A栋', floor: 2, area: '西区' },
-        workstationCount: 15,
-        employeeCount: 12,
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-15')
-      },
-      {
-        id: 'dept-003',
-        name: '人事部',
-        code: 'HR',
-        description: '负责人力资源管理',
-        location: { building: 'B栋', floor: 1, area: '中区' },
-        workstationCount: 8,
-        employeeCount: 6,
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-15')
-      }
-    ];
-
-    departments.forEach(dept => this.departments.set(dept.id, dept));
-
-    // 初始化员工数据
-    const employees: Employee[] = [
-      {
-        id: 'emp-001',
-        employeeId: 'E001',
-        name: '张三',
-        email: 'zhangsan@company.com',
-        phone: '13800138001',
-        department: '技术部',
-        position: '高级工程师',
-        workstationId: 'ws-001',
-        status: 'active',
-        permissions: ['workstation:view', 'workstation:update'],
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-15')
-      },
-      {
-        id: 'emp-002',
-        employeeId: 'E002',
-        name: '李四',
-        email: 'lisi@company.com',
-        phone: '13800138002',
-        department: '技术部',
-        position: '前端工程师',
-        workstationId: 'ws-002',
-        status: 'active',
-        permissions: ['workstation:view'],
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-15')
-      },
-      {
-        id: 'emp-003',
-        employeeId: 'E003',
-        name: '王五',
-        email: 'wangwu@company.com',
-        phone: '13800138003',
-        department: '市场部',
-        position: '市场专员',
-        workstationId: 'ws-003',
-        status: 'active',
-        permissions: ['workstation:view'],
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-15')
-      }
-    ];
-
-    employees.forEach(emp => this.employees.set(emp.id, emp));
-
-    // 初始化工作站数据
-    const workstations: Workstation[] = [
+  
+  // 初始化内存数据
+  private initializeMemoryData() {
+    // 添加示例工作站数据
+    const sampleWorkstations: Workstation[] = [
       {
         id: 'ws-001',
-        name: '开发工作站-001',
+        name: '开发部-工作站-001',
         ipAddress: '192.168.1.101',
-        macAddress: '00:1B:44:11:3A:B7',
-        location: {
-          floor: 3,
-          room: 'A301',
-          position: { x: 100, y: 150 }
-        },
-        department: '技术部',
-        status: 'online',
-        specifications: {
-          cpu: 'Intel i7-12700K',
-          memory: '32GB DDR4',
-          storage: '1TB NVMe SSD',
-          os: 'Windows 11 Pro'
-        },
+        macAddress: '00:11:22:33:44:55',
+        location: { floor: 3, room: '301', seat: 'A01' },
+        department: '开发部',
+        status: 'active',
+        specifications: { cpu: 'Intel i7', memory: '16GB', storage: '512GB SSD' },
         assignedUser: 'emp-001',
         createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-15')
+        updatedAt: new Date('2024-01-01')
       },
       {
         id: 'ws-002',
-        name: '开发工作站-002',
+        name: '测试部-工作站-001',
         ipAddress: '192.168.1.102',
-        macAddress: '00:1B:44:11:3A:B8',
-        location: {
-          floor: 3,
-          room: 'A301',
-          position: { x: 200, y: 150 }
-        },
-        department: '技术部',
-        status: 'online',
-        specifications: {
-          cpu: 'Intel i5-12400F',
-          memory: '16GB DDR4',
-          storage: '512GB NVMe SSD',
-          os: 'Windows 11 Pro'
-        },
-        assignedUser: 'emp-002',
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-15')
-      },
-      {
-        id: 'ws-003',
-        name: '办公工作站-001',
-        ipAddress: '192.168.1.201',
-        macAddress: '00:1B:44:11:3A:C1',
-        location: {
-          floor: 2,
-          room: 'A201',
-          position: { x: 150, y: 100 }
-        },
-        department: '市场部',
-        status: 'online',
-        specifications: {
-          cpu: 'Intel i5-11400',
-          memory: '16GB DDR4',
-          storage: '256GB SSD',
-          os: 'Windows 10 Pro'
-        },
-        assignedUser: 'emp-003',
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-15')
+        macAddress: '00:11:22:33:44:56',
+        location: { floor: 3, room: '302', seat: 'B01' },
+        department: '测试部',
+        status: 'active',
+        specifications: { cpu: 'Intel i5', memory: '8GB', storage: '256GB SSD' },
+        assignedUser: null,
+        createdAt: new Date('2024-01-02'),
+        updatedAt: new Date('2024-01-02')
       }
     ];
-
-    workstations.forEach(ws => this.workstations.set(ws.id, ws));
-
-    // 初始化用户数据
-    const users: User[] = [
-      {
-        id: 'user-001',
-        username: 'admin',
-        email: 'admin@company.com',
-        passwordHash: '$2b$10$hash...', // 实际应用中应该是加密后的密码
-        role: 'admin',
-        employeeId: 'emp-001',
-        permissions: ['system:admin'],
-        isActive: true,
-        createdAt: new Date('2024-01-01'),
-        updatedAt: new Date('2024-01-15')
-      }
-    ];
-
-    users.forEach(user => this.users.set(user.id, user));
-
+    
+    sampleWorkstations.forEach(ws => this.memoryWorkstations.set(ws.id, ws));
+    
     // 更新总记录数
-    this.updateTotalRecords();
+    this.updateMemoryTotalRecords();
+  }
+  
+  // 更新内存模式总记录数
+  private updateMemoryTotalRecords() {
+    this.connectionStatus.totalRecords = 
+      this.memoryWorkstations.size + 
+      this.memoryEmployees.size + 
+      this.memoryDepartments.size + 
+      this.memoryAuditLogs.length;
+    this.connectionStatus.lastSync = new Date().toISOString();
   }
 
-  // 更新总记录数
-  private updateTotalRecords() {
-    this.connectionStatus.totalRecords = 
-      this.workstations.size + 
-      this.employees.size + 
-      this.departments.size + 
-      this.users.size + 
-      this.auditLogs.length;
-    this.connectionStatus.lastSync = new Date().toISOString();
+  // 更新总记录数（从数据库获取）
+  private async updateTotalRecords() {
+    try {
+      const result = await executeQuery<{count: string}[]>(`
+        SELECT 
+          (SELECT COUNT(*) FROM workstations) +
+          (SELECT COUNT(*) FROM employees) +
+          (SELECT COUNT(*) FROM departments) +
+          (SELECT COUNT(*) FROM users) +
+          (SELECT COUNT(*) FROM audit_logs) as count
+      `);
+      
+      this.connectionStatus.totalRecords = parseInt(result[0]?.count || '0');
+      this.connectionStatus.lastSync = new Date().toISOString();
+    } catch (error) {
+      console.error('更新记录数失败:', error);
+    }
   }
 
   // 工作站操作
   async getWorkstations(): Promise<Workstation[]> {
-    return Array.from(this.workstations.values());
+    if (isUsingPostgreSQL()) {
+      try {
+        const result = await executeQuery<any[]>(`
+          SELECT 
+            w.id, w.name, w.status, w.equipment, w.notes, w.floor_number, w.building,
+            w.x_position, w.y_position, w.width, w.height,
+            w.created_at, w.updated_at, w.department_id, w.employee_id,
+            d.name as department_name,
+            e.name as employee_name
+          FROM workstations w
+          LEFT JOIN departments d ON w.department_id = d.id
+          LEFT JOIN employees e ON w.employee_id = e.id
+          ORDER BY w.created_at DESC
+        `);
+        
+        // 转换为前端期望的格式
+        return result.map(row => ({
+          id: row.id.toString(),
+          name: row.name,
+          ipAddress: '', // 从notes中提取或设为空
+          macAddress: '',
+          location: `Floor ${row.floor_number}, ${row.building}`,
+          department: row.department_name || row.building,
+          status: row.status,
+          specifications: row.equipment ? JSON.parse(row.equipment) : {},
+          assignedUser: row.employee_name,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        }));
+      } catch (error) {
+        console.error('获取工作站列表失败:', error);
+        return [];
+      }
+    } else {
+      // 内存模式
+      return Array.from(this.memoryWorkstations.values());
+    }
   }
 
   async getWorkstationById(id: string): Promise<Workstation | null> {
-    return this.workstations.get(id) || null;
+    try {
+      const result = await executeQuery<any[]>(`
+        SELECT 
+          w.id, w.name, w.status, w.equipment, w.notes, w.floor_number, w.building,
+          w.x_position, w.y_position, w.width, w.height,
+          w.created_at, w.updated_at, w.department_id, w.employee_id,
+          d.name as department_name,
+          e.name as employee_name
+        FROM workstations w
+        LEFT JOIN departments d ON w.department_id = d.id
+        LEFT JOIN employees e ON w.employee_id = e.id
+        WHERE w.id = $1
+      `, [id]);
+      
+      if (result.length === 0) return null;
+      
+      const row = result[0];
+      return {
+        id: row.id.toString(),
+        name: row.name,
+        ipAddress: '', // 从notes中提取或设为空
+        macAddress: '',
+        location: `Floor ${row.floor_number}, ${row.building}`,
+        department: row.department_name || row.building,
+        status: row.status,
+        specifications: row.equipment ? JSON.parse(row.equipment) : {},
+        assignedUser: row.employee_name,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    } catch (error) {
+      console.error('获取工作站详情失败:', error);
+      return null;
+    }
   }
 
   async createWorkstation(workstation: Omit<Workstation, 'id' | 'createdAt' | 'updatedAt'>): Promise<Workstation> {
-    const id = `ws-${Date.now()}`;
-    const newWorkstation: Workstation = {
-      ...workstation,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    const now = new Date();
     
-    this.workstations.set(id, newWorkstation);
-    this.updateTotalRecords();
-    
-    // 记录审计日志
-    this.addAuditLog('user-001', 'CREATE', 'workstation', id, newWorkstation);
-    
-    return newWorkstation;
+    if (isUsingPostgreSQL()) {
+      try {
+        // 根据实际表结构创建工位
+        const result = await executeQuery<any[]>(`
+          INSERT INTO workstations (
+            name, department_id, x_position, y_position, width, height, 
+            status, equipment, notes, floor_number, building
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          RETURNING *
+        `, [
+          workstation.name,
+          1, // 默认部门ID，可以根据department名称查找
+          Math.random() * 800 + 100, // 随机x位置
+          Math.random() * 600 + 100, // 随机y位置
+          120, // 默认宽度
+          80,  // 默认高度
+          workstation.status || 'available',
+          workstation.specifications ? JSON.stringify(workstation.specifications) : null,
+          `Location: ${workstation.location || ''}, IP: ${workstation.ipAddress || ''}`,
+          3, // 默认楼层
+          workstation.department || 'Building A'
+        ]);
+        
+        // 转换为前端期望的格式
+        const newWorkstation = {
+          id: result[0].id.toString(),
+          name: result[0].name,
+          ipAddress: workstation.ipAddress || '',
+          macAddress: workstation.macAddress || '',
+          location: workstation.location || '',
+          department: workstation.department || '',
+          status: result[0].status,
+          specifications: workstation.specifications || {},
+          assignedUser: null,
+          createdAt: result[0].created_at,
+          updatedAt: result[0].updated_at
+        };
+        
+        // 记录审计日志
+        await this.addAuditLog(null, 'CREATE', 'workstation', newWorkstation.id, workstation);
+        await this.updateTotalRecords();
+        
+        return newWorkstation;
+      } catch (error) {
+        console.error('创建工作站失败:', error);
+        throw error;
+      }
+    } else {
+      // 内存模式
+      const newWorkstation: Workstation = {
+        id,
+        ...workstation,
+        createdAt: now,
+        updatedAt: now
+      };
+      
+      this.memoryWorkstations.set(id, newWorkstation);
+      this.updateMemoryTotalRecords();
+      
+      // 记录审计日志
+      await this.addAuditLog(null, 'CREATE', 'workstation', id, workstation);
+      
+      return newWorkstation;
+    }
   }
 
   async updateWorkstation(id: string, updates: Partial<Workstation>): Promise<Workstation | null> {
-    const workstation = this.workstations.get(id);
-    if (!workstation) return null;
+    if (isUsingPostgreSQL()) {
+      try {
+        const setParts: string[] = [];
+        const values: any[] = [];
+        let paramIndex = 1;
 
-    const updatedWorkstation = {
-      ...workstation,
-      ...updates,
-      id,
-      updatedAt: new Date()
-    };
+        if (updates.name !== undefined) {
+          setParts.push(`name = $${paramIndex++}`);
+          values.push(updates.name);
+        }
+        if (updates.status !== undefined) {
+          setParts.push(`status = $${paramIndex++}`);
+          values.push(updates.status);
+        }
+        if (updates.specifications !== undefined) {
+          setParts.push(`equipment = $${paramIndex++}`);
+          values.push(JSON.stringify(updates.specifications));
+        }
+        if (updates.location !== undefined) {
+          // 解析location字符串，提取floor和building信息
+          const locationMatch = updates.location.toString().match(/Floor (\d+), (.+)/);
+          if (locationMatch) {
+            setParts.push(`floor_number = $${paramIndex++}`);
+            values.push(parseInt(locationMatch[1]));
+            setParts.push(`building = $${paramIndex++}`);
+            values.push(locationMatch[2]);
+          }
+        }
+        if (updates.assignedUser !== undefined) {
+          // 需要根据员工姓名查找employee_id
+          if (updates.assignedUser) {
+            const employeeResult = await executeQuery<any[]>(`
+              SELECT id FROM employees WHERE name = $1
+            `, [updates.assignedUser]);
+            if (employeeResult.length > 0) {
+              setParts.push(`employee_id = $${paramIndex++}`);
+              values.push(employeeResult[0].id);
+            }
+          } else {
+            setParts.push(`employee_id = $${paramIndex++}`);
+            values.push(null);
+          }
+        }
 
-    this.workstations.set(id, updatedWorkstation);
-    this.updateTotalRecords();
-    
-    // 记录审计日志
-    this.addAuditLog('user-001', 'UPDATE', 'workstation', id, updates);
-    
-    return updatedWorkstation;
+        if (setParts.length === 0) {
+          return await this.getWorkstationById(id);
+        }
+
+        setParts.push(`updated_at = $${paramIndex++}`);
+        values.push(new Date());
+        values.push(id);
+
+        const result = await executeQuery(`
+          UPDATE workstations 
+          SET ${setParts.join(', ')}
+          WHERE id = $${paramIndex}
+        `, values);
+
+        await this.addAuditLog(null, 'UPDATE', 'workstation', id, updates);
+        await this.updateTotalRecords();
+        
+        return await this.getWorkstationById(id);
+      } catch (error) {
+        console.error('更新工作站失败:', error);
+        return null;
+      }
+    } else {
+      // 内存模式
+      const existing = this.memoryWorkstations.get(id);
+      if (existing) {
+        const updated = { ...existing, ...updates, updatedAt: new Date() };
+        this.memoryWorkstations.set(id, updated);
+        this.updateMemoryTotalRecords();
+        await this.addAuditLog(null, 'UPDATE', 'workstation', id, updates);
+        return updated;
+      }
+      return null;
+    }
   }
 
   async deleteWorkstation(id: string): Promise<boolean> {
-    const deleted = this.workstations.delete(id);
-    if (deleted) {
-      this.updateTotalRecords();
-      // 记录审计日志
-      this.addAuditLog('user-001', 'DELETE', 'workstation', id, {});
+    try {
+      const result = await executeQuery<{count: number}[]>(`
+        DELETE FROM workstations WHERE id = $1
+      `, [id]);
+      
+      const deleted = result.length > 0;
+      if (deleted) {
+        await this.addAuditLog(null, 'DELETE', 'workstation', id, {});
+        await this.updateTotalRecords();
+      }
+      return deleted;
+    } catch (error) {
+      console.error('删除工作站失败:', error);
+      return false;
     }
-    return deleted;
   }
 
   // 员工操作
   async getEmployees(): Promise<Employee[]> {
-    return Array.from(this.employees.values());
+    try {
+      const result = await executeQuery<Employee[]>(`
+        SELECT 
+          id, employee_id as "employeeId", name, email, phone, department, 
+          position, workstation_id as "workstationId", status, permissions,
+          created_at as "createdAt", updated_at as "updatedAt"
+        FROM employees 
+        ORDER BY created_at DESC
+      `);
+      return result;
+    } catch (error) {
+      console.error('获取员工列表失败:', error);
+      return [];
+    }
   }
 
   async getEmployeeById(id: string): Promise<Employee | null> {
-    return this.employees.get(id) || null;
-  }
-
-  async createEmployee(employee: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>): Promise<Employee> {
-    const id = `emp-${Date.now()}`;
-    const newEmployee: Employee = {
-      ...employee,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    this.employees.set(id, newEmployee);
-    this.updateTotalRecords();
-    
-    // 记录审计日志
-    this.addAuditLog('user-001', 'CREATE', 'employee', id, newEmployee);
-    
-    return newEmployee;
-  }
-
-  async updateEmployee(id: string, updates: Partial<Employee>): Promise<Employee | null> {
-    const employee = this.employees.get(id);
-    if (!employee) return null;
-
-    const updatedEmployee = {
-      ...employee,
-      ...updates,
-      id,
-      updatedAt: new Date()
-    };
-
-    this.employees.set(id, updatedEmployee);
-    this.updateTotalRecords();
-    
-    // 记录审计日志
-    this.addAuditLog('user-001', 'UPDATE', 'employee', id, updates);
-    
-    return updatedEmployee;
-  }
-
-  async deleteEmployee(id: string): Promise<boolean> {
-    const deleted = this.employees.delete(id);
-    if (deleted) {
-      this.updateTotalRecords();
-      // 记录审计日志
-      this.addAuditLog('user-001', 'DELETE', 'employee', id, {});
+    try {
+      const result = await executeQuery<Employee[]>(`
+        SELECT 
+          id, employee_id as "employeeId", name, email, phone, department, 
+          position, workstation_id as "workstationId", status, permissions,
+          created_at as "createdAt", updated_at as "updatedAt"
+        FROM employees 
+        WHERE id = $1
+      `, [id]);
+      return result[0] || null;
+    } catch (error) {
+      console.error('获取员工详情失败:', error);
+      return null;
     }
-    return deleted;
   }
 
   // 部门操作
   async getDepartments(): Promise<Department[]> {
-    return Array.from(this.departments.values());
+    try {
+      const result = await executeQuery<Department[]>(`
+        SELECT 
+          id, name, code, description, location, workstation_count as "workstationCount",
+          employee_count as "employeeCount", created_at as "createdAt", updated_at as "updatedAt"
+        FROM departments 
+        ORDER BY created_at DESC
+      `);
+      return result;
+    } catch (error) {
+      console.error('获取部门列表失败:', error);
+      return [];
+    }
   }
 
   async getDepartmentById(id: string): Promise<Department | null> {
-    return this.departments.get(id) || null;
+    try {
+      const result = await executeQuery<Department[]>(`
+        SELECT 
+          id, name, code, description, location, workstation_count as "workstationCount",
+          employee_count as "employeeCount", created_at as "createdAt", updated_at as "updatedAt"
+        FROM departments 
+        WHERE id = $1
+      `, [id]);
+      return result[0] || null;
+    } catch (error) {
+      console.error('获取部门详情失败:', error);
+      return null;
+    }
   }
 
   // 搜索功能
   async search(query: string): Promise<{ employees: Employee[], workstations: Workstation[] }> {
-    const lowerQuery = query.toLowerCase();
-    
-    const employees = Array.from(this.employees.values()).filter(emp => 
-      emp.name.toLowerCase().includes(lowerQuery) ||
-      emp.employeeId.toLowerCase().includes(lowerQuery) ||
-      emp.email.toLowerCase().includes(lowerQuery) ||
-      emp.department.toLowerCase().includes(lowerQuery)
-    );
+    try {
+      const employees = await executeQuery<Employee[]>(`
+        SELECT 
+          id, employee_id as "employeeId", name, email, phone, department, 
+          position, workstation_id as "workstationId", status, permissions,
+          created_at as "createdAt", updated_at as "updatedAt"
+        FROM employees 
+        WHERE 
+          LOWER(name) LIKE LOWER($1) OR
+          LOWER(employee_id) LIKE LOWER($1) OR
+          LOWER(email) LIKE LOWER($1) OR
+          LOWER(department) LIKE LOWER($1)
+      `, [`%${query}%`]);
 
-    const workstations = Array.from(this.workstations.values()).filter(ws => 
-      ws.name.toLowerCase().includes(lowerQuery) ||
-      ws.ipAddress.includes(lowerQuery) ||
-      ws.department.toLowerCase().includes(lowerQuery) ||
-      ws.location.room.toLowerCase().includes(lowerQuery)
-    );
+      const workstations = await executeQuery<Workstation[]>(`
+        SELECT 
+          id, name, ip_address as "ipAddress", mac_address as "macAddress",
+          location, department, status, specifications, assigned_user as "assignedUser",
+          created_at as "createdAt", updated_at as "updatedAt"
+        FROM workstations 
+        WHERE 
+          LOWER(name) LIKE LOWER($1) OR
+          ip_address LIKE $1 OR
+          LOWER(department) LIKE LOWER($1) OR
+          LOWER(location->>'room') LIKE LOWER($1)
+      `, [`%${query}%`]);
 
-    return { employees, workstations };
+      return { employees, workstations };
+    } catch (error) {
+      console.error('搜索失败:', error);
+      return { employees: [], workstations: [] };
+    }
   }
 
   // 获取数据库状态
   async getStatus(): Promise<DatabaseStatus> {
-    return { ...this.connectionStatus };
+    if (isUsingPostgreSQL()) {
+      try {
+        await this.updateTotalRecords();
+        
+        // 检查数据库连接状态
+        const healthCheck = await executeQuery('SELECT 1');
+        this.connectionStatus.connected = true;
+        this.connectionStatus.health = 'healthy';
+        
+        return { ...this.connectionStatus };
+      } catch (error) {
+        console.error('获取数据库状态失败:', error);
+        this.connectionStatus.connected = false;
+        this.connectionStatus.health = 'error';
+        return { ...this.connectionStatus };
+      }
+    } else {
+      // 内存模式
+      this.updateMemoryTotalRecords();
+      return {
+        ...this.connectionStatus,
+        health: 'healthy'
+      };
+    }
   }
 
   // 添加审计日志
-  private addAuditLog(userId: string, action: string, resource: string, resourceId: string, details: any) {
-    const log: AuditLog = {
-      id: `log-${Date.now()}`,
-      userId,
-      action,
-      resource,
-      resourceId,
-      details,
-      ipAddress: '127.0.0.1',
-      userAgent: 'Server',
-      timestamp: new Date()
-    };
+  private async addAuditLog(userId: string | null, action: string, resource: string, resourceId: string, details: any) {
+    const id = `log-${Date.now()}`;
+    const timestamp = new Date();
     
-    this.auditLogs.push(log);
-    
-    // 保持最近1000条日志
-    if (this.auditLogs.length > 1000) {
-      this.auditLogs = this.auditLogs.slice(-1000);
+    if (isUsingPostgreSQL()) {
+      try {
+        await executeQuery(`
+          INSERT INTO audit_logs (
+            id, user_id, action, resource, resource_id, details, 
+            ip_address, user_agent, timestamp
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `, [
+          id, userId, action, resource, resourceId, JSON.stringify(details),
+          '127.0.0.1', 'Server', timestamp
+        ]);
+      } catch (error) {
+        console.error('添加审计日志失败:', error);
+      }
+    } else {
+      // 内存模式
+      const auditLog: AuditLog = {
+        id,
+        userId,
+        action,
+        resource,
+        resourceId,
+        details: JSON.stringify(details),
+        ipAddress: '127.0.0.1',
+        userAgent: 'Server',
+        timestamp
+      };
+      
+      this.memoryAuditLogs.push(auditLog);
+      this.updateMemoryTotalRecords();
+      
+      // 保持最近1000条记录
+      if (this.memoryAuditLogs.length > 1000) {
+        this.memoryAuditLogs = this.memoryAuditLogs.slice(-1000);
+      }
     }
-    
-    this.updateTotalRecords();
   }
 
   // 获取审计日志
   async getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
-    return this.auditLogs.slice(-limit).reverse();
+    try {
+      const result = await executeQuery<AuditLog[]>(`
+        SELECT 
+          id, user_id as "userId", action, resource, resource_id as "resourceId",
+          details, ip_address as "ipAddress", user_agent as "userAgent", timestamp
+        FROM audit_logs 
+        ORDER BY timestamp DESC 
+        LIMIT $1
+      `, [limit]);
+      return result;
+    } catch (error) {
+      console.error('获取审计日志失败:', error);
+      return [];
+    }
   }
 
-  // 数据同步（模拟）
+  // 数据同步（检查数据库连接）
   async syncData(): Promise<boolean> {
     try {
-      // 模拟同步延迟
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await executeQuery('SELECT 1');
       this.connectionStatus.lastSync = new Date().toISOString();
       this.connectionStatus.health = 'healthy';
-      
       return true;
     } catch (error) {
+      console.error('数据同步失败:', error);
       this.connectionStatus.health = 'error';
       return false;
     }
   }
 }
 
-// 导出数据库实例
-export const db = new MemoryDatabase();
+// 创建并导出数据库实例
+const db = new HybridDatabase();
 export default db;

@@ -5,10 +5,11 @@ import { authenticateToken, requireUserOrAdmin, rateLimit } from '../middleware/
 
 const router = express.Router();
 
-// 应用频率限制和认证
+// 应用频率限制（移除认证要求以支持无登录搜索）
 router.use(rateLimit(100, 15 * 60 * 1000)); // 每15分钟最多100次搜索请求
-router.use(authenticateToken); // 所有搜索API都需要认证
-router.use(requireUserOrAdmin); // 需要用户或管理员权限
+// 移除认证要求，允许无登录访问搜索功能
+// router.use(authenticateToken); // 所有搜索API都需要认证
+// router.use(requireUserOrAdmin); // 需要用户或管理员权限
 
 // 搜索验证schema
 const searchSchema = z.object({

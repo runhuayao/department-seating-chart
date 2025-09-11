@@ -261,8 +261,9 @@ const createDeskSchema = z.object({
 /**
  * 创建新工位
  * POST /api/desks
+ * 注意：已移除登录验证，允许直接添加工位
  */
-router.post('/', authenticateToken, requireRole(['admin', 'manager']), async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     // 验证请求数据
     const validation = createDeskSchema.safeParse(req.body);
@@ -275,7 +276,6 @@ router.post('/', authenticateToken, requireRole(['admin', 'manager']), async (re
     }
 
     const deskData = validation.data;
-    const userId = (req as any).user?.id;
     
     // 创建工位
     const newDesk = await DeskDAO.create({
@@ -283,9 +283,9 @@ router.post('/', authenticateToken, requireRole(['admin', 'manager']), async (re
       status: 'available'
     });
     
-    // 记录操作日志
+    // 记录操作日志（无需用户认证）
     await SystemLogDAO.log({
-      user_id: userId,
+      user_id: null, // 无需登录验证
       action: 'create_desk',
       resource_type: 'desk',
       resource_id: newDesk.id.toString(),
