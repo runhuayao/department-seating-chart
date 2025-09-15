@@ -2,8 +2,15 @@ import express from 'express';
 import { z } from 'zod';
 import { executeQuery } from '../config/database.js';
 import { authenticateToken, requireUserOrAdmin, rateLimit } from '../middleware/auth.js';
+import { generateSearchCache } from './search-cache.js';
+import fs from 'fs/promises';
+import path from 'path';
 
 const router = express.Router();
+
+// 缓存文件路径
+const CACHE_DIR = path.join(process.cwd(), 'cache');
+const SEARCH_CACHE_FILE = path.join(CACHE_DIR, 'search-data.json');
 
 // 应用频率限制（移除认证要求以支持无登录搜索）
 router.use(rateLimit(100, 15 * 60 * 1000)); // 每15分钟最多100次搜索请求
@@ -19,7 +26,35 @@ const searchSchema = z.object({
   department: z.string().optional()
 });
 
-// 搜索接口
+// 获取缓存数据
+async function getCachedSearchData() {
+  try {
+    const cacheContent = await fs.readFile(SEARCH_CACHE_FILE, 'utf8');
+    const cacheData = JSON.parse(cacheContent);
+    
+    // 检查缓存是否过期（超过5分钟）
+    const cacheAge = Date.now() - new Date(cacheData.lastUpdated).getTime();
+    const isExpired = cacheAge > 5 * 60 * 1000;
+    
+    if (isExpired) {
+      // 异步更新缓存
+      generateSearchCache().then(async (newData) => {
+        await fs.writeFile(SEARCH_CACHE_FILE, JSON.stringify(newData, null, 2), 'utf8');
+      }).catch(console.error);
+    }
+    
+    return cacheData;
+  } catch (error) {
+    // 缓存不存在或损坏，重新生成
+    console.log('缓存文件不存在，重新生成...');
+    const newData = await generateSearchCache();
+    await fs.mkdir(CACHE_DIR, { recursive: true });
+    await fs.writeFile(SEARCH_CACHE_FILE, JSON.stringify(newData, null, 2), 'utf8');
+    return newData;
+  }
+}
+
+// 搜索接口 - 使用缓存数据实现跨部门搜索
 router.get('/', async (req, res) => {
   try {
     const validation = searchSchema.safeParse(req.query);
@@ -32,65 +67,81 @@ router.get('/', async (req, res) => {
     }
 
     const { q, query, type, department } = validation.data;
-    const searchQuery = q || query; // 兼容前端发送的'q'参数和'query'参数
+    const searchQuery = (q || query || '').toLowerCase().trim();
+    
+    // 获取缓存数据
+    const cacheData = await getCachedSearchData();
+    
     const searchResults = {
       employees: [],
       workstations: [],
+      departments: [],
       total: 0
     };
 
     // 搜索员工
     if (type === 'all' || type === 'employee') {
-      let employeeQuery = `
-        SELECT e.*, d.name as department_name 
-        FROM employees e 
-        LEFT JOIN departments d ON e.department_id = d.id 
-        WHERE 1=1
-      `;
-      const params: any[] = [];
+      let employees = cacheData.employees || [];
       
       if (searchQuery) {
-        employeeQuery += ' AND (e.name ILIKE $1 OR e.employee_number ILIKE $1 OR e.name_pinyin ILIKE $1 OR e.name_pinyin_short ILIKE $1)';
-        params.push(`%${searchQuery}%`);
+        employees = employees.filter((emp: any) => 
+          (emp.searchText && emp.searchText.includes(searchQuery)) ||
+          (emp.name && emp.name.toLowerCase().includes(searchQuery)) ||
+          (emp.employee_id && emp.employee_id.toLowerCase().includes(searchQuery)) ||
+          (emp.position && emp.position.toLowerCase().includes(searchQuery)) ||
+          (emp.department && emp.department.name && emp.department.name.toLowerCase().includes(searchQuery))
+        );
       }
       
       if (department) {
-        employeeQuery += ' AND d.name = $4';
-        params.push(department);
+        employees = employees.filter((emp: any) => 
+          emp.department && emp.department.name === department
+        );
       }
       
-      employeeQuery += ' ORDER BY e.id LIMIT 10'
-      
-      const employees = await executeQuery<any[]>(employeeQuery, params);
-      searchResults.employees = employees;
+      searchResults.employees = employees.slice(0, 20); // 限制结果数量
     }
 
-    // 搜索工位 - 使用desks表，并关联员工信息
+    // 搜索工位
     if (type === 'all' || type === 'workstation') {
-      let workstationQuery = `
-        SELECT d.*, dept.name as department_name, 
-               e.name as employee_name, e.employee_number as employee_code,
-               d.desk_number as name
-        FROM desks d 
-        LEFT JOIN departments dept ON d.department_id = dept.id
-        LEFT JOIN desk_assignments da ON d.id = da.desk_id AND da.status = 'active'
-        LEFT JOIN employees e ON da.employee_id = e.id
-        WHERE (d.desk_number ILIKE $1 OR d.equipment::text ILIKE $2 OR e.name ILIKE $3)
-      `;
-      const params = [`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`];
+      let workstations = cacheData.workstations || [];
       
-      if (department) {
-        workstationQuery += ' AND dept.name = $4';
-        params.push(department);
+      if (searchQuery) {
+        workstations = workstations.filter((ws: any) => 
+          (ws.searchText && ws.searchText.includes(searchQuery)) ||
+          (ws.desk_number && ws.desk_number.toLowerCase().includes(searchQuery)) ||
+          (ws.department && ws.department.name && ws.department.name.toLowerCase().includes(searchQuery)) ||
+          (ws.employee && ws.employee.name && ws.employee.name.toLowerCase().includes(searchQuery))
+        );
       }
       
-      workstationQuery += ' ORDER BY d.desk_number LIMIT 20';
+      if (department) {
+        workstations = workstations.filter((ws: any) => 
+          ws.department && ws.department.name === department
+        );
+      }
       
-      const workstations = await executeQuery<any[]>(workstationQuery, params);
-      searchResults.workstations = workstations;
+      searchResults.workstations = workstations.slice(0, 20);
     }
 
-    searchResults.total = searchResults.employees.length + searchResults.workstations.length;
+    // 搜索部门（新增功能）
+    if (type === 'all') {
+      let departments = cacheData.departments || [];
+      
+      if (searchQuery) {
+        departments = departments.filter((dept: any) => 
+          (dept.searchText && dept.searchText.includes(searchQuery)) ||
+          (dept.name && dept.name.toLowerCase().includes(searchQuery)) ||
+          (dept.code && dept.code.toLowerCase().includes(searchQuery))
+        );
+      }
+      
+      searchResults.departments = departments.slice(0, 10);
+    }
+
+    searchResults.total = searchResults.employees.length + 
+                         searchResults.workstations.length + 
+                         searchResults.departments.length;
 
     // 记录搜索日志
     try {
@@ -98,7 +149,14 @@ router.get('/', async (req, res) => {
         'INSERT INTO system_logs (action, details, ip_address, created_at) VALUES ($1, $2, $3, $4)',
         [
           'search',
-          JSON.stringify({ query: searchQuery, type, department, results_count: searchResults.total }),
+          JSON.stringify({ 
+            query: searchQuery, 
+            type, 
+            department, 
+            results_count: searchResults.total,
+            cache_used: true,
+            cross_department: !department // 标记是否为跨部门搜索
+          }),
           req.ip || 'unknown',
           new Date().toISOString()
         ]
@@ -107,11 +165,18 @@ router.get('/', async (req, res) => {
       console.warn('记录搜索日志失败:', logError);
     }
 
-    const message = searchResults.total === 0 ? "未找到相关结果\n请尝试其他关键词" : `找到 ${searchResults.total} 条结果`;
+    const message = searchResults.total === 0 ? 
+      "未找到相关结果\n请尝试其他关键词或检查拼写" : 
+      `找到 ${searchResults.total} 条结果${department ? ` (限定在${department})` : ' (跨部门搜索)'}`;
     
     res.json({
       success: true,
-      data: searchResults,
+      data: {
+        ...searchResults,
+        cached: true,
+        lastUpdated: cacheData.lastUpdated,
+        crossDepartment: !department
+      },
       message
     });
 

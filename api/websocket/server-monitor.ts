@@ -1,6 +1,7 @@
-import { Server as SocketIOServer } from 'socket.io';
+import { Server as SocketIOServer, Namespace } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import os from 'os';
+import { performance } from 'perf_hooks';
 
 interface ServerMetrics {
   cpu: {
@@ -36,21 +37,21 @@ interface ServerMetrics {
   timestamp: string;
 }
 
-class ServerMonitorWebSocket {
-  private io: SocketIOServer;
+/**
+ * 服务器监控WebSocket服务
+ * 提供实时的服务器性能监控数据
+ */
+export class ServerMonitorWebSocket {
+  private io: Namespace;
   private metricsInterval: NodeJS.Timeout | null = null;
   private connectedClients = new Set<string>();
+  private lastCpuUsage = process.cpuUsage();
+  private lastCpuTime = performance.now();
 
-  constructor(server: HttpServer) {
-    this.io = new SocketIOServer(server, {
-      cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-      },
-      path: '/socket.io/'
-    });
-
+  constructor(namespace: Namespace) {
+    this.io = namespace;
     this.setupEventHandlers();
+    this.startMetricsCollection();
   }
 
   private setupEventHandlers(): void {
@@ -81,9 +82,43 @@ class ServerMonitorWebSocket {
         this.sendProcessInfo(socket.id);
       });
 
+      // 处理跨系统数据同步订阅
+      socket.on('subscribe-cross-system-updates', () => {
+        if (process.env.LOG_LEVEL !== 'error') {
+          console.log(`Client ${socket.id} subscribed to cross-system updates`);
+        }
+        socket.join('cross-system-updates');
+      });
+
+      // 处理跨系统数据同步取消订阅
+      socket.on('unsubscribe-cross-system-updates', () => {
+        if (process.env.LOG_LEVEL !== 'error') {
+          console.log(`Client ${socket.id} unsubscribed from cross-system updates`);
+        }
+        socket.leave('cross-system-updates');
+      });
+
+      // 处理跨系统查询请求
+      socket.on('cross-system-query', (request) => {
+        if (process.env.LOG_LEVEL !== 'error') {
+          console.log(`Cross-system query from ${socket.id}:`, request);
+        }
+        this.handleCrossSystemQuery(socket, request);
+      });
+
+      // 处理跨系统广播
+      socket.on('cross-system-broadcast', (data) => {
+        if (process.env.LOG_LEVEL !== 'error') {
+          console.log(`Cross-system broadcast from ${socket.id}:`, data);
+        }
+        this.handleCrossSystemBroadcast(socket, data);
+      });
+
       // 处理断开连接
       socket.on('disconnect', () => {
-        console.log(`Client disconnected: ${socket.id}`);
+        if (process.env.LOG_LEVEL !== 'error') {
+          console.log(`Client disconnected: ${socket.id}`);
+        }
         this.connectedClients.delete(socket.id);
 
         // 如果没有客户端连接，停止监控
@@ -99,19 +134,23 @@ class ServerMonitorWebSocket {
       clearInterval(this.metricsInterval);
     }
 
-    // 每2秒发送一次实时数据
+    // 每10秒发送一次实时数据
     this.metricsInterval = setInterval(() => {
       this.broadcastMetrics();
-    }, 2000);
+    }, 10000);
 
-    console.log('Started real-time metrics collection');
+    if (process.env.LOG_LEVEL !== 'error') {
+      console.log('Started real-time metrics collection');
+    }
   }
 
   private stopMetricsCollection(): void {
     if (this.metricsInterval) {
       clearInterval(this.metricsInterval);
       this.metricsInterval = null;
-      console.log('Stopped real-time metrics collection');
+      if (process.env.LOG_LEVEL !== 'error') {
+        console.log('Stopped real-time metrics collection');
+      }
     }
   }
 
@@ -198,7 +237,7 @@ class ServerMonitorWebSocket {
     return Math.round((totalUsage / cpus.length) * 100) / 100;
   }
 
-  private async broadcastMetrics(): void {
+  private async broadcastMetrics(): Promise<void> {
     try {
       const metrics = await this.collectMetrics();
       this.io.emit('metrics-update', metrics);
@@ -211,7 +250,7 @@ class ServerMonitorWebSocket {
     }
   }
 
-  private async sendMetrics(socketId: string): void {
+  private async sendMetrics(socketId: string): Promise<void> {
     try {
       const metrics = await this.collectMetrics();
       this.io.to(socketId).emit('metrics-update', metrics);
@@ -305,9 +344,88 @@ class ServerMonitorWebSocket {
     return this.connectedClients.size;
   }
 
+  // 广播跨系统数据更新
+  public broadcastCrossSystemUpdate(data: {
+    source: 'M1' | 'local';
+    type: 'employee' | 'workstation' | 'department';
+    action: 'create' | 'update' | 'delete';
+    data: any;
+    timestamp: string;
+  }): void {
+    this.io.to('cross-system-updates').emit('cross-system-update', data);
+    console.log('Broadcasted cross-system update:', data.type, data.action);
+  }
+
+  // 广播跨系统错误
+  public broadcastCrossSystemError(error: string): void {
+    this.io.to('cross-system-updates').emit('cross-system-error', {
+      error,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // 广播跨系统状态
+  public broadcastCrossSystemStatus(status: { status: string; systems: any[] }): void {
+    this.io.to('cross-system-updates').emit('cross-system-status', status);
+  }
+
+  // 处理跨系统查询
+  private async handleCrossSystemQuery(socket: any, request: any): Promise<void> {
+    try {
+      // 这里应该根据请求类型调用相应的API或数据库查询
+      // 目前返回模拟数据，实际项目中需要实现具体的查询逻辑
+      const response = {
+        requestId: request.requestId,
+        success: true,
+        data: {
+          message: `Cross-system query processed for ${request.type}`,
+          query: request.query,
+          timestamp: new Date().toISOString()
+        },
+        timestamp: new Date().toISOString(),
+        sourceSystem: request.targetSystem
+      };
+
+      socket.emit('cross-system-response', response);
+    } catch (error) {
+      const errorResponse = {
+        requestId: request.requestId,
+        success: false,
+        data: null,
+        error: error instanceof Error ? error.message : '跨系统查询失败',
+        timestamp: new Date().toISOString(),
+        sourceSystem: request.targetSystem
+      };
+
+      socket.emit('cross-system-response', errorResponse);
+    }
+  }
+
+  // 处理跨系统广播
+  private handleCrossSystemBroadcast(socket: any, data: any): void {
+    try {
+      // 广播数据到所有连接的客户端（除了发送者）
+      socket.broadcast.emit('cross-system-broadcast', {
+        ...data,
+        timestamp: new Date().toISOString()
+      });
+
+      if (process.env.LOG_LEVEL !== 'error') {
+        console.log('Cross-system broadcast sent:', data);
+      }
+    } catch (error) {
+      console.error('Error handling cross-system broadcast:', error);
+      socket.emit('cross-system-error', {
+        error: 'Failed to broadcast data',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
   public close(): void {
     this.stopMetricsCollection();
-    this.io.close();
+    // Namespace doesn't have close method, just disconnect all sockets
+    this.io.disconnectSockets();
   }
 }
 

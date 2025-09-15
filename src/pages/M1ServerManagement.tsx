@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor, Server, Settings, Activity, Users, Shield, BarChart3, Terminal, Database, MapPin, Edit, Trash2, Eye, Plus, LogOut } from 'lucide-react';
+import { Monitor, Server, Settings, Activity, Users, Shield, BarChart3, Terminal, Database, MapPin, Edit, Trash2, Eye, Plus, LogOut, RefreshCw, UserCheck, UserX, Save, X, Wifi, WifiOff, Clock, CheckCircle, AlertCircle, XCircle, Bell, Mail, Phone, Globe, FileText, Download, Power, Languages, Cpu, HardDrive, AlertTriangle, Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import ServerMonitor from '../components/ServerMonitor';
 import ServerDetails from '../components/ServerDetails';
+import DataSyncManager from '../components/DataSyncManager';
+import DepartmentMappingManager from '../components/DepartmentMappingManager';
 import '../styles/m1-theme.css';
 
 interface NavigationItem {
@@ -100,6 +102,18 @@ const M1ServerManagement: React.FC = () => {
       label: '云数据库',
       icon: <Database className="w-5 h-5" />,
       component: <DatabaseManagement />
+    },
+    {
+      id: 'datasync',
+      label: '数据同步',
+      icon: <RefreshCw className="w-5 h-5" />,
+      component: <DataSyncManager />
+    },
+    {
+      id: 'department-mapping',
+      label: '部门映射',
+      icon: <Languages className="w-5 h-5" />,
+      component: <DepartmentMappingManager />
     },
     {
       id: 'workstations',
@@ -345,6 +359,8 @@ const getPageDescription = (tabId: string): string => {
     monitor: '实时监控服务器CPU、内存、磁盘等关键指标',
     details: '查看服务器详细运行数据和系统信息',
     database: '管理云数据库连接、表结构和数据同步状态',
+    datasync: '管理数据同步状态、一致性检查和修复操作',
+    'department-mapping': '管理中文部门名称与英文配置键的映射关系，支持实时同步',
     processes: '管理和监控系统进程状态',
     logs: '查看系统日志和错误报告',
     users: '管理用户账户和权限设置',
@@ -399,17 +415,16 @@ const DatabaseManagement: React.FC = () => {
         setTableData(data.records || []);
         setSelectedTable({ name: tableName, data: data.records || [] });
       } else {
-        // API失败时使用模拟数据
-        const mockData = generateMockTableData(tableName);
-        setTableData(mockData);
-        setSelectedTable({ name: tableName, data: mockData });
+        // API失败时显示空数据
+        console.error('API请求失败，无法获取表数据');
+        setTableData([]);
+        setSelectedTable({ name: tableName, data: [] });
       }
     } catch (error) {
       console.error('获取表数据失败:', error);
-      // 使用模拟数据
-      const mockData = generateMockTableData(tableName);
-      setTableData(mockData);
-      setSelectedTable({ name: tableName, data: mockData });
+      // 显示空数据
+      setTableData([]);
+      setSelectedTable({ name: tableName, data: [] });
     }
   };
 
@@ -469,43 +484,7 @@ const DatabaseManagement: React.FC = () => {
     }
   };
 
-  // 生成模拟表数据
-  const generateMockTableData = (tableName: string) => {
-    switch (tableName) {
-      case 'workstations':
-        return [
-          { id: 1, name: 'WS-001', user: 'Alice', department: 'Engineering', ip: '192.168.1.101', location: 'A区-01', status: 'online' },
-          { id: 2, name: 'WS-002', user: 'Bob', department: 'Marketing', ip: '192.168.1.102', location: 'B区-02', status: 'offline' },
-          { id: 3, name: 'WS-003', user: 'Charlie', department: 'Engineering', ip: '192.168.1.103', location: 'A区-03', status: 'online' }
-        ];
-      case 'employees':
-        return [
-          { id: 1, name: 'Alice Johnson', employee_id: 'EMP001', department: 'Engineering', status: 'online' },
-          { id: 2, name: 'Bob Smith', employee_id: 'EMP002', department: 'Marketing', status: 'offline' },
-          { id: 3, name: 'Charlie Brown', employee_id: 'EMP003', department: 'Engineering', status: 'online' }
-        ];
-      case 'departments':
-        return [
-          { id: 1, name: 'Engineering', manager: 'Alice Johnson', employee_count: 25 },
-          { id: 2, name: 'Marketing', manager: 'Bob Smith', employee_count: 15 },
-          { id: 3, name: 'HR', manager: 'Charlie Brown', employee_count: 8 }
-        ];
-      case 'users':
-        return [
-          { id: 1, username: 'admin', role: 'admin', last_login: '2024-01-15 14:30:25' },
-          { id: 2, username: 'manager1', role: 'manager', last_login: '2024-01-15 13:45:10' },
-          { id: 3, username: 'user1', role: 'user', last_login: '2024-01-15 12:20:05' }
-        ];
-      case 'audit_logs':
-        return [
-          { id: 1, action: 'LOGIN', user: 'admin', timestamp: '2024-01-15 14:30:25', details: '管理员登录' },
-          { id: 2, action: 'UPDATE', user: 'manager1', timestamp: '2024-01-15 14:25:10', details: '更新工位信息' },
-          { id: 3, action: 'DELETE', user: 'admin', timestamp: '2024-01-15 14:20:05', details: '删除过期记录' }
-        ];
-      default:
-        return [];
-    }
-  };
+  // 移除模拟数据生成函数，改为从API获取真实数据
 
   // 初始化数据
   useEffect(() => {
@@ -517,25 +496,9 @@ const DatabaseManagement: React.FC = () => {
     loadData();
   }, []);
 
-  // 默认数据（当API不可用时）
-  const defaultTables = [
-    { name: 'workstations', records: 156, size: '2.3MB', lastUpdate: '2024-01-15 14:30:25' },
-    { name: 'employees', records: 89, size: '1.8MB', lastUpdate: '2024-01-15 14:28:15' },
-    { name: 'departments', records: 12, size: '0.5MB', lastUpdate: '2024-01-15 14:25:10' },
-    { name: 'users', records: 45, size: '1.2MB', lastUpdate: '2024-01-15 14:20:05' },
-    { name: 'audit_logs', records: 945, size: '5.7MB', lastUpdate: '2024-01-15 14:35:20' }
-  ];
-
-  const defaultSyncStatus = {
-    lastSync: '2024-01-15 14:35:20',
-    status: 'success',
-    nextSync: '2024-01-15 14:40:20',
-    totalSynced: 1247
-  };
-
-  // 使用实际数据或默认数据
-  const displayTables = tables.length > 0 ? tables : defaultTables;
-  const displaySyncStatus = syncStatus.length > 0 ? syncStatus[0] : defaultSyncStatus;
+  // 移除默认数据，仅使用从API获取的真实数据
+  const displayTables = tables;
+  const displaySyncStatus = syncStatus.length > 0 ? syncStatus[0] : null;
 
   if (loading) {
     return (
@@ -560,7 +523,7 @@ const DatabaseManagement: React.FC = () => {
         </div>
         <div className="m1-card">
           <div className="m1-card-body text-center">
-            <div className="text-2xl font-bold text-green-400">{displaySyncStatus.totalSynced}</div>
+            <div className="text-2xl font-bold text-green-400">{displaySyncStatus?.totalSynced || 0}</div>
             <div className="text-sm text-gray-400">总记录数</div>
           </div>
         </div>
@@ -572,8 +535,8 @@ const DatabaseManagement: React.FC = () => {
         </div>
         <div className="m1-card">
           <div className="m1-card-body text-center">
-            <div className={`text-2xl font-bold ${displaySyncStatus.status === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-              {displaySyncStatus.status === 'success' ? '正常' : '异常'}
+            <div className={`text-2xl font-bold ${displaySyncStatus?.status === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+              {displaySyncStatus?.status === 'success' ? '正常' : '异常'}
             </div>
             <div className="text-sm text-gray-400">同步状态</div>
           </div>
@@ -646,16 +609,16 @@ const DatabaseManagement: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-400">上次同步时间</span>
-                  <span className="text-sm font-medium">{displaySyncStatus.lastSync}</span>
+                  <span className="text-sm font-medium">{displaySyncStatus?.lastSync || '未知'}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-400">下次同步时间</span>
-                  <span className="text-sm font-medium">{displaySyncStatus.nextSync}</span>
+                  <span className="text-sm font-medium">{displaySyncStatus?.nextSync || '未知'}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-400">同步状态</span>
-                  <span className={`m1-badge ${displaySyncStatus.status === 'success' ? 'm1-badge-success' : 'm1-badge-error'}`}>
-                    {displaySyncStatus.status === 'success' ? '成功' : '失败'}
+                  <span className={`m1-badge ${displaySyncStatus?.status === 'success' ? 'm1-badge-success' : 'm1-badge-error'}`}>
+                    {displaySyncStatus?.status === 'success' ? '成功' : '失败'}
                   </span>
                 </div>
               </div>
@@ -674,7 +637,125 @@ const DatabaseManagement: React.FC = () => {
           </div>
         </div>
       </div>
+
     </div>
+  );
+};
+
+// 用户表单组件
+const UserForm: React.FC<{
+  initialData?: any;
+  onSubmit: (data: any) => void;
+  onCancel: () => void;
+}> = ({ initialData, onSubmit, onCancel }) => {
+  const [formData, setFormData] = useState({
+    username: initialData?.username || '',
+    email: initialData?.email || '',
+    role: initialData?.role || 'employee',
+    department: initialData?.department || '',
+    position: initialData?.position || '',
+    status: initialData?.status || 'active'
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.username || !formData.email) {
+      alert('请填写必填字段');
+      return;
+    }
+    onSubmit(formData);
+  };
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-2">用户名 *</label>
+        <input
+          type="text"
+          className="m1-input w-full"
+          value={formData.username}
+          onChange={(e) => handleChange('username', e.target.value)}
+          required
+        />
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium mb-2">邮箱 *</label>
+        <input
+          type="email"
+          className="m1-input w-full"
+          value={formData.email}
+          onChange={(e) => handleChange('email', e.target.value)}
+          required
+        />
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium mb-2">角色</label>
+        <select
+          className="m1-input w-full"
+          value={formData.role}
+          onChange={(e) => handleChange('role', e.target.value)}
+        >
+          <option value="employee">员工</option>
+          <option value="manager">经理</option>
+          <option value="admin">管理员</option>
+        </select>
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium mb-2">部门</label>
+        <input
+          type="text"
+          className="m1-input w-full"
+          value={formData.department}
+          onChange={(e) => handleChange('department', e.target.value)}
+        />
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium mb-2">职位</label>
+        <input
+          type="text"
+          className="m1-input w-full"
+          value={formData.position}
+          onChange={(e) => handleChange('position', e.target.value)}
+        />
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium mb-2">状态</label>
+        <select
+          className="m1-input w-full"
+          value={formData.status}
+          onChange={(e) => handleChange('status', e.target.value)}
+        >
+          <option value="active">活跃</option>
+          <option value="inactive">停用</option>
+        </select>
+      </div>
+      
+      <div className="flex gap-2 pt-4">
+        <button 
+          type="submit"
+          className="m1-btn m1-btn-primary flex items-center gap-2 flex-1"
+        >
+          <Save className="w-4 h-4" />
+          保存
+        </button>
+        <button 
+          type="button"
+          className="m1-btn m1-btn-ghost flex-1"
+          onClick={onCancel}
+        >
+          取消
+        </button>
+      </div>
+    </form>
   );
 };
 
@@ -979,6 +1060,15 @@ const WorkstationManagement: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedWorkstation, setSelectedWorkstation] = useState<any>(null);
+  
+  // 新增筛选和搜索状态
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [filteredWorkstations, setFilteredWorkstations] = useState<any[]>([]);
+  
+  // 部门列表
+  const departments = ['all', '技术部', '设计部', '产品部', '人事部', '市场部', '财务部'];
 
   // 从localStorage加载工位数据
   const loadWorkstationsFromStorage = () => {
@@ -1029,33 +1119,78 @@ const WorkstationManagement: React.FC = () => {
       const defaultData = [
         {
           id: 1,
+          deskNumber: 'A001',
           name: '开发部-001',
-          user: '张三',
+          employeeName: '张三',
+          employeeId: 'DEV001',
           department: '技术部',
+          position: '前端开发工程师',
           ip: '192.168.1.101',
           status: 'online',
           location: '3楼东区',
+          coordinates: { x: 100, y: 150 },
+          equipment: { computer: 'MacBook Pro', monitor: '27inch 4K', phone: 'IP电话' },
           lastActive: new Date().toLocaleString()
         },
         {
           id: 2,
+          deskNumber: 'B002',
           name: '设计部-002',
-          user: '李四',
+          employeeName: '李四',
+          employeeId: 'DES001',
           department: '设计部',
+          position: 'UI设计师',
           ip: '192.168.1.102',
           status: 'offline',
           location: '3楼西区',
-          lastActive: new Date().toLocaleString()
+          coordinates: { x: 250, y: 150 },
+          equipment: { computer: 'iMac', monitor: '32inch 5K', phone: 'IP电话', tablet: 'iPad Pro' },
+          lastActive: new Date(Date.now() - 300000).toLocaleString()
         },
         {
           id: 3,
+          deskNumber: 'C003',
           name: '产品部-003',
-          user: '王五',
+          employeeName: '王五',
+          employeeId: 'PRD001',
           department: '产品部',
+          position: '产品经理',
           ip: '192.168.1.103',
           status: 'online',
           location: '4楼南区',
+          coordinates: { x: 400, y: 200 },
+          equipment: { computer: 'ThinkPad X1', monitor: '24inch FHD', phone: 'IP电话' },
           lastActive: new Date().toLocaleString()
+        },
+        {
+          id: 4,
+          deskNumber: 'D004',
+          name: '人事部-004',
+          employeeName: '赵六',
+          employeeId: 'HR001',
+          department: '人事部',
+          position: '人事专员',
+          ip: '192.168.1.104',
+          status: 'online',
+          location: '2楼北区',
+          coordinates: { x: 150, y: 100 },
+          equipment: { computer: 'Dell Inspiron', monitor: '22inch FHD', phone: 'IP电话', printer: '激光打印机' },
+          lastActive: new Date().toLocaleString()
+        },
+        {
+          id: 5,
+          deskNumber: 'E005',
+          name: '市场部-005',
+          employeeName: '钱七',
+          employeeId: 'MKT001',
+          department: '市场部',
+          position: '市场专员',
+          ip: '192.168.1.105',
+          status: 'maintenance',
+          location: '4楼西区',
+          coordinates: { x: 300, y: 250 },
+          equipment: { computer: 'Surface Laptop', monitor: '24inch FHD', phone: 'IP电话' },
+          lastActive: new Date(Date.now() - 600000).toLocaleString()
         }
       ];
       setWorkstations(defaultData);
@@ -1074,11 +1209,56 @@ const WorkstationManagement: React.FC = () => {
     
     setStats({ total, online, offline, maintenance });
   };
+  
+  // 筛选和搜索功能
+  const filterWorkstations = () => {
+    let filtered = [...workstations];
+    
+    // 部门筛选
+    if (departmentFilter !== 'all') {
+      filtered = filtered.filter(w => w.department === departmentFilter);
+    }
+    
+    // 状态筛选
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(w => w.status === statusFilter);
+    }
+    
+    // 搜索筛选（支持员工姓名、工位编号、员工ID）
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(w => 
+        w.employeeName?.toLowerCase().includes(query) ||
+        w.deskNumber?.toLowerCase().includes(query) ||
+        w.employeeId?.toLowerCase().includes(query) ||
+        w.name?.toLowerCase().includes(query)
+      );
+    }
+    
+    setFilteredWorkstations(filtered);
+  };
+  
+  // 清空筛选条件
+  const clearFilters = () => {
+    setDepartmentFilter('all');
+    setStatusFilter('all');
+    setSearchQuery('');
+  };
 
   // 初始化数据
   useEffect(() => {
     fetchWorkstations();
   }, []);
+  
+  // 监听工位数据变化，更新筛选结果
+  useEffect(() => {
+    filterWorkstations();
+  }, [workstations, departmentFilter, statusFilter, searchQuery]);
+  
+  // 初始化筛选结果
+  useEffect(() => {
+    setFilteredWorkstations(workstations);
+  }, [workstations]);
 
   // 删除工位
   const handleDeleteWorkstation = async (id: number) => {
@@ -1278,7 +1458,7 @@ const WorkstationManagement: React.FC = () => {
       {/* 工位管理 */}
       <div className="m1-card">
         <div className="m1-card-header">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">工位管理</h3>
             <div className="flex gap-2">
               <button 
@@ -1297,6 +1477,62 @@ const WorkstationManagement: React.FC = () => {
               </button>
             </div>
           </div>
+          
+          {/* 筛选和搜索区域 */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            {/* 搜索框 */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="搜索员工姓名、工位编号或员工ID..."
+                className="m1-input pl-10 w-full"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            
+            {/* 部门筛选 */}
+            <select
+              className="m1-input"
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+            >
+              <option value="all">全部部门</option>
+              {departments.filter(dept => dept !== 'all').map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+            
+            {/* 状态筛选 */}
+            <select
+              className="m1-input"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">全部状态</option>
+              <option value="online">在线</option>
+              <option value="offline">离线</option>
+              <option value="maintenance">维护中</option>
+            </select>
+            
+            {/* 清空筛选按钮 */}
+            <button
+              className="m1-btn m1-btn-ghost flex items-center gap-2"
+              onClick={clearFilters}
+            >
+              <X className="w-4 h-4" />
+              清空筛选
+            </button>
+          </div>
+          
+          {/* 筛选结果统计 */}
+          <div className="text-sm text-gray-400 mb-2">
+            显示 {filteredWorkstations.length} / {workstations.length} 个工位
+            {(departmentFilter !== 'all' || statusFilter !== 'all' || searchQuery.trim()) && (
+              <span className="ml-2 text-blue-400">（已筛选）</span>
+            )}
+          </div>
         </div>
         <div className="m1-card-body">
           {loading ? (
@@ -1308,46 +1544,331 @@ const WorkstationManagement: React.FC = () => {
               <table className="m1-table">
                 <thead>
                   <tr>
-                    <th>工位名称</th>
-                    <th>使用者</th>
+                    <th>工位编号</th>
+                    <th>员工姓名</th>
+                    <th>员工ID</th>
+                    <th>职位</th>
                     <th>部门</th>
-                    <th>IP地址</th>
-                    <th>位置</th>
+                    <th>坐标位置</th>
+                    <th>物理位置</th>
                     <th>状态</th>
                     <th>最后活跃</th>
                     <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {workstations.map((workstation) => (
-                    <tr key={workstation.id}>
-                      <td className="font-medium">{workstation.name}</td>
-                      <td>{workstation.user}</td>
-                      <td>{workstation.department}</td>
-                      <td className="font-mono text-sm">{workstation.ip}</td>
-                      <td>{workstation.location}</td>
+                  {filteredWorkstations.length > 0 ? (
+                    filteredWorkstations.map((workstation) => (
+                      <tr key={workstation.id}>
+                        <td className="font-medium font-mono">{workstation.deskNumber}</td>
+                        <td className="font-medium">{workstation.employeeName}</td>
+                        <td className="font-mono text-sm">{workstation.employeeId}</td>
+                        <td className="text-sm">{workstation.position}</td>
+                        <td>{workstation.department}</td>
+                        <td className="font-mono text-sm">
+                          {workstation.coordinates ? 
+                            `(${workstation.coordinates.x}, ${workstation.coordinates.y})` : 
+                            '未设置'
+                          }
+                        </td>
+                        <td>{workstation.location}</td>
+                        <td>
+                          <span className={`m1-badge ${getStatusBadge(workstation.status)}`}>
+                            {getStatusText(workstation.status)}
+                          </span>
+                        </td>
+                        <td className="text-sm text-gray-400">{workstation.lastActive}</td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              className="m1-btn m1-btn-ghost text-xs flex items-center gap-1"
+                              onClick={() => {
+                                setSelectedWorkstation(workstation);
+                                setShowViewModal(true);
+                              }}
+                            >
+                              <Eye className="w-3 h-3" />
+                              查看
+                            </button>
+                            <button 
+                              className="m1-btn m1-btn-ghost text-xs flex items-center gap-1"
+                              onClick={() => {
+                                setSelectedWorkstation(workstation);
+                                setShowEditModal(true);
+                              }}
+                            >
+                              <Edit className="w-3 h-3" />
+                              编辑
+                            </button>
+                            <button 
+                              className="m1-btn m1-btn-ghost text-xs text-red-400 flex items-center gap-1"
+                              onClick={() => handleDeleteWorkstation(workstation.id)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              删除
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={10} className="text-center py-8 text-gray-400">
+                        {searchQuery.trim() || departmentFilter !== 'all' || statusFilter !== 'all' ? 
+                          '没有找到符合条件的工位' : 
+                          '暂无工位数据'
+                        }
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 用户管理组件
+const UserManagement: React.FC = () => {
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, admins: 0 });
+
+  // 获取用户数据
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:8080/api/users');
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data);
+        updateStats(data);
+        return;
+      }
+    } catch (error) {
+      console.error('获取用户数据失败:', error);
+    }
+    
+    // 使用默认数据
+    const defaultData = [
+      {
+        id: 1,
+        username: 'admin',
+        email: 'admin@company.com',
+        role: 'admin',
+        department: '技术部',
+        position: '系统管理员',
+        status: 'active',
+        lastLogin: new Date().toLocaleString(),
+        createdAt: '2024-01-01'
+      },
+      {
+        id: 2,
+        username: 'manager',
+        email: 'manager@company.com',
+        role: 'manager',
+        department: '技术部',
+        position: '技术经理',
+        status: 'active',
+        lastLogin: new Date().toLocaleString(),
+        createdAt: '2024-01-02'
+      },
+      {
+        id: 3,
+        username: 'employee1',
+        email: 'emp1@company.com',
+        role: 'employee',
+        department: '产品部',
+        position: '产品经理',
+        status: 'inactive',
+        lastLogin: '2024-01-10 14:30:00',
+        createdAt: '2024-01-03'
+      }
+    ];
+    setUsers(defaultData);
+    updateStats(defaultData);
+    setLoading(false);
+  };
+
+  // 更新统计数据
+  const updateStats = (data: any[]) => {
+    const total = data.length;
+    const active = data.filter(u => u.status === 'active').length;
+    const inactive = data.filter(u => u.status === 'inactive').length;
+    const admins = data.filter(u => u.role === 'admin').length;
+    
+    setStats({ total, active, inactive, admins });
+  };
+
+  // 初始化数据
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // 删除用户
+  const handleDeleteUser = async (id: number) => {
+    if (!confirm('确定要删除这个用户吗？')) return;
+    
+    try {
+      await fetch(`http://localhost:8080/api/users/${id}`, {
+        method: 'DELETE'
+      });
+    } catch (error) {
+      console.error('删除用户失败:', error);
+    }
+    
+    const updatedUsers = users.filter(u => u.id !== id);
+    setUsers(updatedUsers);
+    updateStats(updatedUsers);
+  };
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'admin': return 'm1-badge-error';
+      case 'manager': return 'm1-badge-warning';
+      default: return 'm1-badge-success';
+    }
+  };
+
+  const getRoleText = (role: string) => {
+    switch (role) {
+      case 'admin': return '管理员';
+      case 'manager': return '经理';
+      default: return '员工';
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    return status === 'active' ? 'm1-badge-success' : 'm1-badge-error';
+  };
+
+  const getStatusText = (status: string) => {
+    return status === 'active' ? '活跃' : '停用';
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* 用户统计 */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="m1-card">
+          <div className="m1-card-body">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400">总用户数</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <Users className="w-8 h-8 text-blue-400" />
+            </div>
+          </div>
+        </div>
+        <div className="m1-card">
+          <div className="m1-card-body">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400">活跃用户</p>
+                <p className="text-2xl font-bold text-green-400">{stats.active}</p>
+              </div>
+              <UserCheck className="w-8 h-8 text-green-400" />
+            </div>
+          </div>
+        </div>
+        <div className="m1-card">
+          <div className="m1-card-body">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400">停用用户</p>
+                <p className="text-2xl font-bold text-red-400">{stats.inactive}</p>
+              </div>
+              <UserX className="w-8 h-8 text-red-400" />
+            </div>
+          </div>
+        </div>
+        <div className="m1-card">
+          <div className="m1-card-body">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400">管理员</p>
+                <p className="text-2xl font-bold text-purple-400">{stats.admins}</p>
+              </div>
+              <Shield className="w-8 h-8 text-purple-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 用户管理 */}
+      <div className="m1-card">
+        <div className="m1-card-header">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">用户管理</h3>
+            <div className="flex gap-2">
+              <button 
+                className="m1-btn m1-btn-ghost"
+                onClick={fetchUsers}
+                disabled={loading}
+              >
+                {loading ? '刷新中...' : '刷新数据'}
+              </button>
+              <button 
+                className="m1-btn m1-btn-primary flex items-center gap-2"
+                onClick={() => setShowAddModal(true)}
+              >
+                <Plus className="w-4 h-4" />
+                添加用户
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="m1-card-body">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="m1-table">
+                <thead>
+                  <tr>
+                    <th>用户名</th>
+                    <th>邮箱</th>
+                    <th>角色</th>
+                    <th>部门</th>
+                    <th>职位</th>
+                    <th>状态</th>
+                    <th>最后登录</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td className="font-medium">{user.username}</td>
+                      <td>{user.email}</td>
                       <td>
-                        <span className={`m1-badge ${getStatusBadge(workstation.status)}`}>
-                          {getStatusText(workstation.status)}
+                        <span className={`m1-badge ${getRoleBadge(user.role)}`}>
+                          {getRoleText(user.role)}
                         </span>
                       </td>
-                      <td className="text-sm text-gray-400">{workstation.lastActive}</td>
+                      <td>{user.department}</td>
+                      <td>{user.position}</td>
+                      <td>
+                        <span className={`m1-badge ${getStatusBadge(user.status)}`}>
+                          {getStatusText(user.status)}
+                        </span>
+                      </td>
+                      <td className="text-sm text-gray-400">{user.lastLogin}</td>
                       <td>
                         <div className="flex items-center gap-2">
                           <button 
                             className="m1-btn m1-btn-ghost text-xs flex items-center gap-1"
                             onClick={() => {
-                              setSelectedWorkstation(workstation);
-                              setShowViewModal(true);
-                            }}
-                          >
-                            <Eye className="w-3 h-3" />
-                            查看
-                          </button>
-                          <button 
-                            className="m1-btn m1-btn-ghost text-xs flex items-center gap-1"
-                            onClick={() => {
-                              setSelectedWorkstation(workstation);
+                              setSelectedUser(user);
                               setShowEditModal(true);
                             }}
                           >
@@ -1356,7 +1877,7 @@ const WorkstationManagement: React.FC = () => {
                           </button>
                           <button 
                             className="m1-btn m1-btn-ghost text-xs text-red-400 flex items-center gap-1"
-                            onClick={() => handleDeleteWorkstation(workstation.id)}
+                            onClick={() => handleDeleteUser(user.id)}
                           >
                             <Trash2 className="w-3 h-3" />
                             删除
@@ -1375,33 +1896,328 @@ const WorkstationManagement: React.FC = () => {
   );
 };
 
-// 用户管理组件
-const UserManagement: React.FC = () => {
-  return (
-    <div className="space-y-6">
-      <div className="m1-card">
-        <div className="m1-card-header">
-          <h3 className="text-lg font-semibold">用户管理</h3>
-        </div>
-        <div className="m1-card-body">
-          <p className="text-gray-400">用户管理功能正在开发中...</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // 安全设置组件
 const SecuritySettings: React.FC = () => {
+  const [securityConfig, setSecurityConfig] = useState({
+    passwordPolicy: {
+      minLength: 8,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireNumbers: true,
+      requireSpecialChars: true,
+      maxAge: 90
+    },
+    accessControl: {
+      maxLoginAttempts: 5,
+      lockoutDuration: 30,
+      sessionTimeout: 120,
+      twoFactorAuth: false
+    },
+    auditLog: {
+      enabled: true,
+      retentionDays: 365,
+      logLevel: 'info'
+    }
+  });
+  
+  const [auditLogs, setAuditLogs] = useState([
+    {
+      id: 1,
+      timestamp: new Date().toLocaleString(),
+      user: 'admin',
+      action: '用户登录',
+      ip: '192.168.1.100',
+      status: 'success',
+      details: '管理员登录成功'
+    },
+    {
+      id: 2,
+      timestamp: new Date(Date.now() - 300000).toLocaleString(),
+      user: 'manager',
+      action: '修改用户权限',
+      ip: '192.168.1.101',
+      status: 'success',
+      details: '修改用户employee1权限'
+    },
+    {
+      id: 3,
+      timestamp: new Date(Date.now() - 600000).toLocaleString(),
+      user: 'unknown',
+      action: '登录失败',
+      ip: '192.168.1.200',
+      status: 'failed',
+      details: '密码错误，连续失败3次'
+    }
+  ]);
+
+  const updatePasswordPolicy = (field: string, value: any) => {
+    setSecurityConfig(prev => ({
+      ...prev,
+      passwordPolicy: {
+        ...prev.passwordPolicy,
+        [field]: value
+      }
+    }));
+  };
+
+  const updateAccessControl = (field: string, value: any) => {
+    setSecurityConfig(prev => ({
+      ...prev,
+      accessControl: {
+        ...prev.accessControl,
+        [field]: value
+      }
+    }));
+  };
+
+  const updateAuditLog = (field: string, value: any) => {
+    setSecurityConfig(prev => ({
+      ...prev,
+      auditLog: {
+        ...prev.auditLog,
+        [field]: value
+      }
+    }));
+  };
+
+  const getStatusBadge = (status: string) => {
+    return status === 'success' ? 'm1-badge-success' : 'm1-badge-error';
+  };
+
+  const getStatusText = (status: string) => {
+    return status === 'success' ? '成功' : '失败';
+  };
+
   return (
     <div className="space-y-6">
+      {/* 密码策略 */}
       <div className="m1-card">
         <div className="m1-card-header">
-          <h3 className="text-lg font-semibold">安全设置</h3>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            密码策略
+          </h3>
         </div>
         <div className="m1-card-body">
-          <p className="text-gray-400">安全设置功能正在开发中...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium mb-2">最小长度</label>
+              <input
+                type="number"
+                className="m1-input w-full"
+                value={securityConfig.passwordPolicy.minLength}
+                onChange={(e) => updatePasswordPolicy('minLength', parseInt(e.target.value))}
+                min="6"
+                max="32"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">密码有效期（天）</label>
+              <input
+                type="number"
+                className="m1-input w-full"
+                value={securityConfig.passwordPolicy.maxAge}
+                onChange={(e) => updatePasswordPolicy('maxAge', parseInt(e.target.value))}
+                min="30"
+                max="365"
+              />
+            </div>
+          </div>
+          
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="requireUppercase"
+                className="m1-checkbox"
+                checked={securityConfig.passwordPolicy.requireUppercase}
+                onChange={(e) => updatePasswordPolicy('requireUppercase', e.target.checked)}
+              />
+              <label htmlFor="requireUppercase" className="text-sm">要求包含大写字母</label>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="requireLowercase"
+                className="m1-checkbox"
+                checked={securityConfig.passwordPolicy.requireLowercase}
+                onChange={(e) => updatePasswordPolicy('requireLowercase', e.target.checked)}
+              />
+              <label htmlFor="requireLowercase" className="text-sm">要求包含小写字母</label>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="requireNumbers"
+                className="m1-checkbox"
+                checked={securityConfig.passwordPolicy.requireNumbers}
+                onChange={(e) => updatePasswordPolicy('requireNumbers', e.target.checked)}
+              />
+              <label htmlFor="requireNumbers" className="text-sm">要求包含数字</label>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="requireSpecialChars"
+                className="m1-checkbox"
+                checked={securityConfig.passwordPolicy.requireSpecialChars}
+                onChange={(e) => updatePasswordPolicy('requireSpecialChars', e.target.checked)}
+              />
+              <label htmlFor="requireSpecialChars" className="text-sm">要求包含特殊字符</label>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* 访问控制 */}
+      <div className="m1-card">
+        <div className="m1-card-header">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            访问控制
+          </h3>
+        </div>
+        <div className="m1-card-body">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium mb-2">最大登录尝试次数</label>
+              <input
+                type="number"
+                className="m1-input w-full"
+                value={securityConfig.accessControl.maxLoginAttempts}
+                onChange={(e) => updateAccessControl('maxLoginAttempts', parseInt(e.target.value))}
+                min="3"
+                max="10"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">锁定时长（分钟）</label>
+              <input
+                type="number"
+                className="m1-input w-full"
+                value={securityConfig.accessControl.lockoutDuration}
+                onChange={(e) => updateAccessControl('lockoutDuration', parseInt(e.target.value))}
+                min="5"
+                max="1440"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">会话超时（分钟）</label>
+              <input
+                type="number"
+                className="m1-input w-full"
+                value={securityConfig.accessControl.sessionTimeout}
+                onChange={(e) => updateAccessControl('sessionTimeout', parseInt(e.target.value))}
+                min="30"
+                max="480"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="twoFactorAuth"
+                className="m1-checkbox"
+                checked={securityConfig.accessControl.twoFactorAuth}
+                onChange={(e) => updateAccessControl('twoFactorAuth', e.target.checked)}
+              />
+              <label htmlFor="twoFactorAuth" className="text-sm">启用双因素认证</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 审计日志 */}
+      <div className="m1-card">
+        <div className="m1-card-header">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              审计日志
+            </h3>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="auditEnabled"
+                  className="m1-checkbox"
+                  checked={securityConfig.auditLog.enabled}
+                  onChange={(e) => updateAuditLog('enabled', e.target.checked)}
+                />
+                <label htmlFor="auditEnabled" className="text-sm">启用审计日志</label>
+              </div>
+              <button className="m1-btn m1-btn-ghost text-sm">
+                导出日志
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="m1-card-body">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className="block text-sm font-medium mb-2">日志保留天数</label>
+              <input
+                type="number"
+                className="m1-input w-full"
+                value={securityConfig.auditLog.retentionDays}
+                onChange={(e) => updateAuditLog('retentionDays', parseInt(e.target.value))}
+                min="30"
+                max="3650"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">日志级别</label>
+              <select
+                className="m1-input w-full"
+                value={securityConfig.auditLog.logLevel}
+                onChange={(e) => updateAuditLog('logLevel', e.target.value)}
+              >
+                <option value="error">错误</option>
+                <option value="warn">警告</option>
+                <option value="info">信息</option>
+                <option value="debug">调试</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="m1-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>用户</th>
+                  <th>操作</th>
+                  <th>IP地址</th>
+                  <th>状态</th>
+                  <th>详情</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td className="text-sm text-gray-400">{log.timestamp}</td>
+                    <td className="font-medium">{log.user}</td>
+                    <td>{log.action}</td>
+                    <td className="text-sm text-gray-400">{log.ip}</td>
+                    <td>
+                      <span className={`m1-badge ${getStatusBadge(log.status)}`}>
+                        {getStatusText(log.status)}
+                      </span>
+                    </td>
+                    <td className="text-sm text-gray-400">{log.details}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* 保存按钮 */}
+      <div className="flex justify-end">
+        <button className="m1-btn m1-btn-primary flex items-center gap-2">
+          <Save className="w-4 h-4" />
+          保存安全设置
+        </button>
       </div>
     </div>
   );
@@ -1409,14 +2225,335 @@ const SecuritySettings: React.FC = () => {
 
 // 性能分析组件
 const PerformanceAnalytics: React.FC = () => {
+  const [performanceData, setPerformanceData] = useState({
+    cpu: {
+      usage: 45,
+      cores: 8,
+      temperature: 65,
+      frequency: 3.2
+    },
+    memory: {
+      used: 12.5,
+      total: 32,
+      usage: 39,
+      available: 19.5
+    },
+    disk: {
+      used: 256,
+      total: 512,
+      usage: 50,
+      readSpeed: 150,
+      writeSpeed: 120
+    },
+    network: {
+      upload: 25.6,
+      download: 45.2,
+      latency: 12,
+      connections: 156
+    }
+  });
+
+  const [systemMetrics, setSystemMetrics] = useState([
+    {
+      id: 1,
+      timestamp: new Date().toLocaleString(),
+      cpu: 45,
+      memory: 39,
+      disk: 50,
+      network: 35,
+      response: 120
+    },
+    {
+      id: 2,
+      timestamp: new Date(Date.now() - 300000).toLocaleString(),
+      cpu: 42,
+      memory: 37,
+      disk: 48,
+      network: 32,
+      response: 115
+    },
+    {
+      id: 3,
+      timestamp: new Date(Date.now() - 600000).toLocaleString(),
+      cpu: 48,
+      memory: 41,
+      disk: 52,
+      network: 38,
+      response: 125
+    }
+  ]);
+
+  const [alerts, setAlerts] = useState([
+    {
+      id: 1,
+      type: 'warning',
+      message: 'CPU使用率持续高于80%',
+      timestamp: new Date(Date.now() - 180000).toLocaleString(),
+      resolved: false
+    },
+    {
+      id: 2,
+      type: 'info',
+      message: '内存使用率正常',
+      timestamp: new Date(Date.now() - 360000).toLocaleString(),
+      resolved: true
+    }
+  ]);
+
+  const getUsageColor = (usage: number) => {
+    if (usage < 50) return 'text-green-400';
+    if (usage < 80) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getUsageBadge = (usage: number) => {
+    if (usage < 50) return 'm1-badge-success';
+    if (usage < 80) return 'm1-badge-warning';
+    return 'm1-badge-error';
+  };
+
+  const getAlertBadge = (type: string) => {
+    switch (type) {
+      case 'error': return 'm1-badge-error';
+      case 'warning': return 'm1-badge-warning';
+      case 'info': return 'm1-badge-info';
+      default: return 'm1-badge-info';
+    }
+  };
+
+  const refreshMetrics = () => {
+    // 模拟刷新性能数据
+    setPerformanceData(prev => ({
+      ...prev,
+      cpu: {
+        ...prev.cpu,
+        usage: Math.floor(Math.random() * 100),
+        temperature: Math.floor(Math.random() * 30) + 50
+      },
+      memory: {
+        ...prev.memory,
+        usage: Math.floor(Math.random() * 100)
+      },
+      disk: {
+        ...prev.disk,
+        usage: Math.floor(Math.random() * 100)
+      },
+      network: {
+        ...prev.network,
+        upload: Math.floor(Math.random() * 100),
+        download: Math.floor(Math.random() * 100)
+      }
+    }));
+  };
+
   return (
     <div className="space-y-6">
+      {/* 系统概览 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* CPU */}
+        <div className="m1-card">
+          <div className="m1-card-body">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Cpu className="w-5 h-5 text-blue-400" />
+                <span className="font-medium">CPU</span>
+              </div>
+              <span className={`text-2xl font-bold ${getUsageColor(performanceData.cpu.usage)}`}>
+                {performanceData.cpu.usage}%
+              </span>
+            </div>
+            <div className="space-y-2 text-sm text-gray-400">
+              <div className="flex justify-between">
+                <span>核心数:</span>
+                <span>{performanceData.cpu.cores}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>温度:</span>
+                <span>{performanceData.cpu.temperature}°C</span>
+              </div>
+              <div className="flex justify-between">
+                <span>频率:</span>
+                <span>{performanceData.cpu.frequency}GHz</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 内存 */}
+        <div className="m1-card">
+          <div className="m1-card-body">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-5 h-5 text-green-400" />
+                <span className="font-medium">内存</span>
+              </div>
+              <span className={`text-2xl font-bold ${getUsageColor(performanceData.memory.usage)}`}>
+                {performanceData.memory.usage}%
+              </span>
+            </div>
+            <div className="space-y-2 text-sm text-gray-400">
+              <div className="flex justify-between">
+                <span>已用:</span>
+                <span>{performanceData.memory.used}GB</span>
+              </div>
+              <div className="flex justify-between">
+                <span>总计:</span>
+                <span>{performanceData.memory.total}GB</span>
+              </div>
+              <div className="flex justify-between">
+                <span>可用:</span>
+                <span>{performanceData.memory.available}GB</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 磁盘 */}
+        <div className="m1-card">
+          <div className="m1-card-body">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-purple-400" />
+                <span className="font-medium">磁盘</span>
+              </div>
+              <span className={`text-2xl font-bold ${getUsageColor(performanceData.disk.usage)}`}>
+                {performanceData.disk.usage}%
+              </span>
+            </div>
+            <div className="space-y-2 text-sm text-gray-400">
+              <div className="flex justify-between">
+                <span>已用:</span>
+                <span>{performanceData.disk.used}GB</span>
+              </div>
+              <div className="flex justify-between">
+                <span>总计:</span>
+                <span>{performanceData.disk.total}GB</span>
+              </div>
+              <div className="flex justify-between">
+                <span>读取:</span>
+                <span>{performanceData.disk.readSpeed}MB/s</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 网络 */}
+        <div className="m1-card">
+          <div className="m1-card-body">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Wifi className="w-5 h-5 text-orange-400" />
+                <span className="font-medium">网络</span>
+              </div>
+              <span className="text-2xl font-bold text-blue-400">
+                {performanceData.network.connections}
+              </span>
+            </div>
+            <div className="space-y-2 text-sm text-gray-400">
+              <div className="flex justify-between">
+                <span>上传:</span>
+                <span>{performanceData.network.upload}MB/s</span>
+              </div>
+              <div className="flex justify-between">
+                <span>下载:</span>
+                <span>{performanceData.network.download}MB/s</span>
+              </div>
+              <div className="flex justify-between">
+                <span>延迟:</span>
+                <span>{performanceData.network.latency}ms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 性能监控 */}
       <div className="m1-card">
         <div className="m1-card-header">
-          <h3 className="text-lg font-semibold">性能分析</h3>
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              性能监控
+            </h3>
+            <button 
+              onClick={refreshMetrics}
+              className="m1-btn m1-btn-ghost text-sm flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              刷新数据
+            </button>
+          </div>
         </div>
         <div className="m1-card-body">
-          <p className="text-gray-400">性能分析功能正在开发中...</p>
+          <div className="overflow-x-auto">
+            <table className="m1-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>CPU (%)</th>
+                  <th>内存 (%)</th>
+                  <th>磁盘 (%)</th>
+                  <th>网络 (%)</th>
+                  <th>响应时间 (ms)</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                {systemMetrics.map((metric) => (
+                  <tr key={metric.id}>
+                    <td className="text-sm text-gray-400">{metric.timestamp}</td>
+                    <td className={getUsageColor(metric.cpu)}>{metric.cpu}%</td>
+                    <td className={getUsageColor(metric.memory)}>{metric.memory}%</td>
+                    <td className={getUsageColor(metric.disk)}>{metric.disk}%</td>
+                    <td className={getUsageColor(metric.network)}>{metric.network}%</td>
+                    <td>{metric.response}</td>
+                    <td>
+                      <span className={`m1-badge ${getUsageBadge(Math.max(metric.cpu, metric.memory, metric.disk))}`}>
+                        {Math.max(metric.cpu, metric.memory, metric.disk) < 50 ? '正常' : 
+                         Math.max(metric.cpu, metric.memory, metric.disk) < 80 ? '警告' : '异常'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* 系统告警 */}
+      <div className="m1-card">
+        <div className="m1-card-header">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            系统告警
+          </h3>
+        </div>
+        <div className="m1-card-body">
+          <div className="space-y-4">
+            {alerts.map((alert) => (
+              <div key={alert.id} className="flex items-center justify-between p-4 border border-gray-700 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <span className={`m1-badge ${getAlertBadge(alert.type)}`}>
+                    {alert.type === 'error' ? '错误' : alert.type === 'warning' ? '警告' : '信息'}
+                  </span>
+                  <div>
+                    <p className="font-medium">{alert.message}</p>
+                    <p className="text-sm text-gray-400">{alert.timestamp}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {alert.resolved ? (
+                    <span className="text-green-400 text-sm">已解决</span>
+                  ) : (
+                    <button className="m1-btn m1-btn-ghost text-sm">
+                      标记已解决
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -1425,14 +2562,582 @@ const PerformanceAnalytics: React.FC = () => {
 
 // 系统设置组件
 const SystemSettings: React.FC = () => {
+  const [systemConfig, setSystemConfig] = useState({
+    serverName: 'M1-Server-001',
+    serverDescription: '部门地图管理服务器',
+    timezone: 'Asia/Shanghai',
+    language: 'zh-CN',
+    theme: 'dark',
+    autoBackup: true,
+    backupInterval: 24,
+    logLevel: 'info',
+    maxConnections: 1000,
+    sessionTimeout: 30,
+    enableSSL: true,
+    sslPort: 443,
+    enableCORS: true,
+    corsOrigins: '*'
+  });
+
+  const [backupSettings, setBackupSettings] = useState({
+    enabled: true,
+    schedule: 'daily',
+    retention: 30,
+    location: '/backup',
+    compression: true
+  });
+
+  const [notifications, setNotifications] = useState({
+    email: true,
+    emailAddress: 'admin@company.com',
+    sms: false,
+    smsNumber: '',
+    webhook: false,
+    webhookUrl: ''
+  });
+
+  const [systemLogs, setSystemLogs] = useState([
+    {
+      id: 1,
+      timestamp: new Date().toLocaleString(),
+      level: 'info',
+      module: 'System',
+      message: '系统启动完成',
+      details: '所有服务正常运行'
+    },
+    {
+      id: 2,
+      timestamp: new Date(Date.now() - 300000).toLocaleString(),
+      level: 'warning',
+      module: 'Database',
+      message: '数据库连接池达到80%',
+      details: '当前连接数: 800/1000'
+    },
+    {
+      id: 3,
+      timestamp: new Date(Date.now() - 600000).toLocaleString(),
+      level: 'error',
+      module: 'Auth',
+      message: '登录失败次数过多',
+      details: 'IP: 192.168.1.100, 尝试次数: 5'
+    }
+  ]);
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleConfigChange = (key: string, value: any) => {
+    setSystemConfig(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleBackupChange = (key: string, value: any) => {
+    setBackupSettings(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleNotificationChange = (key: string, value: any) => {
+    setNotifications(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const saveSettings = async () => {
+    setIsLoading(true);
+    try {
+      // 模拟保存设置
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('Settings saved:', { systemConfig, backupSettings, notifications });
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const restartSystem = async () => {
+    if (confirm('确定要重启系统吗？这将中断所有连接。')) {
+      setIsLoading(true);
+      try {
+        // 模拟重启系统
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        console.log('System restart initiated');
+      } catch (error) {
+        console.error('Failed to restart system:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const exportLogs = () => {
+    const logsData = JSON.stringify(systemLogs, null, 2);
+    const blob = new Blob([logsData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `system-logs-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const clearLogs = () => {
+    if (confirm('确定要清空所有日志吗？此操作不可恢复。')) {
+      setSystemLogs([]);
+    }
+  };
+
+  const getLogBadge = (level: string) => {
+    switch (level) {
+      case 'error': return 'm1-badge-error';
+      case 'warning': return 'm1-badge-warning';
+      case 'info': return 'm1-badge-info';
+      default: return 'm1-badge-info';
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* 基本设置 */}
       <div className="m1-card">
         <div className="m1-card-header">
-          <h3 className="text-lg font-semibold">系统设置</h3>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            基本设置
+          </h3>
         </div>
         <div className="m1-card-body">
-          <p className="text-gray-400">系统设置功能正在开发中...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">服务器名称</label>
+                <input
+                  type="text"
+                  value={systemConfig.serverName}
+                  onChange={(e) => handleConfigChange('serverName', e.target.value)}
+                  className="m1-input"
+                  placeholder="输入服务器名称"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">服务器描述</label>
+                <textarea
+                  value={systemConfig.serverDescription}
+                  onChange={(e) => handleConfigChange('serverDescription', e.target.value)}
+                  className="m1-input h-20 resize-none"
+                  placeholder="输入服务器描述"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">时区</label>
+                <select
+                  value={systemConfig.timezone}
+                  onChange={(e) => handleConfigChange('timezone', e.target.value)}
+                  className="m1-input"
+                >
+                  <option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option>
+                  <option value="UTC">UTC (UTC+0)</option>
+                  <option value="America/New_York">America/New_York (UTC-5)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">语言</label>
+                <select
+                  value={systemConfig.language}
+                  onChange={(e) => handleConfigChange('language', e.target.value)}
+                  className="m1-input"
+                >
+                  <option value="zh-CN">简体中文</option>
+                  <option value="en-US">English</option>
+                  <option value="ja-JP">日本語</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">主题</label>
+                <select
+                  value={systemConfig.theme}
+                  onChange={(e) => handleConfigChange('theme', e.target.value)}
+                  className="m1-input"
+                >
+                  <option value="dark">深色主题</option>
+                  <option value="light">浅色主题</option>
+                  <option value="auto">自动</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">日志级别</label>
+                <select
+                  value={systemConfig.logLevel}
+                  onChange={(e) => handleConfigChange('logLevel', e.target.value)}
+                  className="m1-input"
+                >
+                  <option value="debug">Debug</option>
+                  <option value="info">Info</option>
+                  <option value="warning">Warning</option>
+                  <option value="error">Error</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">最大连接数</label>
+                <input
+                  type="number"
+                  value={systemConfig.maxConnections}
+                  onChange={(e) => handleConfigChange('maxConnections', parseInt(e.target.value))}
+                  className="m1-input"
+                  min="100"
+                  max="10000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">会话超时 (分钟)</label>
+                <input
+                  type="number"
+                  value={systemConfig.sessionTimeout}
+                  onChange={(e) => handleConfigChange('sessionTimeout', parseInt(e.target.value))}
+                  className="m1-input"
+                  min="5"
+                  max="120"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 安全设置 */}
+      <div className="m1-card">
+        <div className="m1-card-header">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            安全设置
+          </h3>
+        </div>
+        <div className="m1-card-body">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-sm font-medium">启用SSL</label>
+                  <p className="text-xs text-gray-400">使用HTTPS加密连接</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={systemConfig.enableSSL}
+                  onChange={(e) => handleConfigChange('enableSSL', e.target.checked)}
+                  className="m1-checkbox"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">SSL端口</label>
+                <input
+                  type="number"
+                  value={systemConfig.sslPort}
+                  onChange={(e) => handleConfigChange('sslPort', parseInt(e.target.value))}
+                  className="m1-input"
+                  disabled={!systemConfig.enableSSL}
+                />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-sm font-medium">启用CORS</label>
+                  <p className="text-xs text-gray-400">允许跨域请求</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={systemConfig.enableCORS}
+                  onChange={(e) => handleConfigChange('enableCORS', e.target.checked)}
+                  className="m1-checkbox"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">CORS来源</label>
+                <input
+                  type="text"
+                  value={systemConfig.corsOrigins}
+                  onChange={(e) => handleConfigChange('corsOrigins', e.target.value)}
+                  className="m1-input"
+                  placeholder="*或具体域名"
+                  disabled={!systemConfig.enableCORS}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 备份设置 */}
+      <div className="m1-card">
+        <div className="m1-card-header">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Database className="w-5 h-5" />
+            备份设置
+          </h3>
+        </div>
+        <div className="m1-card-body">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-sm font-medium">自动备份</label>
+                  <p className="text-xs text-gray-400">定期自动备份数据</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={backupSettings.enabled}
+                  onChange={(e) => handleBackupChange('enabled', e.target.checked)}
+                  className="m1-checkbox"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">备份频率</label>
+                <select
+                  value={backupSettings.schedule}
+                  onChange={(e) => handleBackupChange('schedule', e.target.value)}
+                  className="m1-input"
+                  disabled={!backupSettings.enabled}
+                >
+                  <option value="hourly">每小时</option>
+                  <option value="daily">每天</option>
+                  <option value="weekly">每周</option>
+                  <option value="monthly">每月</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">保留天数</label>
+                <input
+                  type="number"
+                  value={backupSettings.retention}
+                  onChange={(e) => handleBackupChange('retention', parseInt(e.target.value))}
+                  className="m1-input"
+                  min="1"
+                  max="365"
+                  disabled={!backupSettings.enabled}
+                />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">备份位置</label>
+                <input
+                  type="text"
+                  value={backupSettings.location}
+                  onChange={(e) => handleBackupChange('location', e.target.value)}
+                  className="m1-input"
+                  placeholder="备份文件存储路径"
+                  disabled={!backupSettings.enabled}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-sm font-medium">启用压缩</label>
+                  <p className="text-xs text-gray-400">压缩备份文件以节省空间</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={backupSettings.compression}
+                  onChange={(e) => handleBackupChange('compression', e.target.checked)}
+                  className="m1-checkbox"
+                  disabled={!backupSettings.enabled}
+                />
+              </div>
+              <div className="pt-4">
+                <button className="m1-btn m1-btn-primary w-full" disabled={!backupSettings.enabled}>
+                  立即备份
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 通知设置 */}
+      <div className="m1-card">
+        <div className="m1-card-header">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Bell className="w-5 h-5" />
+            通知设置
+          </h3>
+        </div>
+        <div className="m1-card-body">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 border border-gray-700 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Mail className="w-5 h-5 text-blue-400" />
+                <div>
+                  <label className="block text-sm font-medium">邮件通知</label>
+                  <p className="text-xs text-gray-400">通过邮件接收系统通知</p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={notifications.email}
+                onChange={(e) => handleNotificationChange('email', e.target.checked)}
+                className="m1-checkbox"
+              />
+            </div>
+            {notifications.email && (
+              <div className="ml-8">
+                <input
+                  type="email"
+                  value={notifications.emailAddress}
+                  onChange={(e) => handleNotificationChange('emailAddress', e.target.value)}
+                  className="m1-input"
+                  placeholder="输入邮箱地址"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between p-4 border border-gray-700 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Phone className="w-5 h-5 text-green-400" />
+                <div>
+                  <label className="block text-sm font-medium">短信通知</label>
+                  <p className="text-xs text-gray-400">通过短信接收紧急通知</p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={notifications.sms}
+                onChange={(e) => handleNotificationChange('sms', e.target.checked)}
+                className="m1-checkbox"
+              />
+            </div>
+            {notifications.sms && (
+              <div className="ml-8">
+                <input
+                  type="tel"
+                  value={notifications.smsNumber}
+                  onChange={(e) => handleNotificationChange('smsNumber', e.target.value)}
+                  className="m1-input"
+                  placeholder="输入手机号码"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between p-4 border border-gray-700 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Globe className="w-5 h-5 text-purple-400" />
+                <div>
+                  <label className="block text-sm font-medium">Webhook通知</label>
+                  <p className="text-xs text-gray-400">通过HTTP回调发送通知</p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={notifications.webhook}
+                onChange={(e) => handleNotificationChange('webhook', e.target.checked)}
+                className="m1-checkbox"
+              />
+            </div>
+            {notifications.webhook && (
+              <div className="ml-8">
+                <input
+                  type="url"
+                  value={notifications.webhookUrl}
+                  onChange={(e) => handleNotificationChange('webhookUrl', e.target.value)}
+                  className="m1-input"
+                  placeholder="输入Webhook URL"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 系统日志 */}
+      <div className="m1-card">
+        <div className="m1-card-header">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              系统日志
+            </h3>
+            <div className="flex gap-2">
+              <button 
+                onClick={exportLogs}
+                className="m1-btn m1-btn-ghost text-sm flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                导出日志
+              </button>
+              <button 
+                onClick={clearLogs}
+                className="m1-btn m1-btn-ghost text-sm flex items-center gap-2 text-red-400 hover:text-red-300"
+              >
+                <Trash2 className="w-4 h-4" />
+                清空日志
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="m1-card-body">
+          <div className="overflow-x-auto">
+            <table className="m1-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>级别</th>
+                  <th>模块</th>
+                  <th>消息</th>
+                  <th>详情</th>
+                </tr>
+              </thead>
+              <tbody>
+                {systemLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td className="text-sm text-gray-400">{log.timestamp}</td>
+                    <td>
+                      <span className={`m1-badge ${getLogBadge(log.level)}`}>
+                        {log.level.toUpperCase()}
+                      </span>
+                    </td>
+                    <td>{log.module}</td>
+                    <td>{log.message}</td>
+                    <td className="text-sm text-gray-400">{log.details}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* 操作按钮 */}
+      <div className="flex justify-between items-center">
+        <button 
+          onClick={restartSystem}
+          className="m1-btn m1-btn-error flex items-center gap-2"
+          disabled={isLoading}
+        >
+          <Power className="w-4 h-4" />
+          重启系统
+        </button>
+        <div className="flex gap-3">
+          <button className="m1-btn m1-btn-ghost" disabled={isLoading}>
+            重置设置
+          </button>
+          <button 
+            onClick={saveSettings}
+            className="m1-btn m1-btn-primary flex items-center gap-2"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            保存设置
+          </button>
         </div>
       </div>
     </div>

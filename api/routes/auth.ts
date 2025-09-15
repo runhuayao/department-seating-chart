@@ -2,7 +2,8 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { db } from '../database/memory.js';
+import { getSqliteConnection } from '../database/sqlite-connection.js';
+const db = getSqliteConnection();
 import { SystemLogDAO } from '../database/dao.js';
 import { authenticateToken, generateToken } from '../middleware/auth.js';
 
@@ -41,24 +42,21 @@ router.post('/login', async (req: Request, res: Response) => {
     const { username, password } = validation.data;
     
     // 查询用户
-    const result = await db.query({
-      text: `
-        SELECT u.*, e.name as employee_name, e.department_id
-        FROM users u
-        LEFT JOIN employees e ON u.employee_id = e.id
-        WHERE u.username = $1 AND u.status = 'active'
-      `,
-      values: [username]
-    });
+    const result = await db.query(`
+      SELECT u.*, e.name as employee_name, e.department
+      FROM users u
+      LEFT JOIN employees e ON u.employee_id = e.id
+      WHERE u.username = ? AND u.status = 'active'
+    `, [username]);
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(401).json({
         success: false,
         message: '用户名或密码错误'
       });
     }
 
-    const user = result.rows[0];
+    const user = result[0];
     
     // 验证密码
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
@@ -77,10 +75,7 @@ router.post('/login', async (req: Request, res: Response) => {
     });
 
     // 更新最后登录时间
-    await db.query({
-      text: 'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
-      values: [user.id]
-    });
+    await db.query('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
 
     // 记录登录日志
     await SystemLogDAO.log({
@@ -88,7 +83,7 @@ router.post('/login', async (req: Request, res: Response) => {
       action: 'login',
       resource_type: 'auth',
       resource_id: user.id.toString(),
-      details: { username: user.username },
+      details: JSON.stringify({ username: user.username }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });
@@ -203,7 +198,7 @@ router.post('/register', async (req: Request, res: Response) => {
       action: 'register',
       resource_type: 'auth',
       resource_id: newUser.id.toString(),
-      details: { username: newUser.username, role: newUser.role },
+      details: JSON.stringify({ username: newUser.username, role: newUser.role }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });

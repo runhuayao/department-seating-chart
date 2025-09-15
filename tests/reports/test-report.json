@@ -1,0 +1,65 @@
+{
+  "timestamp": "2025-09-15T07:06:11.580Z",
+  "summary": {
+    "duration": 493,
+    "suites": {
+      "total": 3,
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0
+    },
+    "tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0
+    },
+    "coverage": 0
+  },
+  "suites": [
+    {
+      "name": "搜索功能测试",
+      "file": "search.test.js",
+      "description": "测试搜索栏数据请求、API调用和数据库查询功能",
+      "priority": "high",
+      "startTime": 1757919971093,
+      "endTime": 1757919971313,
+      "status": "failed",
+      "output": "",
+      "error": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\node_modules\\@jest\\globals\\build\\index.js:23\r\nthrow new Error('Do not import `@jest/globals` outside of the Jest test environment');\r\n      ^\r\n\r\nError: Do not import `@jest/globals` outside of the Jest test environment\r\n    at D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\node_modules\\@jest\\globals\\build\\index.js:23:7\r\n    at Object.<anonymous> (D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\node_modules\\@jest\\globals\\build\\index.js:25:12)\r\n    at Module._compile (node:internal/modules/cjs/loader:1706:14)\r\n    at Object..js (node:internal/modules/cjs/loader:1839:10)\r\n    at Module.load (node:internal/modules/cjs/loader:1441:32)\r\n    at Function._load (node:internal/modules/cjs/loader:1263:12)\r\n    at TracingChannel.traceSync (node:diagnostics_channel:322:14)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)\r\n    at cjsLoader (node:internal/modules/esm/translators:268:5)\r\n    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:202:7)\r\n\r\nNode.js v22.19.0\r\n",
+      "testCount": 0,
+      "passedTests": 0,
+      "failedTests": 0,
+      "duration": 220
+    },
+    {
+      "name": "WebSocket连接管理测试",
+      "file": "websocket.test.js",
+      "description": "测试WebSocket单实例连接控制和状态管理",
+      "priority": "high",
+      "startTime": 1757919971314,
+      "endTime": 1757919971483,
+      "status": "failed",
+      "output": "",
+      "error": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\node_modules\\@jest\\globals\\build\\index.js:23\r\nthrow new Error('Do not import `@jest/globals` outside of the Jest test environment');\r\n      ^\r\n\r\nError: Do not import `@jest/globals` outside of the Jest test environment\r\n    at D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\node_modules\\@jest\\globals\\build\\index.js:23:7\r\n    at Object.<anonymous> (D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\node_modules\\@jest\\globals\\build\\index.js:25:12)\r\n    at Module._compile (node:internal/modules/cjs/loader:1706:14)\r\n    at Object..js (node:internal/modules/cjs/loader:1839:10)\r\n    at Module.load (node:internal/modules/cjs/loader:1441:32)\r\n    at Function._load (node:internal/modules/cjs/loader:1263:12)\r\n    at TracingChannel.traceSync (node:diagnostics_channel:322:14)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)\r\n    at cjsLoader (node:internal/modules/esm/translators:268:5)\r\n    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:202:7)\r\n\r\nNode.js v22.19.0\r\n",
+      "testCount": 0,
+      "passedTests": 0,
+      "failedTests": 0,
+      "duration": 169
+    },
+    {
+      "name": "数据库操作测试",
+      "file": "database.test.js",
+      "description": "测试SQLite和PostgreSQL数据库连接、查询和错误处理",
+      "priority": "medium",
+      "startTime": 1757919971483,
+      "endTime": 1757919971580,
+      "status": "failed",
+      "output": "",
+      "error": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\node_modules\\@jest\\globals\\build\\index.js:23\r\nthrow new Error('Do not import `@jest/globals` outside of the Jest test environment');\r\n      ^\r\n\r\nError: Do not import `@jest/globals` outside of the Jest test environment\r\n    at D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\node_modules\\@jest\\globals\\build\\index.js:23:7\r\n    at Object.<anonymous> (D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\node_modules\\@jest\\globals\\build\\index.js:25:12)\r\n    at Module._compile (node:internal/modules/cjs/loader:1706:14)\r\n    at Object..js (node:internal/modules/cjs/loader:1839:10)\r\n    at Module.load (node:internal/modules/cjs/loader:1441:32)\r\n    at Function._load (node:internal/modules/cjs/loader:1263:12)\r\n    at TracingChannel.traceSync (node:diagnostics_channel:322:14)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)\r\n    at cjsLoader (node:internal/modules/esm/translators:268:5)\r\n    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:202:7)\r\n\r\nNode.js v22.19.0\r\n",
+      "testCount": 0,
+      "passedTests": 0,
+      "failedTests": 0,
+      "duration": 97
+    }
+  ]
+}

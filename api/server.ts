@@ -9,12 +9,13 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import { initializeDatabase, closeDatabaseConnections } from './config/database.js';
+import { initializeDatabase, closeDatabaseConnections } from './database/index.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import db from './models/database.js';
+import { db } from './database/index.js';
 import { createServer } from 'http';
-import ServerMonitorWebSocket from './websocket/server-monitor.js';
+import { initializeDepartmentSync } from './websocket/departmentSync.js';
+import { WebSocketManager } from './websocket/websocket-manager.js';
 import authRoutes from './routes/auth.js';
 import workstationRoutes from './routes/workstations.js';
 import databaseRoutes from './routes/database.js';
@@ -22,6 +23,10 @@ import searchRoutes from './routes/search.js';
 import employeesRoutes from './routes/employees.js';
 import departmentsRoutes from './routes/departments.js';
 import overviewRoutes from './routes/overview.js';
+import dataSyncRoutes, { setDataSyncWebSocket } from './routes/data-sync.js';
+import crossSystemQueryRoutes from './routes/crossSystemQuery.js';
+import searchCacheRoutes from './routes/search-cache.js';
+import websocketRoutes, { setWebSocketInstance } from './routes/websocket.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -69,7 +74,7 @@ app.use(express.json({
   verify: (req, res, buf, encoding) => {
     if (buf.length > 10 * 1024 * 1024) {
       const error = new Error('请求体过大');
-      error.status = 413;
+      (error as any).status = 413;
       throw error;
     }
   }
@@ -80,7 +85,7 @@ app.use(express.urlencoded({
   verify: (req, res, buf, encoding) => {
     if (buf.length > 10 * 1024 * 1024) {
       const error = new Error('请求体过大');
-      error.status = 413;
+      (error as any).status = 413;
       throw error;
     }
   }
@@ -100,6 +105,10 @@ app.use('/api/search', searchRoutes);
 app.use('/api/employees', employeesRoutes);
 app.use('/api/departments', departmentsRoutes);
 app.use('/api/overview', overviewRoutes);
+app.use('/api/data-sync', dataSyncRoutes);
+app.use('/api/cross-system', crossSystemQueryRoutes);
+app.use('/api/search-cache', searchCacheRoutes);
+app.use('/api/websocket', websocketRoutes);
 
 // API 路由
 app.get('/api/health', (req, res) => {
@@ -173,7 +182,7 @@ const PORT = process.env.PORT || 8080;
 
 // 全局server变量
 let server: any = null;
-let serverMonitorWS: any = null;
+let wsManager: WebSocketManager | null = null;
 
 // 启动服务器
 async function startServer() {
@@ -184,13 +193,24 @@ async function startServer() {
     // Create HTTP server
     server = createServer(app);
 
-    // Initialize WebSocket for server monitoring
-    serverMonitorWS = new ServerMonitorWebSocket(server);
+    // Initialize unified WebSocket manager
+    wsManager = new WebSocketManager(server);
+    
+    // 初始化部门同步WebSocket服务
+    const departmentSyncServer = initializeDepartmentSync(server);
+    
+    // 设置数据同步WebSocket实例到路由
+    setDataSyncWebSocket(wsManager.getDataSyncWebSocket());
+    
+    // 设置WebSocket实例到WebSocket路由
+    setWebSocketInstance(wsManager.getDataSyncWebSocket());
 
     server.listen(PORT, () => {
       console.log(`🚀 服务器运行在端口 ${PORT}`);
       console.log(`📍 API地址: http://localhost:${PORT}/api`);
       console.log(`🔒 认证系统已启用`);
+      console.log(`🔄 数据同步WebSocket已启动`);
+      console.log(`🔌 部门同步WebSocket: ws://localhost:${PORT}/ws/department-sync`);
     });
   } catch (error) {
     console.error('❌ 服务器启动失败:', error);
@@ -212,9 +232,9 @@ const gracefulShutdown = async (signal: string) => {
     server.close(async () => {
       console.log('✅ HTTP服务器已关闭');
       
-      // 关闭WebSocket
-      if (serverMonitorWS) {
-        serverMonitorWS.close();
+      // 关闭WebSocket管理器
+      if (wsManager) {
+        wsManager.close();
       }
       
       // 关闭数据库连接

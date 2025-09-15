@@ -4,7 +4,11 @@
   "ignore": ["api/dist/*"],
   "exec": "tsx api/server.ts",
   "env": {
-    "NODE_ENV": "development"
+    "NODE_ENV": "development",
+    "LOG_LEVEL": "error"
   },
-  "delay": 1000
+  "delay": 2000,
+  "verbose": false,
+  "quiet": true,
+  "colours": false
 }

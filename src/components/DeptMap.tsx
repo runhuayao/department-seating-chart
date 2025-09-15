@@ -3,6 +3,7 @@ import { zoom, zoomIdentity, ZoomBehavior } from 'd3-zoom';
 import { select } from 'd3-selection';
 import { 
   getDepartmentConfig, 
+  getDepartmentConfigByChinese,
   getEmployeeById, 
   Desk as DeskType, 
   Employee, 
@@ -27,8 +28,12 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   const [selectedDesk, setSelectedDesk] = useState<DeskWithEmployee | null>(null);
   const [highlightedDesk, setHighlightedDesk] = useState<string | null>(null);
   
-  // 获取当前部门的配置数据
-  const deptConfig = getDepartmentConfig(department);
+  // 获取当前部门的配置数据（支持中文部门名称）
+  let deptConfig = getDepartmentConfig(department);
+  if (!deptConfig) {
+    // 尝试使用中文部门名称获取配置
+    deptConfig = getDepartmentConfigByChinese(department);
+  }
   
   // 如果部门配置不存在，显示错误提示
   if (!deptConfig) {
@@ -37,6 +42,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         <div className="text-center">
           <h3 className="text-lg font-semibold text-gray-800 mb-2">部门不存在</h3>
           <p className="text-gray-600">未找到部门 "{department}" 的配置信息</p>
+          <p className="text-sm text-gray-500 mt-2">支持的部门：技术部、产品部、运营部、人事部</p>
         </div>
       </div>
     );

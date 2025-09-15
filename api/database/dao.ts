@@ -3,6 +3,7 @@
  * 封装所有数据库操作
  */
 import { db } from './memory.js';
+
 import {
   Department,
   Employee,
@@ -10,8 +11,44 @@ import {
   User,
   SystemLog,
   DeskAssignment,
-  UserSession
+  UserSession,
+  EmployeeWithDetails,
+  DeskWithDetails,
+  DepartmentStats,
+  PaginationParams,
+  SearchParams
 } from '../types/database.js';
+
+// 系统统计接口
+interface SystemStats {
+  totalEmployees: number;
+  totalDesks: number;
+  occupiedDesks: number;
+  availableDesks: number;
+  occupancyRate: number;
+  departmentCount: number;
+}
+
+// 扩展接口定义
+interface DeskAssignmentInfo {
+  id: number;
+  desk_id: number;
+  employee_id: number;
+  assigned_at: string;
+  status: string;
+}
+
+interface EmployeeInfo {
+  id: number;
+  name: string;
+  employee_id: string;
+}
+
+interface WorkstationInfo {
+  ip_address: string;
+  computer_name: string;
+  status: string;
+}
 
 /**
  * 部门数据访问对象
@@ -21,21 +58,16 @@ export class DepartmentDAO {
    * 获取所有部门
    */
   static async findAll(): Promise<Department[]> {
-    const result = await db.query({
-      text: 'SELECT * FROM departments ORDER BY name'
-    });
+    const result = await db.query({text: 'SELECT * FROM departments ORDER BY name', values: []});
     return result.rows;
   }
 
   /**
    * 根据ID获取部门
    */
-  static async findById(id: number): Promise<Department | null> {
-    const result = await db.query({
-      text: 'SELECT * FROM departments WHERE id = $1',
-      values: [id]
-    });
-    return result.rows[0] || null;
+  static async findById(id: string): Promise<Department | null> {
+    const result = await db.query({text: 'SELECT * FROM departments WHERE id = $1', values: [id]});
+    return result.rows.length > 0 ? result.rows[0] : null;
   }
 
   /**
@@ -43,9 +75,9 @@ export class DepartmentDAO {
    */
   static async create(department: Omit<Department, 'id' | 'created_at' | 'updated_at'>): Promise<Department> {
     const result = await db.query({
-      text: `INSERT INTO departments (name, code, description, floor, building, manager_id) 
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      values: [department.name, department.code, department.description, department.floor, department.building, department.manager_id]
+      text: `INSERT INTO departments (name, display_name, description) 
+        VALUES ($1, $2, $3) RETURNING *`,
+      values: [department.name, department.name, department.description]
     });
     return result.rows[0];
   }
@@ -53,7 +85,7 @@ export class DepartmentDAO {
   /**
    * 更新部门
    */
-  static async update(id: number, department: Partial<Department>): Promise<Department | null> {
+  static async update(id: string, department: Partial<Department>): Promise<Department | null> {
     const fields = [];
     const values = [];
     let paramIndex = 1;
@@ -73,18 +105,15 @@ export class DepartmentDAO {
       text: `UPDATE departments SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
       values
     });
-    return result.rows[0] || null;
+    return result.rows.length > 0 ? result.rows[0] : null;
   }
 
   /**
    * 删除部门
    */
-  static async delete(id: number): Promise<boolean> {
-    const result = await db.query({
-      text: 'DELETE FROM departments WHERE id = $1',
-      values: [id]
-    });
-    return result.rowCount > 0;
+  static async delete(id: string): Promise<boolean> {
+    const result = await db.query({text: 'DELETE FROM departments WHERE id = $1', values: [id]});
+    return result.rows.length > 0;
   }
 
   /**
@@ -187,7 +216,6 @@ export class EmployeeDAO {
       phone: row.phone,
       department_id: row.department_id,
       position: row.position,
-      avatar_url: row.avatar_url,
       status: row.status,
       hire_date: row.hire_date,
       created_at: row.created_at,
@@ -235,13 +263,12 @@ export class EmployeeDAO {
     const row = result.rows[0];
     return {
       id: row.id,
-      employee_id: row.employee_id,
       name: row.name,
       email: row.email,
       phone: row.phone,
       department_id: row.department_id,
       position: row.position,
-      avatar_url: row.avatar_url,
+      employee_id: row.employee_number,
       status: row.status,
       hire_date: row.hire_date,
       created_at: row.created_at,
@@ -268,17 +295,16 @@ export class EmployeeDAO {
   static async create(employee: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): Promise<Employee> {
     const result = await db.query({
       text: `
-        INSERT INTO employees (employee_id, name, email, phone, department_id, position, avatar_url, status, hire_date) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
+        INSERT INTO employees (name, employee_number, email, phone, department_id, position, status, hire_date) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *
       `,
       values: [
-        employee.employee_id,
         employee.name,
+        employee.name + '_' + Date.now(),
         employee.email,
         employee.phone,
         employee.department_id,
         employee.position,
-        employee.avatar_url,
         employee.status,
         employee.hire_date
       ]
@@ -313,61 +339,54 @@ export class DeskDAO {
    * 根据部门ID获取工位列表
    */
   static async findByDepartmentId(departmentId: number): Promise<DeskWithDetails[]> {
-    const result = await db.query({
-      text: `
-        SELECT 
-          d.*,
-          da.id as assignment_id,
-          da.employee_id,
-          da.assigned_at,
-          da.status as assignment_status,
-          e.name as employee_name,
-          e.employee_id as employee_code,
-          wi.ip_address as workstation_ip,
-          wi.computer_name as workstation_name,
-          wi.status as workstation_status
-        FROM desks d
-        LEFT JOIN desk_assignments da ON d.id = da.desk_id AND da.status = 'active'
-        LEFT JOIN employees e ON da.employee_id = e.id
-        LEFT JOIN workstation_info wi ON d.id = wi.desk_id
-        WHERE d.department_id = $1
-        ORDER BY d.desk_number
-      `,
-      values: [departmentId]
-    });
+    const result = await db.query({text: `
+      SELECT 
+        d.*,
+        da.id as assignment_id,
+        da.employee_id,
+        da.assigned_at,
+        da.status as assignment_status,
+        e.name as employee_name,
+        e.employee_id as employee_code,
+        wi.ip_address as workstation_ip,
+        wi.computer_name as workstation_name,
+        wi.status as workstation_status
+      FROM desks d
+      LEFT JOIN desk_assignments da ON d.id = da.desk_id AND da.status = 'active'
+      LEFT JOIN employees e ON da.employee_id = e.id
+      LEFT JOIN workstation_info wi ON d.id = wi.desk_id
+      WHERE d.department_id = $1
+      ORDER BY d.desk_number
+    `, values: [departmentId]});
 
-    return result.rows.map(row => ({
+    return result.rows.map((row: any) => ({
       id: row.id,
       desk_number: row.desk_number,
       department_id: row.department_id,
-      position_x: parseFloat(row.position_x),
-      position_y: parseFloat(row.position_y),
-      width: parseFloat(row.width),
-      height: parseFloat(row.height),
+      floor: row.floor || 1,
+      area: row.area || 'default',
+      x_position: parseFloat(row.position_x) || 0,
+      y_position: parseFloat(row.position_y) || 0,
+      width: parseFloat(row.width) || 100,
+      height: parseFloat(row.height) || 100,
       status: row.status,
+      assigned_employee_id: row.employee_id,
+      assigned_at: row.assigned_at,
       ip_address: row.ip_address,
       computer_name: row.computer_name,
       equipment_info: row.equipment_info,
       created_at: row.created_at,
       updated_at: row.updated_at,
-      assignment: row.assignment_id ? {
-        id: row.assignment_id,
-        desk_id: row.id,
-        employee_id: row.employee_id,
-        assigned_at: row.assigned_at,
-        status: row.assignment_status
-      } : null,
-      employee: row.employee_name ? {
+      department: {
+        id: row.department_id,
+        name: row.department_name || 'Unknown'
+      },
+      assigned_employee: row.employee_name ? {
         id: row.employee_id,
         name: row.employee_name,
         employee_id: row.employee_code
-      } : null,
-      workstation: row.workstation_ip ? {
-        ip_address: row.workstation_ip,
-        computer_name: row.workstation_name,
-        status: row.workstation_status
-      } : null
-    }));
+      } : undefined
+    } as DeskWithDetails));
   }
 
   /**
@@ -375,22 +394,9 @@ export class DeskDAO {
    */
   static async create(desk: Omit<Desk, 'id' | 'created_at' | 'updated_at'>): Promise<Desk> {
     const result = await db.query({
-      text: `
-        INSERT INTO desks (desk_number, department_id, position_x, position_y, width, height, status, ip_address, computer_name, equipment_info) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *
-      `,
-      values: [
-        desk.desk_number,
-        desk.department_id,
-        desk.position_x,
-        desk.position_y,
-        desk.width,
-        desk.height,
-        desk.status,
-        desk.ip_address,
-        desk.computer_name,
-        desk.equipment_info
-      ]
+      text: `INSERT INTO desks (desk_number, department_id, position_x, position_y, width, height, status) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      values: [desk.desk_number, desk.department_id, desk.x_position, desk.y_position, desk.width, desk.height, desk.status]
     });
     return result.rows[0];
   }
@@ -399,12 +405,13 @@ export class DeskDAO {
    * 分配工位
    */
   static async assignDesk(deskId: number, employeeId: number, assignedBy?: number): Promise<DeskAssignment> {
-    return await db.transaction(async (client: PoolClient) => {
+    // 模拟事务处理
+    try {
       // 检查工位是否可用
-      const deskResult = await client.query(
-        'SELECT status FROM desks WHERE id = $1',
-        [deskId]
-      );
+      const deskResult = await db.query({
+        text: 'SELECT status FROM desks WHERE id = $1',
+        values: [deskId]
+      });
       
       if (deskResult.rows.length === 0) {
         throw new Error('工位不存在');
@@ -415,84 +422,170 @@ export class DeskDAO {
       }
 
       // 检查员工是否已有工位
-      const existingAssignment = await client.query(
-        'SELECT id FROM desk_assignments WHERE employee_id = $1 AND status = $2',
-        [employeeId, 'active']
-      );
+      const existingAssignment = await db.query({
+        text: 'SELECT id FROM desk_assignments WHERE employee_id = $1 AND status = $2',
+        values: [employeeId, 'active']
+      });
       
       if (existingAssignment.rows.length > 0) {
         throw new Error('员工已有工位分配');
       }
 
       // 创建分配记录
-      const assignmentResult = await client.query(
-        `INSERT INTO desk_assignments (desk_id, employee_id, assigned_by, status) 
-         VALUES ($1, $2, $3, 'active') RETURNING *`,
-        [deskId, employeeId, assignedBy]
-      );
+      const assignmentResult = await db.query({
+        text: `INSERT INTO desk_assignments (desk_id, employee_id, assigned_at, status) 
+          VALUES ($1, $2, $3, $4) RETURNING *`,
+        values: [deskId, employeeId, new Date(), 'active']
+      });
 
       // 更新工位状态
-      await client.query(
-        'UPDATE desks SET status = $1 WHERE id = $2',
-        ['occupied', deskId]
-      );
+      await db.query({
+        text: 'UPDATE desks SET status = $1 WHERE id = $2',
+        values: ['occupied', deskId]
+      });
 
       return assignmentResult.rows[0];
-    });
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**
    * 释放工位
    */
   static async releaseDesk(deskId: number): Promise<boolean> {
-    return await db.transaction(async (client: PoolClient) => {
+    // 模拟事务处理
+    try {
       // 更新分配记录状态
-      const assignmentResult = await client.query(
-        `UPDATE desk_assignments 
+      const assignmentResult = await db.query({
+        text: `UPDATE desk_assignments 
          SET status = 'inactive', released_at = CURRENT_TIMESTAMP 
          WHERE desk_id = $1 AND status = 'active'`,
-        [deskId]
-      );
+        values: [deskId]
+      });
 
       // 更新工位状态
-      await client.query(
-        'UPDATE desks SET status = $1 WHERE id = $2',
-        ['available', deskId]
-      );
+      await db.query({
+        text: 'UPDATE desks SET status = $1 WHERE id = $2',
+        values: ['available', deskId]
+      });
 
-      return assignmentResult.rowCount > 0;
-    });
+      return (assignmentResult as any).rowCount > 0;
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**
-   * 搜索工位
+   * 分页获取工位列表
    */
-  static async search(keyword: string): Promise<DeskWithDetails[]> {
+  static async findPaginated(params: { page: number; limit: number; status?: string; offset: number }): Promise<{ desks: DeskWithDetails[]; total: number }> {
+    const { page, limit, status, offset } = params;
+    
+    // 构建查询条件
+    let whereClause = '';
+    const values: any[] = [];
+    let paramIndex = 1;
+    
+    if (status) {
+      whereClause = 'WHERE d.status = $1';
+      values.push(status);
+      paramIndex = 2;
+    }
+    
+    // 获取总数
+    const countResult = await db.query({
+      text: `SELECT COUNT(*) as total FROM desks d ${whereClause}`,
+      values: status ? [status] : []
+    });
+    
+    const total = parseInt(countResult.rows[0].total);
+    
+    // 获取分页数据
     const result = await db.query({
       text: `
         SELECT 
           d.*,
           da.id as assignment_id,
           da.employee_id,
+          da.assigned_at,
+          da.status as assignment_status,
           e.name as employee_name,
+          e.employee_id as employee_code,
           dept.name as department_name
         FROM desks d
         LEFT JOIN desk_assignments da ON d.id = da.desk_id AND da.status = 'active'
         LEFT JOIN employees e ON da.employee_id = e.id
         LEFT JOIN departments dept ON d.department_id = dept.id
-        WHERE d.desk_number ILIKE $1 OR dept.name ILIKE $1 OR e.name ILIKE $1
+        ${whereClause}
         ORDER BY d.desk_number
-        LIMIT 20
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `,
-      values: [`%${keyword}%`]
+      values: [...values, limit, offset]
     });
-
-    return result.rows.map(row => ({
+    
+    const desks = result.rows.map((row: any) => ({
       id: row.id,
       desk_number: row.desk_number,
       department_id: row.department_id,
+      floor: row.floor || 1,
+      area: row.area || 'default',
+      x_position: parseFloat(row.position_x) || 0,
+      y_position: parseFloat(row.position_y) || 0,
+      width: parseFloat(row.width) || 100,
+      height: parseFloat(row.height) || 100,
+      status: row.status,
+      assigned_employee_id: row.employee_id,
+      assigned_at: row.assigned_at,
+      ip_address: row.ip_address,
+      computer_name: row.computer_name,
+      equipment_info: row.equipment_info,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      department: {
+        id: row.department_id,
+        name: row.department_name || 'Unknown'
+      },
+      assigned_employee: row.employee_name ? {
+        id: row.employee_id,
+        name: row.employee_name,
+        employee_id: row.employee_code
+      } : undefined
+    } as DeskWithDetails));
+    
+    return { desks, total };
+  }
+
+  /**
+   * 搜索工位
+   */
+  static async search(keyword: string): Promise<DeskWithDetails[]> {
+    const result = await db.query({text: `
+      SELECT 
+        d.*,
+        da.id as assignment_id,
+        da.employee_id,
+        e.name as employee_name,
+        dept.name as department_name
+      FROM desks d
+      LEFT JOIN desk_assignments da ON d.id = da.desk_id AND da.status = 'active'
+      LEFT JOIN employees e ON da.employee_id = e.id
+      LEFT JOIN departments dept ON d.department_id = dept.id
+      WHERE d.desk_number ILIKE $1 OR dept.name ILIKE $1 OR e.name ILIKE $1
+      ORDER BY d.desk_number
+      LIMIT 20
+    `, values: [`%${keyword}%`]});
+
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      desk_number: row.desk_number,
+      department_id: row.department_id,
+      floor: row.floor || 3,
+      area: row.area || 'Area A',
       position_x: parseFloat(row.position_x),
       position_y: parseFloat(row.position_y),
+      x_position: parseFloat(row.position_x),
+      y_position: parseFloat(row.position_y),
       width: parseFloat(row.width),
       height: parseFloat(row.height),
       status: row.status,
@@ -502,6 +595,7 @@ export class DeskDAO {
       created_at: row.created_at,
       updated_at: row.updated_at,
       department: row.department_name ? {
+        id: row.department_id,
         name: row.department_name
       } : undefined,
       employee: row.employee_name ? {
@@ -520,29 +614,26 @@ export class SystemStatsDAO {
    * 获取系统统计信息
    */
   static async getSystemStats(): Promise<SystemStats> {
-    const result = await db.query({
-      text: `
-        SELECT 
-          (SELECT COUNT(*) FROM departments) as total_departments,
-          (SELECT COUNT(*) FROM employees WHERE status = 'active') as total_employees,
-          (SELECT COUNT(*) FROM desks) as total_desks,
-          (SELECT COUNT(*) FROM desk_assignments WHERE status = 'active') as total_assignments,
-          (SELECT COUNT(*) FROM workstation_info WHERE status = 'online') as online_workstations,
-          (SELECT MAX(completed_at) FROM sync_records WHERE status = 'success') as last_sync_time
-      `
-    });
+    const result = await db.query({text: `
+      SELECT 
+        (SELECT COUNT(*) FROM departments) as total_departments,
+        (SELECT COUNT(*) FROM employees WHERE status = 'active') as total_employees,
+        (SELECT COUNT(*) FROM desks) as total_desks,
+        (SELECT COUNT(*) FROM desk_assignments WHERE status = 'active') as total_assignments,
+        (SELECT COUNT(*) FROM workstation_info WHERE status = 'online') as online_workstations,
+        (SELECT MAX(completed_at) FROM sync_records WHERE status = 'success') as last_sync_time
+    `});
 
     const row = result.rows[0];
     const occupancyRate = row.total_desks > 0 ? (row.total_assignments / row.total_desks) * 100 : 0;
 
     return {
-      total_departments: parseInt(row.total_departments),
-      total_employees: parseInt(row.total_employees),
-      total_desks: parseInt(row.total_desks),
-      total_assignments: parseInt(row.total_assignments),
-      occupancy_rate: Math.round(occupancyRate * 100) / 100,
-      online_workstations: parseInt(row.online_workstations),
-      last_sync_time: row.last_sync_time
+      totalEmployees: parseInt(row.total_employees),
+      totalDesks: parseInt(row.total_desks),
+      occupiedDesks: parseInt(row.total_assignments),
+      availableDesks: parseInt(row.total_desks) - parseInt(row.total_assignments),
+      occupancyRate: Math.round(occupancyRate * 100) / 100,
+      departmentCount: parseInt(row.total_departments)
     };
   }
 }
@@ -555,21 +646,18 @@ export class SystemLogDAO {
    * 记录系统日志
    */
   static async log(log: Omit<SystemLog, 'id' | 'created_at'>): Promise<SystemLog> {
-    const result = await db.query({
-      text: `
-        INSERT INTO system_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
-      `,
-      values: [
-        log.user_id,
-        log.action,
-        log.resource_type,
-        log.resource_id,
-        log.details,
-        log.ip_address,
-        log.user_agent
-      ]
-    });
+    const result = await db.query({text: `
+      INSERT INTO system_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
+    `, values: [
+      log.user_id,
+      log.action,
+      log.resource_type,
+      log.resource_id,
+      log.details,
+      log.ip_address,
+      log.user_agent
+    ]});
     return result.rows[0];
   }
 }

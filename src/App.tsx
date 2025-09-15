@@ -2,13 +2,17 @@ import React, { useState, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import DeptMap from './components/DeptMap';
 import M1ServerManagement from './pages/M1ServerManagement';
+import DepartmentManagement from './pages/DepartmentManagement';
 import MapTest from './test/MapTest';
 import LoginForm from './components/LoginForm';
+import CrossSystemQuery from './components/CrossSystemQuery';
+import DataSyncManager from './components/DataSyncManager';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { getAllDepartments, getHomepageOverview } from './data/departmentData';
 import { workstationAPI } from './utils/api';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Globe, Zap } from 'lucide-react';
 import './styles/m1-theme.css';
+import { useCrossSystemQuery } from './hooks/useCrossSystemQuery';
 
 // 主页面组件
 function HomePage() {
@@ -24,18 +28,31 @@ function HomePage() {
     username: '',
     description: ''
   });
-  const [searchResults, setSearchResults] = useState({
-    employees: [],
-    workstations: [],
-    total: 0
-  });
-  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<any>(null);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [highlightDeskId, setHighlightDeskId] = useState<string | null>(null);
+  const [homepageOverview, setHomepageOverview] = useState<any>({});
+  const [enableCrossSystemSearch, setEnableCrossSystemSearch] = useState(true);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // 跨系统查询Hook
+  const {
+    searchEmployee: crossSystemSearchEmployee,
+    loading: crossSystemLoading,
+    error: crossSystemError,
+    connectionStatus,
+    clearError: clearCrossSystemError,
+    reconnect
+  } = useCrossSystemQuery({
+    autoRefresh: true,
+    refreshInterval: 60000,
+    retryOnError: true,
+    maxRetries: 2
+  });
 
   const departments = getAllDepartments();
-  const homepageOverview = getHomepageOverview();
+  const overviewData = getHomepageOverview();
   
   const handleDepartmentChange = (dept: string) => {
     if (dept === 'home') {
@@ -118,35 +135,58 @@ function HomePage() {
 
     setIsSearching(true);
     try {
-      // 获取认证token
-      const token = localStorage.getItem('auth_token');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+      let localResults = { employees: [], workstations: [], total: 0 };
+      let crossSystemResults = [];
+      
+      // 1. 本地系统搜索
+      try {
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json'
+        };
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+          headers
+        });
+        
+        if (response.ok) {
+          const results = await response.json();
+          localResults = results.success ? results.data : { employees: [], workstations: [], total: 0 };
+        }
+      } catch (error) {
+        console.warn('本地搜索失败:', error);
+      }
+      
+      // 2. 跨系统搜索（如果启用）
+      if (enableCrossSystemSearch) {
+        try {
+          crossSystemResults = await crossSystemSearchEmployee(query, {
+            includeDepartments: true,
+            includeWorkstations: true
+          });
+        } catch (error) {
+          console.warn('跨系统搜索失败:', error);
+        }
+      }
+      
+      // 3. 合并搜索结果
+      const combinedResults = {
+        employees: [...(localResults.employees || []), ...crossSystemResults.filter(r => r.type === 'employee')],
+        workstations: [...(localResults.workstations || []), ...crossSystemResults.filter(r => r.type === 'workstation')],
+        crossSystem: crossSystemResults,
+        total: (localResults.employees?.length || 0) + (localResults.workstations?.length || 0) + crossSystemResults.length
       };
       
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      setSearchResults(combinedResults);
+      setShowSearchResults(true);
       
-      // 调用真实的搜索API
-      const response = await fetch(`http://localhost:8080/api/search?q=${encodeURIComponent(query)}`, {
-        headers
-      });
-      
-      if (response.ok) {
-        const results = await response.json();
-        // 处理API返回的数据结构
-        const searchData = results.success ? results.data : { employees: [], workstations: [], total: 0 };
-        setSearchResults(searchData);
-        setShowSearchResults(true);
-      } else {
-        console.error('搜索请求失败:', response.statusText);
-        setSearchResults({ employees: [], workstations: [], total: 0 });
-        setShowSearchResults(false);
-      }
     } catch (error) {
       console.error('搜索错误:', error);
-      setSearchResults({ employees: [], workstations: [], total: 0 });
+      setSearchResults({ employees: [], workstations: [], crossSystem: [], total: 0 });
       setShowSearchResults(false);
     } finally {
       setIsSearching(false);
@@ -177,7 +217,7 @@ function HomePage() {
           }
           
           // 调用真实的搜索API
-          const response = await fetch(`http://localhost:8080/api/search?q=${encodeURIComponent(value)}`, {
+          const response = await fetch(`/api/search?q=${encodeURIComponent(value)}`, {
             headers
           });
           
@@ -209,21 +249,38 @@ function HomePage() {
     }, 300);
   };
 
+  // 部门名称映射函数（中文到英文）
+  const mapDepartmentName = (chineseName: string): string => {
+    const departmentMap: Record<string, string> = {
+      '技术部': 'Engineering',
+      '工程部': 'Engineering',
+      '产品部': 'Marketing', // 将产品部映射到Marketing配置
+      '市场部': 'Marketing',
+      '运营部': 'Sales', // 将运营部映射到Sales配置
+      '销售部': 'Sales',
+      '人事部': 'HR',
+      '人力资源部': 'HR'
+    };
+    return departmentMap[chineseName] || chineseName;
+  };
+
   // 处理搜索结果点击
   const handleSearchResultClick = (item: any, type: 'employee' | 'workstation') => {
     const departmentName = item.department_name || item.department;
+    // 将中文部门名称映射为英文部门名称
+    const mappedDepartmentName = mapDepartmentName(departmentName);
     
-    if (type === 'workstation' && departmentName) {
+    if (type === 'workstation' && mappedDepartmentName) {
       // 如果是工位，切换到对应部门并高亮该工位
-      setCurrentDept(departmentName);
+      setCurrentDept(mappedDepartmentName);
       setSearchQuery(item.name);
       // 设置需要高亮的工位ID
       if (item.desk_id || item.id) {
         setHighlightDeskId(item.desk_id || item.id);
       }
-    } else if (type === 'employee' && departmentName) {
+    } else if (type === 'employee' && mappedDepartmentName) {
       // 如果是员工，切换到对应部门并搜索该员工
-      setCurrentDept(departmentName);
+      setCurrentDept(mappedDepartmentName);
       setSearchQuery(item.name);
       // 如果员工有关联的工位，也进行高亮
       if (item.desk_id) {
@@ -304,13 +361,41 @@ function HomePage() {
                       handleSearch(searchQuery);
                     }
                   }}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="pl-10 pr-12 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {isSearching && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                {(isSearching || crossSystemLoading) && (
+                  <div className="absolute right-8 top-1/2 transform -translate-y-1/2">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                   </div>
                 )}
+                
+                {/* 跨系统搜索状态指示器 */}
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                  {enableCrossSystemSearch && (
+                    <div className="relative group">
+                      {Object.values(connectionStatus).some(status => status) ? (
+                        <Globe className="h-4 w-4 text-green-500 cursor-pointer" onClick={() => reconnect()} />
+                      ) : (
+                        <Globe className="h-4 w-4 text-gray-400 cursor-pointer" onClick={() => reconnect()} />
+                      )}
+                      <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        跨系统搜索: {Object.values(connectionStatus).some(status => status) ? '已连接' : '未连接'}
+                        <br />
+                        <span className="text-xs text-gray-300">点击重新连接</span>
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setEnableCrossSystemSearch(!enableCrossSystemSearch)}
+                    className={`p-1 rounded transition-colors ${
+                      enableCrossSystemSearch ? 'text-blue-600 hover:text-blue-800' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                    title={enableCrossSystemSearch ? '禁用跨系统搜索' : '启用跨系统搜索'}
+                  >
+                    <Zap className="h-3 w-3" />
+                  </button>
+                </div>
+                
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
                   <svg 
                     className="h-4 w-4 text-gray-400 cursor-pointer hover:text-gray-600" 
@@ -335,7 +420,15 @@ function HomePage() {
                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer rounded-md"
                              onClick={() => handleSearchResultClick(employee, 'employee')}
                            >
-                             <div className="font-medium text-gray-900">{employee.name}</div>
+                             <div className="flex items-center space-x-2">
+                               <div className="font-medium text-gray-900">{employee.name}</div>
+                               {employee.source && employee.source !== 'local' && (
+                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                   <Globe className="h-3 w-3 mr-1" />
+                                   {employee.source === 'M1' ? 'M1系统' : '跨系统'}
+                                 </span>
+                               )}
+                             </div>
                              <div className="text-sm text-gray-500">{employee.department_name || employee.department} - {employee.position}</div>
                            </div>
                          ))}
@@ -351,7 +444,15 @@ function HomePage() {
                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer rounded-md"
                              onClick={() => handleSearchResultClick(workstation, 'workstation')}
                            >
-                             <div className="font-medium text-gray-900">工位 {workstation.desk_number}</div>
+                             <div className="flex items-center space-x-2">
+                               <div className="font-medium text-gray-900">工位 {workstation.desk_number}</div>
+                               {workstation.source && workstation.source !== 'local' && (
+                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                   <Globe className="h-3 w-3 mr-1" />
+                                   {workstation.source === 'M1' ? 'M1系统' : '跨系统'}
+                                 </span>
+                               )}
+                             </div>
                              <div className="text-sm text-gray-500">{workstation.department_name || workstation.department}</div>
                              {workstation.employee_name && (
                                <div className="text-xs text-gray-400">使用者: {workstation.employee_name}</div>
@@ -461,8 +562,8 @@ function HomePage() {
                     />
                   </div>
                   <div className="mt-3 text-sm text-gray-600">
-                    <div>总工位: {homepageOverview[dept]?.totalDesks || 0}</div>
-                    <div>在线: {homepageOverview[dept]?.onlineCount || 0}</div>
+                    <div>总工位: {overviewData[dept]?.totalDesks || 0}</div>
+                    <div>在线: {overviewData[dept]?.onlineCount || 0}</div>
                   </div>
                 </div>
               ))}
@@ -646,6 +747,30 @@ function Navigation() {
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >M1服务器管理</Link>
+              <Link
+                to="/cross-system"
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  location.pathname === '/cross-system' 
+                    ? 'bg-green-600 text-white' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >跨系统查询</Link>
+              <Link
+                to="/department-management"
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  location.pathname === '/department-management' 
+                    ? 'bg-purple-600 text-white' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >部门管理</Link>
+              <Link
+                to="/data-sync"
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  location.pathname === '/data-sync' 
+                    ? 'bg-orange-600 text-white' 
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >数据同步</Link>
             </div>
           </div>
           
@@ -668,6 +793,9 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/m1-server" element={<M1ServerManagement />} />
+            <Route path="/cross-system" element={<CrossSystemQuery />} />
+            <Route path="/department-management" element={<DepartmentManagement />} />
+            <Route path="/data-sync" element={<DataSyncManager />} />
             <Route path="/test-map" element={<MapTest />} />
           </Routes>
         </div>

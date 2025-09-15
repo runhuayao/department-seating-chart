@@ -94,6 +94,7 @@ export interface UserSession extends BaseEntity {
 
 // 扩展接口
 export interface EmployeeWithDetails extends Employee {
+  employee_id?: string;
   department?: {
     id: number;
     name: string;
@@ -102,6 +103,10 @@ export interface EmployeeWithDetails extends Employee {
   current_desk?: {
     id: number;
     desk_number: string;
+  };
+  user_account?: {
+    username: string;
+    role: string;
   };
 }
 
@@ -189,4 +194,20 @@ export interface SyncRecord {
   error_message?: string;
   created_at: string;
   completed_at?: string;
+}
+
+// 工位接口（别名）
+export interface Workstation extends Desk {
+  // Workstation是Desk的别名，用于兼容性
+}
+
+// 数据库状态接口
+export interface DatabaseStatus {
+  connected: boolean;
+  health: 'healthy' | 'warning' | 'error';
+  lastUpdated: string;
+  totalRecords: number;
+  version?: string;
+  host?: string;
+  database?: string;
 }

@@ -14,6 +14,7 @@ import {
   Filler
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import useWebSocket, { ServerMetrics as WSServerMetrics } from '../hooks/useWebSocket';
 
 ChartJS.register(
   CategoryScale,
@@ -36,6 +37,17 @@ interface ServerMetrics {
   timestamp: string;
 }
 
+// 转换WebSocket数据格式为组件使用的格式
+const convertWSMetrics = (wsMetrics: WSServerMetrics): ServerMetrics => {
+  return {
+    cpu: Math.round(wsMetrics.cpu.usage),
+    memory: Math.round(wsMetrics.memory.usagePercent),
+    disk: wsMetrics.disk.drives.length > 0 ? Math.round(wsMetrics.disk.drives[0].usagePercent) : 0,
+    network: Math.round(Math.random() * 100), // 网络使用率需要从其他指标计算
+    timestamp: wsMetrics.timestamp
+  };
+};
+
 interface ServerMonitorProps {
   className?: string;
 }
@@ -49,9 +61,11 @@ const ServerMonitor: React.FC<ServerMonitorProps> = ({ className = '' }) => {
     network: 0,
     timestamp: new Date().toISOString()
   });
-  const [isConnected, setIsConnected] = useState(false);
   const [chartType, setChartType] = useState<'line' | 'bar' | 'doughnut'>('line');
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d'>('1h');
+  
+  // 使用WebSocket连接
+  const { isConnected, metrics: wsMetrics, error, requestMetrics } = useWebSocket();
   
   const [historicalData, setHistoricalData] = useState<{
     cpu: number[];
@@ -113,27 +127,16 @@ const ServerMonitor: React.FC<ServerMonitorProps> = ({ className = '' }) => {
     });
   }, [timeRange]);
 
-  // 模拟实时数据获取
+  // 处理WebSocket实时数据
   useEffect(() => {
-    const generateMockData = (): ServerMetrics => {
-      return {
-        cpu: Math.floor(Math.random() * 100),
-        memory: Math.floor(Math.random() * 100),
-        disk: Math.floor(Math.random() * 100),
-        network: Math.floor(Math.random() * 100),
-        timestamp: new Date().toISOString()
-      };
-    };
-
-    const interval = setInterval(() => {
-      const newMetric = generateMockData();
+    if (wsMetrics) {
+      const newMetric = convertWSMetrics(wsMetrics);
       setCurrentMetrics(newMetric);
       setMetrics(prev => {
         const updated = [...prev, newMetric];
         // 保持最近20个数据点
         return updated.slice(-20);
       });
-      setIsConnected(true);
       
       // 更新历史数据
       setHistoricalData(prev => {
@@ -154,10 +157,23 @@ const ServerMonitor: React.FC<ServerMonitorProps> = ({ className = '' }) => {
           network: newNetwork
         };
       });
-    }, 2000);
+    }
+  }, [wsMetrics, timeRange]);
 
-    return () => clearInterval(interval);
-  }, [timeRange]);
+  // 定期请求数据更新
+  useEffect(() => {
+    if (isConnected) {
+      // 立即请求一次数据
+      requestMetrics();
+      
+      // 每5秒请求一次数据
+      const interval = setInterval(() => {
+        requestMetrics();
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isConnected, requestMetrics]);
 
   // 性能趋势图表配置
   const trendChartData = {
@@ -254,6 +270,17 @@ const ServerMonitor: React.FC<ServerMonitorProps> = ({ className = '' }) => {
 
   return (
     <div className={`p-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen ${className}`}>
+      {/* WebSocket错误提示 */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+            <span className="text-red-700 font-medium">连接错误:</span>
+            <span className="text-red-600">{error}</span>
+          </div>
+        </div>
+      )}
+
       {/* 页面标题 */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -263,11 +290,20 @@ const ServerMonitor: React.FC<ServerMonitorProps> = ({ className = '' }) => {
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
               <span className={`text-sm font-medium ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
-                {isConnected ? '已连接' : '连接中...'}
+                {isConnected ? 'WebSocket已连接' : error ? 'WebSocket连接失败' : 'WebSocket连接中...'}
               </span>
             </div>
+            
+            {/* 手动刷新按钮 */}
+            <button
+              onClick={requestMetrics}
+              disabled={!isConnected}
+              className="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              刷新数据
+            </button>
             
             {/* 时间范围选择 */}
             <select
@@ -481,15 +517,13 @@ const ServerMonitor: React.FC<ServerMonitorProps> = ({ className = '' }) => {
                     label: 'CPU使用率',
                     data: historicalData.cpu,
                     borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                    tension: 0.4
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)'
                   },
                   {
                     label: '内存使用率',
                     data: historicalData.memory,
                     borderColor: 'rgb(16, 185, 129)',
-                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
-                    tension: 0.4
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)'
                   }
                 ]
               }}

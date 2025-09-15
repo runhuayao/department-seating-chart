@@ -130,6 +130,73 @@ export class MemoryDatabase {
       return { rows: store.employees };
     }
     
+    // 员工搜索视图查询（支持全文搜索）
+    if (lowerSql.includes('from employee_search_view') || lowerSql.includes('employee_search_view')) {
+      // 构建员工搜索视图数据
+      const searchView = store.employees.map(emp => {
+        const dept = store.departments.find(d => d.id === emp.department_id);
+        return {
+          id: emp.id,
+          name: emp.name,
+          email: emp.email,
+          phone: emp.phone,
+          position: emp.position,
+          department_id: emp.department_id,
+          department_name: dept?.name || '',
+          hire_date: emp.hire_date,
+          status: emp.status
+        };
+      });
+      
+      let filteredResults = searchView;
+      
+      // 处理WHERE条件
+      if (lowerSql.includes('where')) {
+        // 姓名模糊搜索
+        if (lowerSql.includes('name ilike')) {
+          const namePattern = values[0]?.replace(/%/g, '');
+          if (namePattern) {
+            filteredResults = filteredResults.filter(emp => 
+              emp.name.includes(namePattern)
+            );
+          }
+        }
+        
+        // 部门精确搜索
+        if (lowerSql.includes('department_name =')) {
+          const deptName = values[0];
+          filteredResults = filteredResults.filter(emp => 
+            emp.department_name === deptName
+          );
+        }
+        
+        // 职位模糊搜索
+        if (lowerSql.includes('position ilike')) {
+          const positionPattern = values[0]?.replace(/%/g, '');
+          if (positionPattern) {
+            filteredResults = filteredResults.filter(emp => 
+              emp.position.includes(positionPattern)
+            );
+          }
+        }
+        
+        // 全文搜索（搜索姓名、职位、部门）
+        if (lowerSql.includes('search_text ilike') || lowerSql.includes('全文搜索')) {
+          const searchText = values[0]?.replace(/%/g, '');
+          if (searchText) {
+            filteredResults = filteredResults.filter(emp => 
+              emp.name.includes(searchText) ||
+              emp.position.includes(searchText) ||
+              emp.department_name.includes(searchText) ||
+              emp.email.includes(searchText)
+            );
+          }
+        }
+      }
+      
+      return { rows: filteredResults };
+    }
+    
     // 工位查询
     if (lowerSql.includes('from desks')) {
       if (lowerSql.includes('where department_id')) {
@@ -328,8 +395,28 @@ export function initializeMemoryDatabase(): void {
       name: '人事部',
       description: '负责人力资源管理和招聘',
       parent_id: null,
-      manager_id: null,
+      manager_id: 6,
       location: '1楼',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 4,
+      name: '产品部',
+      description: '负责产品设计和用户体验',
+      parent_id: null,
+      manager_id: 9,
+      location: '4楼',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 5,
+      name: '运营部',
+      description: '负责业务运营和数据分析',
+      parent_id: null,
+      manager_id: 12,
+      location: '2楼',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
@@ -337,6 +424,7 @@ export function initializeMemoryDatabase(): void {
   
   // 插入默认员工
   store.employees = [
+    // 技术部员工
     {
       id: 1,
       name: '张三',
@@ -373,6 +461,7 @@ export function initializeMemoryDatabase(): void {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     },
+    // 市场部员工
     {
       id: 4,
       name: '赵六',
@@ -393,6 +482,117 @@ export function initializeMemoryDatabase(): void {
       position: '销售代表',
       department_id: 2,
       hire_date: '2023-03-01',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    // 人事部员工
+    {
+      id: 6,
+      name: '孙八',
+      email: 'sunba@company.com',
+      phone: '13800138006',
+      position: '人事经理',
+      department_id: 3,
+      hire_date: '2022-12-01',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 7,
+      name: '周九',
+      email: 'zhoujiu@company.com',
+      phone: '13800138007',
+      position: '招聘专员',
+      department_id: 3,
+      hire_date: '2023-04-01',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 8,
+      name: '吴十',
+      email: 'wushi@company.com',
+      phone: '13800138008',
+      position: '薪酬专员',
+      department_id: 3,
+      hire_date: '2023-05-15',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    // 产品部员工
+    {
+      id: 9,
+      name: '郑十一',
+      email: 'zhengshiyi@company.com',
+      phone: '13800138009',
+      position: '产品经理',
+      department_id: 4,
+      hire_date: '2022-11-01',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 10,
+      name: '王十二',
+      email: 'wangshier@company.com',
+      phone: '13800138010',
+      position: 'UI设计师',
+      department_id: 4,
+      hire_date: '2023-03-15',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 11,
+      name: '冯十三',
+      email: 'fengshisan@company.com',
+      phone: '13800138011',
+      position: 'UX设计师',
+      department_id: 4,
+      hire_date: '2023-06-01',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    // 运营部员工
+    {
+      id: 12,
+      name: '陈十四',
+      email: 'chenshisi@company.com',
+      phone: '13800138012',
+      position: '运营经理',
+      department_id: 5,
+      hire_date: '2022-10-01',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 13,
+      name: '褚十五',
+      email: 'chushiwu@company.com',
+      phone: '13800138013',
+      position: '数据分析师',
+      department_id: 5,
+      hire_date: '2023-07-01',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 14,
+      name: '卫十六',
+      email: 'weishiliu@company.com',
+      phone: '13800138014',
+      position: '内容运营',
+      department_id: 5,
+      hire_date: '2023-08-15',
       status: 'active',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -528,8 +728,8 @@ export function initializeMemoryDatabase(): void {
   
   // 更新ID计数器
   idCounters = {
-    departments: 3,
-    employees: 5,
+    departments: 5,
+    employees: 14,
     desks: 5,
     users: 2,
     permissions: 0,

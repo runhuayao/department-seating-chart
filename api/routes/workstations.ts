@@ -59,7 +59,8 @@ router.post('/', asyncHandler(async (req: any, res: any) => {
     equipment,
     notes,
     department_id,
-    employee_id
+    employee_id,
+    ip_address
   } = req.body;
   
   // 验证必填字段
@@ -74,16 +75,21 @@ router.post('/', asyncHandler(async (req: any, res: any) => {
     const newWorkstation = await db.createWorkstation({
       name,
       status: status || 'available',
-      building: building || 'Main Building',
-      floor_number: floor_number || 1,
-      x_position: x_position || 0,
-      y_position: y_position || 0,
-      width: width || 120,
-      height: height || 80,
-      equipment: equipment || null,
-      notes: notes || null,
-      department_id: department_id || null,
-      employee_id: employee_id || null
+      ipAddress: ip_address || '',
+      location: {
+        building: building || 'Main Building',
+        floor: floor_number || 1,
+        room: 'Default Room',
+        position: { x: x_position || 0, y: y_position || 0 }
+      },
+      specifications: {
+        cpu: 'Default CPU',
+        memory: 'Default Memory',
+        storage: 'Default Storage',
+        os: 'Default OS'
+      },
+      department: department_id || null,
+      assignedUser: employee_id || null
     });
 
     res.status(201).json({

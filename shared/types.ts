@@ -8,6 +8,7 @@ export interface Workstation {
   ipAddress: string;
   macAddress?: string;
   location: {
+    building: string;
     floor: number;
     room: string;
     position: {
@@ -15,6 +16,7 @@ export interface Workstation {
       y: number;
     };
   };
+  building?: string;
   department: string;
   status: 'online' | 'offline' | 'maintenance';
   specifications: {

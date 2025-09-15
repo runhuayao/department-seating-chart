@@ -1,0 +1,383 @@
+{
+  "employees": [
+    {
+      "id": 1,
+      "type": "employee",
+      "name": "张三",
+      "email": "zhangsan@company.com",
+      "phone": "13800138001",
+      "position": "技术经理",
+      "department": {
+        "id": 1,
+        "name": "技术部"
+      },
+      "desk": null,
+      "searchText": "张三 undefined zhangsan@company.com 技术经理 技术部"
+    },
+    {
+      "id": 2,
+      "type": "employee",
+      "name": "李四",
+      "email": "lisi@company.com",
+      "phone": "13800138002",
+      "position": "前端开发",
+      "department": {
+        "id": 1,
+        "name": "技术部"
+      },
+      "desk": null,
+      "searchText": "李四 undefined lisi@company.com 前端开发 技术部"
+    },
+    {
+      "id": 3,
+      "type": "employee",
+      "name": "王五",
+      "email": "wangwu@company.com",
+      "phone": "13800138003",
+      "position": "后端开发",
+      "department": {
+        "id": 1,
+        "name": "技术部"
+      },
+      "desk": null,
+      "searchText": "王五 undefined wangwu@company.com 后端开发 技术部"
+    },
+    {
+      "id": 4,
+      "type": "employee",
+      "name": "赵六",
+      "email": "zhaoliu@company.com",
+      "phone": "13800138004",
+      "position": "市场经理",
+      "department": {
+        "id": 2,
+        "name": "市场部"
+      },
+      "desk": null,
+      "searchText": "赵六 undefined zhaoliu@company.com 市场经理 市场部"
+    },
+    {
+      "id": 5,
+      "type": "employee",
+      "name": "钱七",
+      "email": "qianqi@company.com",
+      "phone": "13800138005",
+      "position": "销售代表",
+      "department": {
+        "id": 2,
+        "name": "市场部"
+      },
+      "desk": null,
+      "searchText": "钱七 undefined qianqi@company.com 销售代表 市场部"
+    },
+    {
+      "id": 6,
+      "type": "employee",
+      "name": "孙八",
+      "email": "sunba@company.com",
+      "phone": "13800138006",
+      "position": "人事经理",
+      "department": {
+        "id": 3,
+        "name": "人事部"
+      },
+      "desk": null,
+      "searchText": "孙八 undefined sunba@company.com 人事经理 人事部"
+    },
+    {
+      "id": 7,
+      "type": "employee",
+      "name": "周九",
+      "email": "zhoujiu@company.com",
+      "phone": "13800138007",
+      "position": "招聘专员",
+      "department": {
+        "id": 3,
+        "name": "人事部"
+      },
+      "desk": null,
+      "searchText": "周九 undefined zhoujiu@company.com 招聘专员 人事部"
+    },
+    {
+      "id": 8,
+      "type": "employee",
+      "name": "吴十",
+      "email": "wushi@company.com",
+      "phone": "13800138008",
+      "position": "薪酬专员",
+      "department": {
+        "id": 3,
+        "name": "人事部"
+      },
+      "desk": null,
+      "searchText": "吴十 undefined wushi@company.com 薪酬专员 人事部"
+    },
+    {
+      "id": 9,
+      "type": "employee",
+      "name": "郑十一",
+      "email": "zhengshiyi@company.com",
+      "phone": "13800138009",
+      "position": "产品经理",
+      "department": {
+        "id": 4,
+        "name": "产品部"
+      },
+      "desk": null,
+      "searchText": "郑十一 undefined zhengshiyi@company.com 产品经理 产品部"
+    },
+    {
+      "id": 10,
+      "type": "employee",
+      "name": "王十二",
+      "email": "wangshier@company.com",
+      "phone": "13800138010",
+      "position": "UI设计师",
+      "department": {
+        "id": 4,
+        "name": "产品部"
+      },
+      "desk": null,
+      "searchText": "王十二 undefined wangshier@company.com ui设计师 产品部"
+    },
+    {
+      "id": 11,
+      "type": "employee",
+      "name": "冯十三",
+      "email": "fengshisan@company.com",
+      "phone": "13800138011",
+      "position": "UX设计师",
+      "department": {
+        "id": 4,
+        "name": "产品部"
+      },
+      "desk": null,
+      "searchText": "冯十三 undefined fengshisan@company.com ux设计师 产品部"
+    },
+    {
+      "id": 12,
+      "type": "employee",
+      "name": "陈十四",
+      "email": "chenshisi@company.com",
+      "phone": "13800138012",
+      "position": "运营经理",
+      "department": {
+        "id": 5,
+        "name": "运营部"
+      },
+      "desk": null,
+      "searchText": "陈十四 undefined chenshisi@company.com 运营经理 运营部"
+    },
+    {
+      "id": 13,
+      "type": "employee",
+      "name": "褚十五",
+      "email": "chushiwu@company.com",
+      "phone": "13800138013",
+      "position": "数据分析师",
+      "department": {
+        "id": 5,
+        "name": "运营部"
+      },
+      "desk": null,
+      "searchText": "褚十五 undefined chushiwu@company.com 数据分析师 运营部"
+    },
+    {
+      "id": 14,
+      "type": "employee",
+      "name": "卫十六",
+      "email": "weishiliu@company.com",
+      "phone": "13800138014",
+      "position": "内容运营",
+      "department": {
+        "id": 5,
+        "name": "运营部"
+      },
+      "desk": null,
+      "searchText": "卫十六 undefined weishiliu@company.com 内容运营 运营部"
+    }
+  ],
+  "workstations": [
+    {
+      "id": 1,
+      "type": "workstation",
+      "desk_number": "A001",
+      "coordinates": {
+        "x": 100,
+        "y": 100
+      },
+      "status": "available",
+      "equipment": null,
+      "ip_address": null,
+      "computer_name": null,
+      "description": "",
+      "department": {
+        "id": 1,
+        "name": "技术部"
+      },
+      "employee": null,
+      "searchText": "a001 技术部  "
+    },
+    {
+      "id": 2,
+      "type": "workstation",
+      "desk_number": "A002",
+      "coordinates": {
+        "x": 250,
+        "y": 100
+      },
+      "status": "occupied",
+      "equipment": "Dell OptiPlex 7090",
+      "ip_address": "192.168.1.101",
+      "computer_name": "DEV-PC-001",
+      "description": "",
+      "department": {
+        "id": 1,
+        "name": "技术部"
+      },
+      "employee": {
+        "id": 2,
+        "name": "李四",
+        "position": "前端开发"
+      },
+      "searchText": "a002 技术部 李四 "
+    },
+    {
+      "id": 3,
+      "type": "workstation",
+      "desk_number": "A003",
+      "coordinates": {
+        "x": 400,
+        "y": 100
+      },
+      "status": "occupied",
+      "equipment": "HP EliteDesk 800",
+      "ip_address": "192.168.1.102",
+      "computer_name": "DEV-PC-002",
+      "description": "",
+      "department": {
+        "id": 1,
+        "name": "技术部"
+      },
+      "employee": {
+        "id": 3,
+        "name": "王五",
+        "position": "后端开发"
+      },
+      "searchText": "a003 技术部 王五 "
+    },
+    {
+      "id": 4,
+      "type": "workstation",
+      "desk_number": "B001",
+      "coordinates": {
+        "x": 100,
+        "y": 200
+      },
+      "status": "occupied",
+      "equipment": "Lenovo ThinkCentre M720",
+      "ip_address": "192.168.1.201",
+      "computer_name": "MKT-PC-001",
+      "description": "",
+      "department": {
+        "id": 2,
+        "name": "市场部"
+      },
+      "employee": {
+        "id": 4,
+        "name": "赵六",
+        "position": "市场经理"
+      },
+      "searchText": "b001 市场部 赵六 "
+    },
+    {
+      "id": 5,
+      "type": "workstation",
+      "desk_number": "B002",
+      "coordinates": {
+        "x": 250,
+        "y": 200
+      },
+      "status": "available",
+      "equipment": null,
+      "ip_address": null,
+      "computer_name": null,
+      "description": "",
+      "department": {
+        "id": 2,
+        "name": "市场部"
+      },
+      "employee": null,
+      "searchText": "b002 市场部  "
+    }
+  ],
+  "departments": [
+    {
+      "id": 1,
+      "type": "department",
+      "name": "技术部",
+      "description": "负责公司技术研发和系统维护",
+      "stats": {
+        "employee_count": 3,
+        "desk_count": 3,
+        "occupied_desks": 2,
+        "available_desks": 1
+      },
+      "searchText": "技术部 undefined 负责公司技术研发和系统维护"
+    },
+    {
+      "id": 2,
+      "type": "department",
+      "name": "市场部",
+      "description": "负责市场推广和客户关系维护",
+      "stats": {
+        "employee_count": 2,
+        "desk_count": 2,
+        "occupied_desks": 1,
+        "available_desks": 1
+      },
+      "searchText": "市场部 undefined 负责市场推广和客户关系维护"
+    },
+    {
+      "id": 3,
+      "type": "department",
+      "name": "人事部",
+      "description": "负责人力资源管理和招聘",
+      "stats": {
+        "employee_count": 3,
+        "desk_count": 0,
+        "occupied_desks": 0,
+        "available_desks": 0
+      },
+      "searchText": "人事部 undefined 负责人力资源管理和招聘"
+    },
+    {
+      "id": 4,
+      "type": "department",
+      "name": "产品部",
+      "description": "负责产品设计和用户体验",
+      "stats": {
+        "employee_count": 3,
+        "desk_count": 0,
+        "occupied_desks": 0,
+        "available_desks": 0
+      },
+      "searchText": "产品部 undefined 负责产品设计和用户体验"
+    },
+    {
+      "id": 5,
+      "type": "department",
+      "name": "运营部",
+      "description": "负责业务运营和数据分析",
+      "stats": {
+        "employee_count": 3,
+        "desk_count": 0,
+        "occupied_desks": 0,
+        "available_desks": 0
+      },
+      "searchText": "运营部 undefined 负责业务运营和数据分析"
+    }
+  ],
+  "lastUpdated": "2025-09-15T07:48:57.010Z",
+  "version": "2.0"
+}

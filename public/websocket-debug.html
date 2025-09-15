@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket连接调试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .connecting { background-color: #fff3cd; color: #856404; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        #logs {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebSocket连接调试工具</h1>
+        
+        <div id="status" class="status disconnected">未连接</div>
+        
+        <div>
+            <button id="connectBtn" onclick="connect()">连接WebSocket</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>断开连接</button>
+            <button onclick="testSync()">测试数据同步</button>
+            <button onclick="clearLogs()">清空日志</button>
+        </div>
+        
+        <h3>连接日志</h3>
+        <div id="logs"></div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        let socket = null;
+        const statusEl = document.getElementById('status');
+        const logsEl = document.getElementById('logs');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logsEl.textContent += `[${timestamp}] ${message}\n`;
+            logsEl.scrollTop = logsEl.scrollHeight;
+            console.log(`[WebSocket Debug] ${message}`);
+        }
+        
+        function updateStatus(status, className) {
+            statusEl.textContent = status;
+            statusEl.className = `status ${className}`;
+        }
+        
+        function connect() {
+            if (socket && socket.connected) {
+                log('Socket.IO已经连接');
+                return;
+            }
+            
+            updateStatus('正在连接...', 'connecting');
+            connectBtn.disabled = true;
+            
+            // 连接到数据同步Socket.IO服务
+            const serverUrl = 'http://localhost:8080/data-sync';
+            log(`尝试连接到: ${serverUrl} (namespace: /data-sync)`);
+            
+            socket = io(serverUrl, {
+                path: '/socket.io/',
+                transports: ['websocket', 'polling']
+            });
+            
+            socket.on('connect', function() {
+                log('Socket.IO连接已建立');
+                log(`Socket ID: ${socket.id}`);
+                updateStatus('已连接', 'connected');
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = false;
+            });
+            
+            socket.on('sync-status', function(data) {
+                log(`收到同步状态: ${JSON.stringify(data, null, 2)}`);
+            });
+            
+            socket.on('data-changed', function(data) {
+                log(`收到数据变更事件: ${JSON.stringify(data, null, 2)}`);
+            });
+            
+            socket.on('sync-complete', function(data) {
+                log(`同步完成: ${JSON.stringify(data, null, 2)}`);
+            });
+            
+            socket.on('force-sync-complete', function(data) {
+                log(`强制同步完成: ${JSON.stringify(data, null, 2)}`);
+            });
+            
+            socket.on('consistency-result', function(data) {
+                log(`一致性检查结果: ${JSON.stringify(data, null, 2)}`);
+            });
+            
+            socket.on('sync-error', function(data) {
+                log(`同步错误: ${JSON.stringify(data, null, 2)}`);
+            });
+            
+            socket.on('disconnect', function(reason) {
+                log(`Socket.IO连接已断开: ${reason}`);
+                updateStatus('连接已断开', 'disconnected');
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+            });
+            
+            socket.on('connect_error', function(error) {
+                log(`Socket.IO连接错误: ${error.message}`);
+                updateStatus('连接错误', 'disconnected');
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+            });
+        }
+        
+        function disconnect() {
+            if (socket) {
+                log('主动断开Socket.IO连接');
+                socket.disconnect();
+            }
+        }
+        
+        function testSync() {
+            if (!socket || !socket.connected) {
+                log('Socket.IO未连接，无法发送测试消息');
+                return;
+            }
+            
+            log('发送同步请求...');
+            socket.emit('request-sync');
+            
+            setTimeout(() => {
+                log('发送强制同步请求...');
+                socket.emit('force-sync');
+            }, 2000);
+            
+            setTimeout(() => {
+                log('发送一致性检查请求...');
+                socket.emit('consistency-check');
+            }, 4000);
+            
+            const testDataChange = {
+                type: 'update',
+                table: 'workstations',
+                data: { id: 1, name: 'Test Workstation', status: 'online' },
+                timestamp: new Date().toISOString(),
+                userId: 'test-user'
+            };
+            
+            setTimeout(() => {
+                log(`发送数据变更事件: ${JSON.stringify(testDataChange)}`);
+                socket.emit('data-change', testDataChange);
+            }, 6000);
+        }
+        
+        function clearLogs() {
+            logsEl.textContent = '';
+        }
+        
+        // 页面加载时自动尝试连接
+        window.onload = function() {
+            log('页面加载完成，准备测试WebSocket连接');
+            // 延迟1秒后自动连接
+            setTimeout(connect, 1000);
+        };
+    </script>
+</body>
+</html>

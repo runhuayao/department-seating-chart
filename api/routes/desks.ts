@@ -122,8 +122,8 @@ router.post('/:id/assign', authenticateToken, async (req: Request, res: Response
       user_id: userId,
       action: 'assign_desk',
       resource_type: 'desk',
-      resource_id: deskId.toString(),
-      details: { employee_id, assignment_id: assignment.id },
+      resource_id: deskId,
+      details: JSON.stringify({ employee_id, assignment_id: assignment.id }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });
@@ -182,8 +182,8 @@ router.post('/:id/release', authenticateToken, async (req: Request, res: Respons
       user_id: userId,
       action: 'release_desk',
       resource_type: 'desk',
-      resource_id: deskId.toString(),
-      details: { released_at: new Date().toISOString() },
+      resource_id: deskId,
+      details: JSON.stringify({ released_at: new Date().toISOString() }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });
@@ -279,8 +279,18 @@ router.post('/', async (req: Request, res: Response) => {
     
     // 创建工位
     const newDesk = await DeskDAO.create({
-      ...deskData,
-      status: 'available'
+      desk_number: deskData.desk_number,
+      department_id: deskData.department_id,
+      floor: 1,
+      area: 'Default Area',
+      x_position: deskData.position_x,
+      y_position: deskData.position_y,
+      width: deskData.width,
+      height: deskData.height,
+      status: 'available',
+      ip_address: deskData.ip_address,
+      computer_name: deskData.computer_name,
+      equipment_info: deskData.equipment_info
     });
     
     // 记录操作日志（无需用户认证）
@@ -288,8 +298,8 @@ router.post('/', async (req: Request, res: Response) => {
       user_id: null, // 无需登录验证
       action: 'create_desk',
       resource_type: 'desk',
-      resource_id: newDesk.id.toString(),
-      details: { desk_number: newDesk.desk_number, department_id: newDesk.department_id },
+      resource_id: newDesk.id,
+      details: JSON.stringify({ desk_number: newDesk.desk_number, department_id: newDesk.department_id }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });
@@ -327,34 +337,23 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     const status = req.query.status as string;
     const offset = (page - 1) * limit;
     
-    // TODO: 从数据库获取分页工位列表
-    let mockDesks = Array.from({ length: limit }, (_, index) => ({
-      id: offset + index + 1,
-      desk_number: `A${String(offset + index + 1).padStart(3, '0')}`,
-      department_id: Math.floor(Math.random() * 4) + 1,
-      position_x: 100 + (index % 5) * 100,
-      position_y: 100 + Math.floor(index / 5) * 80,
-      width: 80,
-      height: 60,
-      status: Math.random() > 0.5 ? 'available' : 'occupied',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }));
-    
-    // 根据状态过滤
-    if (status) {
-      mockDesks = mockDesks.filter(desk => desk.status === status);
-    }
+    // 从数据库获取分页工位列表
+    const result = await DeskDAO.findPaginated({
+      page,
+      limit,
+      status,
+      offset
+    });
     
     res.json({
       success: true,
       data: {
-        desks: mockDesks,
+        desks: result.desks,
         pagination: {
           page,
           limit,
-          total: status ? mockDesks.length : 200, // 模拟总数
-          totalPages: Math.ceil((status ? mockDesks.length : 200) / limit)
+          total: result.total,
+          totalPages: Math.ceil(result.total / limit)
         }
       }
     });
@@ -362,7 +361,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     console.error('获取工位列表失败:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch desks'
+      message: '服务器内部错误'
     });
   }
 });

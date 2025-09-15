@@ -173,9 +173,43 @@ export const departmentAPI = {
   }),
 };
 
+// 跨系统查询相关API
+export const crossSystemAPI = {
+  // 跨系统员工查询
+  searchEmployee: (query: string, targetSystem: 'M1' | 'all' = 'all', timeout: number = 5000) => 
+    apiRequest<any>(`/cross-system/employee?query=${encodeURIComponent(query)}&targetSystem=${targetSystem}&timeout=${timeout}`),
+  
+  // 跨系统工位查询
+  searchDesk: (query: string, targetSystem: 'M1' | 'all' = 'all', timeout: number = 5000) => 
+    apiRequest<any>(`/cross-system/desk?query=${encodeURIComponent(query)}&targetSystem=${targetSystem}&timeout=${timeout}`),
+  
+  // 跨系统综合查询
+  searchAll: (query: string, targetSystem: 'M1' | 'all' = 'all', timeout: number = 5000) => 
+    apiRequest<any>(`/cross-system/all?query=${encodeURIComponent(query)}&targetSystem=${targetSystem}&timeout=${timeout}`),
+  
+  // 检查系统连接状态
+  getStatus: () => apiRequest<any>('/cross-system/status'),
+};
+
+// 搜索相关API
+export const searchAPI = {
+  // 本地搜索
+  search: (query: string, type: 'all' | 'employee' | 'workstation' = 'all', department?: string) => {
+    const params = new URLSearchParams({ q: query, type });
+    if (department) params.append('department', department);
+    return apiRequest<any>(`/search?${params.toString()}`);
+  },
+  
+  // 获取搜索建议
+  getSuggestions: (query: string) => 
+    apiRequest<any>(`/search/suggestions?query=${encodeURIComponent(query)}`),
+};
+
 export default {
   workstationAPI,
   authAPI,
   userAPI,
   departmentAPI,
+  crossSystemAPI,
+  searchAPI,
 };

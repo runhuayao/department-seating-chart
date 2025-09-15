@@ -59,14 +59,14 @@ export const employees: Employee[] = [
 export const departmentConfigs: Record<string, DepartmentConfig> = {
   Engineering: {
     name: 'Engineering',
-    displayName: '工程部',
+    displayName: '技术部',
     mapData: {
-      map_id: 'eng_floor_2',
-      type: 'svg',
-      url: '/maps/engineering_floor2.svg',
-      dept_name: '工程部',
-      department: 'Engineering'
-    },
+        map_id: 'eng_floor_2',
+        type: 'svg',
+        url: '/maps/engineering_floor2.svg',
+        dept_name: '技术部',
+        department: 'Engineering'
+      },
     desks: [
       { desk_id: 'ENG-001', x: 100, y: 100, w: 60, h: 40, label: 'E01', employee_id: 1001, department: 'Engineering' },
       { desk_id: 'ENG-002', x: 200, y: 100, w: 60, h: 40, label: 'E02', employee_id: 1002, department: 'Engineering' },
@@ -78,14 +78,14 @@ export const departmentConfigs: Record<string, DepartmentConfig> = {
   },
   Marketing: {
     name: 'Marketing',
-    displayName: '市场部',
+    displayName: '产品部',
     mapData: {
-      map_id: 'mkt_floor_3',
-      type: 'svg',
-      url: '/maps/marketing_floor3.svg',
-      dept_name: '市场部',
-      department: 'Marketing'
-    },
+        map_id: 'mkt_floor_3',
+        type: 'svg',
+        url: '/maps/marketing_floor3.svg',
+        dept_name: '产品部',
+        department: 'Marketing'
+      },
     desks: [
       { desk_id: 'MKT-001', x: 150, y: 120, w: 60, h: 40, label: 'M01', employee_id: 2001, department: 'Marketing' },
       { desk_id: 'MKT-002', x: 250, y: 120, w: 60, h: 40, label: 'M02', employee_id: 2002, department: 'Marketing' },
@@ -95,14 +95,14 @@ export const departmentConfigs: Record<string, DepartmentConfig> = {
   },
   Sales: {
     name: 'Sales',
-    displayName: '销售部',
+    displayName: '运营部',
     mapData: {
-      map_id: 'sales_floor_4',
-      type: 'svg',
-      url: '/maps/sales_floor4.svg',
-      dept_name: '销售部',
-      department: 'Sales'
-    },
+        map_id: 'sales_floor_4',
+        type: 'svg',
+        url: '/maps/sales_floor4.svg',
+        dept_name: '运营部',
+        department: 'Sales'
+      },
     desks: [
       { desk_id: 'SAL-001', x: 120, y: 150, w: 60, h: 40, label: 'S01', employee_id: 3001, department: 'Sales' },
       { desk_id: 'SAL-002', x: 220, y: 150, w: 60, h: 40, label: 'S02', employee_id: 3002, department: 'Sales' },
@@ -171,14 +171,56 @@ export const validateEmployeeDepartmentConsistency = (): boolean => {
 
 // 工具函数：获取所有部门列表
 export const getAllDepartments = (): string[] => {
+  // 返回与数据库一致的中文部门名称
+  return ['技术部', '产品部', '运营部', '人事部'];
+};
+
+// 工具函数：获取英文部门名称列表（用于内部配置）
+export const getEnglishDepartments = (): string[] => {
   return Object.keys(departmentConfigs);
+};
+
+// 中文部门名称到英文配置键的映射
+const chineseDeptToEnglishMap: Record<string, string> = {
+  '技术部': 'Engineering',
+  '产品部': 'Marketing',
+  '运营部': 'Sales',
+  '人事部': 'HR'
+};
+
+// 英文配置键到中文部门名称的映射
+const englishDeptToChineseMap: Record<string, string> = {
+  'Engineering': '技术部',
+  'Marketing': '产品部',
+  'Sales': '运营部',
+  'HR': '人事部'
+};
+
+// 导出映射关系供其他组件使用
+export const chineseToEnglishMapping = chineseDeptToEnglishMap;
+export const englishToChineseMapping = englishDeptToChineseMap;
+
+// 工具函数：将中文部门名称转换为英文配置键
+export const getEnglishDeptKey = (chineseDeptName: string): string | undefined => {
+  return chineseDeptToEnglishMap[chineseDeptName];
+};
+
+// 工具函数：将英文配置键转换为中文部门名称
+export const getChineseDeptName = (englishDeptKey: string): string | undefined => {
+  return englishDeptToChineseMap[englishDeptKey];
+};
+
+// 工具函数：获取部门配置（支持中文部门名称）
+export const getDepartmentConfigByChinese = (chineseDeptName: string): DepartmentConfig | undefined => {
+  const englishKey = getEnglishDeptKey(chineseDeptName);
+  return englishKey ? departmentConfigs[englishKey] : undefined;
 };
 
 // 工具函数：获取首页展示数据（所有部门的工位状态概览）
 export const getHomepageOverview = () => {
   const overview: Record<string, { totalDesks: number; occupiedDesks: number; onlineCount: number; offlineCount: number }> = {};
   
-  for (const [deptName, config] of Object.entries(departmentConfigs)) {
+  for (const [englishDeptName, config] of Object.entries(departmentConfigs)) {
     const desks = config.desks;
     const occupiedDesks = desks.filter(desk => desk.employee_id);
     const onlineCount = occupiedDesks.filter(desk => {
@@ -187,7 +229,9 @@ export const getHomepageOverview = () => {
     }).length;
     const offlineCount = occupiedDesks.length - onlineCount;
     
-    overview[deptName] = {
+    // 使用中文部门名称作为键
+    const chineseDeptName = getChineseDeptName(englishDeptName) || englishDeptName;
+    overview[chineseDeptName] = {
       totalDesks: desks.length,
       occupiedDesks: occupiedDesks.length,
       onlineCount: onlineCount,

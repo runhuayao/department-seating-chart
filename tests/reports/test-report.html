@@ -1,0 +1,164 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>部门地图系统 - 单元测试报告</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .summary-card { background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; }
+        .summary-card h3 { margin: 0 0 10px 0; color: #333; }
+        .summary-card .value { font-size: 2em; font-weight: bold; }
+        .passed { color: #28a745; }
+        .failed { color: #dc3545; }
+        .skipped { color: #ffc107; }
+        .suite { margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+        .suite-header { background: #f8f9fa; padding: 15px; border-bottom: 1px solid #ddd; }
+        .suite-content { padding: 15px; }
+        .status-badge { padding: 4px 8px; border-radius: 4px; color: white; font-size: 0.8em; }
+        .status-passed { background-color: #28a745; }
+        .status-failed { background-color: #dc3545; }
+        .status-skipped { background-color: #ffc107; }
+        .output { background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.9em; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>部门地图系统 - 单元测试报告</h1>
+            <p>生成时间: 2025-09-15T07:06:11.580Z</p>
+            <p>执行时长: 0秒</p>
+        </div>
+        
+        <div class="summary">
+            <div class="summary-card">
+                <h3>测试套件</h3>
+                <div class="value">3</div>
+                <div>总数</div>
+            </div>
+            <div class="summary-card">
+                <h3>通过套件</h3>
+                <div class="value passed">0</div>
+                <div>通过</div>
+            </div>
+            <div class="summary-card">
+                <h3>失败套件</h3>
+                <div class="value failed">3</div>
+                <div>失败</div>
+            </div>
+            <div class="summary-card">
+                <h3>测试用例</h3>
+                <div class="value">0</div>
+                <div>总数</div>
+            </div>
+            <div class="summary-card">
+                <h3>覆盖率</h3>
+                <div class="value">0%</div>
+                <div>通过率</div>
+            </div>
+        </div>
+        
+        <h2>测试套件详情</h2>
+        
+            <div class="suite">
+                <div class="suite-header">
+                    <h3>搜索功能测试 <span class="status-badge status-failed">FAILED</span></h3>
+                    <p>测试搜索栏数据请求、API调用和数据库查询功能</p>
+                    <p><strong>文件:</strong> search.test.js | <strong>优先级:</strong> high | <strong>耗时:</strong> 0秒</p>
+                </div>
+                <div class="suite-content">
+                    <p><strong>测试统计:</strong> 总计 0 个，通过 0 个，失败 0 个</p>
+                    
+                    <div class="output error"><strong>错误信息:</strong>
+D:\HuaweiMoveData\Users\11346\Desktop\部门地图\node_modules\@jest\globals\build\index.js:23
+throw new Error('Do not import `@jest/globals` outside of the Jest test environment');
+      ^
+
+Error: Do not import `@jest/globals` outside of the Jest test environment
+    at D:\HuaweiMoveData\Users\11346\Desktop\部门地图\node_modules\@jest\globals\build\index.js:23:7
+    at Object.<anonymous> (D:\HuaweiMoveData\Users\11346\Desktop\部门地图\node_modules\@jest\globals\build\index.js:25:12)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at cjsLoader (node:internal/modules/esm/translators:268:5)
+    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:202:7)
+
+Node.js v22.19.0
+</div>
+                </div>
+            </div>
+        
+            <div class="suite">
+                <div class="suite-header">
+                    <h3>WebSocket连接管理测试 <span class="status-badge status-failed">FAILED</span></h3>
+                    <p>测试WebSocket单实例连接控制和状态管理</p>
+                    <p><strong>文件:</strong> websocket.test.js | <strong>优先级:</strong> high | <strong>耗时:</strong> 0秒</p>
+                </div>
+                <div class="suite-content">
+                    <p><strong>测试统计:</strong> 总计 0 个，通过 0 个，失败 0 个</p>
+                    
+                    <div class="output error"><strong>错误信息:</strong>
+D:\HuaweiMoveData\Users\11346\Desktop\部门地图\node_modules\@jest\globals\build\index.js:23
+throw new Error('Do not import `@jest/globals` outside of the Jest test environment');
+      ^
+
+Error: Do not import `@jest/globals` outside of the Jest test environment
+    at D:\HuaweiMoveData\Users\11346\Desktop\部门地图\node_modules\@jest\globals\build\index.js:23:7
+    at Object.<anonymous> (D:\HuaweiMoveData\Users\11346\Desktop\部门地图\node_modules\@jest\globals\build\index.js:25:12)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at cjsLoader (node:internal/modules/esm/translators:268:5)
+    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:202:7)
+
+Node.js v22.19.0
+</div>
+                </div>
+            </div>
+        
+            <div class="suite">
+                <div class="suite-header">
+                    <h3>数据库操作测试 <span class="status-badge status-failed">FAILED</span></h3>
+                    <p>测试SQLite和PostgreSQL数据库连接、查询和错误处理</p>
+                    <p><strong>文件:</strong> database.test.js | <strong>优先级:</strong> medium | <strong>耗时:</strong> 0秒</p>
+                </div>
+                <div class="suite-content">
+                    <p><strong>测试统计:</strong> 总计 0 个，通过 0 个，失败 0 个</p>
+                    
+                    <div class="output error"><strong>错误信息:</strong>
+D:\HuaweiMoveData\Users\11346\Desktop\部门地图\node_modules\@jest\globals\build\index.js:23
+throw new Error('Do not import `@jest/globals` outside of the Jest test environment');
+      ^
+
+Error: Do not import `@jest/globals` outside of the Jest test environment
+    at D:\HuaweiMoveData\Users\11346\Desktop\部门地图\node_modules\@jest\globals\build\index.js:23:7
+    at Object.<anonymous> (D:\HuaweiMoveData\Users\11346\Desktop\部门地图\node_modules\@jest\globals\build\index.js:25:12)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object..js (node:internal/modules/cjs/loader:1839:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at cjsLoader (node:internal/modules/esm/translators:268:5)
+    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:202:7)
+
+Node.js v22.19.0
+</div>
+                </div>
+            </div>
+        
+    </div>
+</body>
+</html>
+    
