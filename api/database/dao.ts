@@ -2,7 +2,7 @@
  * 数据访问层 (Data Access Object)
  * 封装所有数据库操作
  */
-import { db } from './memory.js';
+import { db, executeQuery } from './memory.js';
 import {
   Department,
   Employee,
@@ -10,8 +10,13 @@ import {
   User,
   SystemLog,
   DeskAssignment,
-  UserSession
+  UserSession,
+  DepartmentStats,
+  PaginationParams,
+  SearchParams,
+  EmployeeWithDetails
 } from '../types/database.js';
+import { DeskWithDetails } from '../../shared/types.js';
 
 /**
  * 部门数据访问对象
@@ -84,7 +89,7 @@ export class DepartmentDAO {
       text: 'DELETE FROM departments WHERE id = $1',
       values: [id]
     });
-    return result.rowCount > 0;
+    return result.rows.length > 0;
   }
 
   /**
@@ -218,6 +223,7 @@ export class EmployeeDAO {
           d.code as department_code,
           desk.id as current_desk_id,
           desk.desk_number as current_desk_number,
+          u.id as user_id,
           u.username as user_username,
           u.role as user_role
         FROM employees e
@@ -256,6 +262,7 @@ export class EmployeeDAO {
         desk_number: row.current_desk_number
       } : undefined,
       user_account: row.user_username ? {
+        id: row.user_id,
         username: row.user_username,
         role: row.user_role
       } : undefined
@@ -340,8 +347,8 @@ export class DeskDAO {
       id: row.id,
       desk_number: row.desk_number,
       department_id: row.department_id,
-      position_x: parseFloat(row.position_x),
-      position_y: parseFloat(row.position_y),
+      x_position: row.x_position,
+      y_position: row.y_position,
       width: parseFloat(row.width),
       height: parseFloat(row.height),
       status: row.status,
@@ -376,14 +383,14 @@ export class DeskDAO {
   static async create(desk: Omit<Desk, 'id' | 'created_at' | 'updated_at'>): Promise<Desk> {
     const result = await db.query({
       text: `
-        INSERT INTO desks (desk_number, department_id, position_x, position_y, width, height, status, ip_address, computer_name, equipment_info) 
+        INSERT INTO desks (desk_number, department_id, x_position, y_position, width, height, status, ip_address, computer_name, equipment_info) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *
       `,
       values: [
         desk.desk_number,
         desk.department_id,
-        desk.position_x,
-        desk.position_y,
+        desk.x_position,
+        desk.y_position,
         desk.width,
         desk.height,
         desk.status,
@@ -398,56 +405,57 @@ export class DeskDAO {
   /**
    * 分配工位
    */
-  static async assignDesk(deskId: number, employeeId: number, assignedBy?: number): Promise<DeskAssignment> {
-    return await db.transaction(async (client: PoolClient) => {
+  static async assignDesk(deskId: number, employeeId: number, assignedBy?: number): Promise<any> {
+    try {
       // 检查工位是否可用
-      const deskResult = await client.query(
+      const deskResult = await executeQuery(
         'SELECT status FROM desks WHERE id = $1',
         [deskId]
       );
       
-      if (deskResult.rows.length === 0) {
+      if (deskResult.length === 0) {
         throw new Error('工位不存在');
       }
       
-      if (deskResult.rows[0].status !== 'available') {
+      if (deskResult[0].status !== 'available') {
         throw new Error('工位不可用');
       }
 
       // 检查员工是否已有工位
-      const existingAssignment = await client.query(
+      const existingAssignment = await executeQuery(
         'SELECT id FROM desk_assignments WHERE employee_id = $1 AND status = $2',
         [employeeId, 'active']
       );
       
-      if (existingAssignment.rows.length > 0) {
+      if (existingAssignment.length > 0) {
         throw new Error('员工已有工位分配');
       }
 
-      // 创建分配记录
-      const assignmentResult = await client.query(
+      const assignmentResult = await executeQuery(
         `INSERT INTO desk_assignments (desk_id, employee_id, assigned_by, status) 
          VALUES ($1, $2, $3, 'active') RETURNING *`,
         [deskId, employeeId, assignedBy]
       );
 
       // 更新工位状态
-      await client.query(
+      await executeQuery(
         'UPDATE desks SET status = $1 WHERE id = $2',
         ['occupied', deskId]
       );
 
-      return assignmentResult.rows[0];
-    });
+      return assignmentResult[0];
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**
    * 释放工位
    */
   static async releaseDesk(deskId: number): Promise<boolean> {
-    return await db.transaction(async (client: PoolClient) => {
+    try {
       // 更新分配记录状态
-      const assignmentResult = await client.query(
+      const assignmentResult = await executeQuery(
         `UPDATE desk_assignments 
          SET status = 'inactive', released_at = CURRENT_TIMESTAMP 
          WHERE desk_id = $1 AND status = 'active'`,
@@ -455,13 +463,15 @@ export class DeskDAO {
       );
 
       // 更新工位状态
-      await client.query(
+      await executeQuery(
         'UPDATE desks SET status = $1 WHERE id = $2',
         ['available', deskId]
       );
 
-      return assignmentResult.rowCount > 0;
-    });
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   /**
@@ -491,8 +501,8 @@ export class DeskDAO {
       id: row.id,
       desk_number: row.desk_number,
       department_id: row.department_id,
-      position_x: parseFloat(row.position_x),
-      position_y: parseFloat(row.position_y),
+      x_position: parseFloat(row.x_position),
+      y_position: parseFloat(row.y_position),
       width: parseFloat(row.width),
       height: parseFloat(row.height),
       status: row.status,
@@ -519,7 +529,7 @@ export class SystemStatsDAO {
   /**
    * 获取系统统计信息
    */
-  static async getSystemStats(): Promise<SystemStats> {
+  static async getSystemStats(): Promise<any> {
     const result = await db.query({
       text: `
         SELECT 

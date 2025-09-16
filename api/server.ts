@@ -23,6 +23,15 @@ import employeesRoutes from './routes/employees.js';
 import departmentsRoutes from './routes/departments.js';
 import overviewRoutes from './routes/overview.js';
 
+// 扩展Error接口以支持status属性
+declare global {
+  namespace NodeJS {
+    interface Error {
+      status?: number;
+    }
+  }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -68,7 +77,7 @@ app.use(express.json({
   limit: '10mb',
   verify: (req, res, buf, encoding) => {
     if (buf.length > 10 * 1024 * 1024) {
-      const error = new Error('请求体过大');
+      const error = new Error('请求体过大') as any;
       error.status = 413;
       throw error;
     }
@@ -79,13 +88,13 @@ app.use(express.urlencoded({
   limit: '10mb',
   verify: (req, res, buf, encoding) => {
     if (buf.length > 10 * 1024 * 1024) {
-      const error = new Error('请求体过大');
+      const error = new Error('请求体过大') as any;
       error.status = 413;
       throw error;
     }
   }
 }));
-app.use(express.static(join(__dirname, '../dist')));
+app.use(express.static(join(__dirname, '../dist-server-management')));
 
 // 错误处理中间件
 const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
@@ -163,7 +172,7 @@ app.use((error: any, req: any, res: any, next: any) => {
 
 // 服务静态文件
 app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, '../dist/index.html'));
+  res.sendFile(join(__dirname, '../dist-server-management/server-management.html'));
 });
 
 /**

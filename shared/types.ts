@@ -7,23 +7,25 @@ export interface Workstation {
   name: string;
   ipAddress: string;
   macAddress?: string;
-  location: {
+  location: string | {
     floor: number;
     room: string;
-    position: {
+    seat?: string;
+    position?: {
       x: number;
       y: number;
     };
   };
+  building?: string;
   department: string;
-  status: 'online' | 'offline' | 'maintenance';
+  status: 'active' | 'inactive' | 'maintenance' | 'online' | 'offline';
   specifications: {
-    cpu: string;
-    memory: string;
-    storage: string;
-    os: string;
+    cpu?: string;
+    memory?: string;
+    storage?: string;
+    os?: string;
   };
-  assignedUser?: string;
+  assignedUser?: string | null;
   createdAt: Date;
   updatedAt: Date;
   metadata?: Record<string, any>;
@@ -38,10 +40,10 @@ export interface Employee {
   phone?: string;
   department: string;
   position: string;
-  workstationId?: string;
+  workstationId?: string | null;
   avatar?: string;
   status: 'active' | 'inactive' | 'on_leave';
-  permissions: string[];
+  permissions: string | string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -149,6 +151,45 @@ export interface ServerStatus {
   };
   uptime: number;
   processes: number;
+}
+
+// 工位信息接口
+export interface Desk {
+  id: number;
+  desk_number: string;
+  department_id: number;
+  x_position: number;
+  y_position: number;
+  width: number;
+  height: number;
+  status: 'available' | 'occupied' | 'maintenance';
+  ip_address?: string;
+  computer_name?: string;
+  equipment_info?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+// 工位详细信息接口（包含关联数据）
+export interface DeskWithDetails extends Desk {
+  department?: {
+    name: string;
+  };
+  employee?: {
+    id: number;
+    name: string;
+  };
+}
+
+// 工位分配接口
+export interface DeskAssignment {
+  id: number;
+  desk_id: number;
+  employee_id: number;
+  assigned_by?: number;
+  status: 'active' | 'inactive';
+  assigned_at: Date;
+  released_at?: Date;
 }
 
 // 权限常量

@@ -88,7 +88,7 @@ router.post('/login', async (req: Request, res: Response) => {
       action: 'login',
       resource_type: 'auth',
       resource_id: user.id.toString(),
-      details: { username: user.username },
+      details: JSON.stringify({ username: user.username }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });
@@ -203,7 +203,7 @@ router.post('/register', async (req: Request, res: Response) => {
       action: 'register',
       resource_type: 'auth',
       resource_id: newUser.id.toString(),
-      details: { username: newUser.username, role: newUser.role },
+      details: JSON.stringify({ username: newUser.username, role: newUser.role }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });

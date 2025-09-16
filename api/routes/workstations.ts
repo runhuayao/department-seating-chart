@@ -51,7 +51,7 @@ router.post('/', asyncHandler(async (req: any, res: any) => {
     name, 
     status,
     building,
-    floor_number,
+    floor,
     x_position,
     y_position,
     width,
@@ -59,7 +59,10 @@ router.post('/', asyncHandler(async (req: any, res: any) => {
     equipment,
     notes,
     department_id,
-    employee_id
+    employee_id,
+    ip_address,
+    mac_address,
+    department
   } = req.body;
   
   // 验证必填字段
@@ -73,17 +76,23 @@ router.post('/', asyncHandler(async (req: any, res: any) => {
   try {
     const newWorkstation = await db.createWorkstation({
       name,
+      ipAddress: ip_address || '',
+      macAddress: mac_address || '',
       status: status || 'available',
-      building: building || 'Main Building',
-      floor_number: floor_number || 1,
-      x_position: x_position || 0,
-      y_position: y_position || 0,
-      width: width || 120,
-      height: height || 80,
-      equipment: equipment || null,
-      notes: notes || null,
-      department_id: department_id || null,
-      employee_id: employee_id || null
+      location: {
+        floor: floor || 1,
+        room: 'Room A',
+        seat: 'Seat 1',
+        position: { x: x_position || 0, y: y_position || 0 }
+      },
+      specifications: {
+        cpu: equipment ? 'Intel i5' : undefined,
+        memory: equipment ? '8GB' : undefined,
+        storage: equipment ? '256GB SSD' : undefined,
+        os: equipment ? 'Windows 10' : undefined
+      },
+      department: department || 'IT',
+      assignedUser: employee_id ? `Employee-${employee_id}` : null
     });
 
     res.status(201).json({

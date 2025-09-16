@@ -122,8 +122,8 @@ router.post('/:id/assign', authenticateToken, async (req: Request, res: Response
       user_id: userId,
       action: 'assign_desk',
       resource_type: 'desk',
-      resource_id: deskId.toString(),
-      details: { employee_id, assignment_id: assignment.id },
+      resource_id: deskId,
+      details: JSON.stringify({ employee_id, assignment_id: assignment.id }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });
@@ -182,8 +182,8 @@ router.post('/:id/release', authenticateToken, async (req: Request, res: Respons
       user_id: userId,
       action: 'release_desk',
       resource_type: 'desk',
-      resource_id: deskId.toString(),
-      details: { released_at: new Date().toISOString() },
+      resource_id: deskId,
+      details: JSON.stringify({ released_at: new Date().toISOString() }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });
@@ -279,8 +279,18 @@ router.post('/', async (req: Request, res: Response) => {
     
     // 创建工位
     const newDesk = await DeskDAO.create({
-      ...deskData,
-      status: 'available'
+      desk_number: deskData.desk_number,
+      department_id: deskData.department_id,
+      floor: 1, // 默认楼层
+      area: 'A区', // 默认区域
+      x_position: deskData.position_x,
+      y_position: deskData.position_y,
+      width: deskData.width,
+      height: deskData.height,
+      status: 'available',
+      ip_address: deskData.ip_address,
+      computer_name: deskData.computer_name,
+      equipment_info: deskData.equipment_info ? JSON.stringify(deskData.equipment_info) : undefined
     });
     
     // 记录操作日志（无需用户认证）
@@ -288,8 +298,8 @@ router.post('/', async (req: Request, res: Response) => {
       user_id: null, // 无需登录验证
       action: 'create_desk',
       resource_type: 'desk',
-      resource_id: newDesk.id.toString(),
-      details: { desk_number: newDesk.desk_number, department_id: newDesk.department_id },
+      resource_id: newDesk.id,
+      details: JSON.stringify({ desk_number: newDesk.desk_number, department_id: newDesk.department_id }),
       ip_address: req.ip,
       user_agent: req.get('User-Agent')
     });

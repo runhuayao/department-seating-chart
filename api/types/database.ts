@@ -12,14 +12,18 @@ export interface BaseEntity {
 // 部门接口
 export interface Department extends BaseEntity {
   name: string;
+  code: string;
   description?: string;
   parent_id?: number;
   manager_id?: number;
   location?: string;
+  floor?: number;
+  building?: string;
 }
 
 // 员工接口
 export interface Employee extends BaseEntity {
+  employee_id: string;
   name: string;
   email: string;
   phone?: string;
@@ -27,6 +31,7 @@ export interface Employee extends BaseEntity {
   department_id: number;
   hire_date: string;
   status: 'active' | 'inactive' | 'terminated';
+  avatar_url?: string;
 }
 
 // 工位接口
@@ -102,6 +107,11 @@ export interface EmployeeWithDetails extends Employee {
   current_desk?: {
     id: number;
     desk_number: string;
+  };
+  user_account?: {
+    id: number;
+    username: string;
+    role: string;
   };
 }
 

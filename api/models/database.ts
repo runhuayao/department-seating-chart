@@ -222,6 +222,7 @@ class HybridDatabase {
       }
     } else {
       // 内存模式
+      const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
       const newWorkstation: Workstation = {
         id,
         ...workstation,
@@ -340,19 +341,23 @@ class HybridDatabase {
 
   // 员工操作
   async getEmployees(): Promise<Employee[]> {
-    try {
-      const result = await executeQuery<Employee[]>(`
-        SELECT 
-          id, employee_id as "employeeId", name, email, phone, department, 
-          position, workstation_id as "workstationId", status, permissions,
-          created_at as "createdAt", updated_at as "updatedAt"
-        FROM employees 
-        ORDER BY created_at DESC
-      `);
-      return result;
-    } catch (error) {
-      console.error('获取员工列表失败:', error);
-      return [];
+    if (isUsingPostgreSQL()) {
+      try {
+        const result = await executeQuery<Employee[]>(`
+          SELECT 
+            id, employee_id as "employeeId", name, email, phone, department_id as "departmentId", 
+            position, status, hire_date as "hireDate", avatar_url as "avatarUrl",
+            created_at as "createdAt", updated_at as "updatedAt"
+          FROM employees 
+          ORDER BY created_at DESC
+        `);
+        return result;
+      } catch (error) {
+        console.error('获取员工列表失败:', error);
+        return [];
+      }
+    } else {
+      return Array.from(this.memoryEmployees.values());
     }
   }
 
@@ -360,8 +365,8 @@ class HybridDatabase {
     try {
       const result = await executeQuery<Employee[]>(`
         SELECT 
-          id, employee_id as "employeeId", name, email, phone, department, 
-          position, workstation_id as "workstationId", status, permissions,
+          id, employee_id as "employeeId", name, email, phone, department_id as "departmentId", 
+          position, status, hire_date as "hireDate", avatar_url as "avatarUrl",
           created_at as "createdAt", updated_at as "updatedAt"
         FROM employees 
         WHERE id = $1
@@ -370,6 +375,175 @@ class HybridDatabase {
     } catch (error) {
       console.error('获取员工详情失败:', error);
       return null;
+    }
+  }
+
+  async createEmployee(employee: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>): Promise<Employee> {
+    const now = new Date();
+    
+    if (isUsingPostgreSQL()) {
+      try {
+        const result = await executeQuery<any[]>(`
+          INSERT INTO employees (
+            employee_id, name, email, phone, department, position, 
+            workstation_id, status, permissions
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          RETURNING *
+        `, [
+          employee.employeeId,
+          employee.name,
+          employee.email,
+          employee.phone,
+          employee.department,
+          employee.position,
+          employee.workstationId,
+          employee.status || 'active',
+          employee.permissions || 'user'
+        ]);
+        
+        const newEmployee = {
+          id: result[0].id.toString(),
+          employeeId: result[0].employee_id,
+          name: result[0].name,
+          email: result[0].email,
+          phone: result[0].phone,
+          department: result[0].department,
+          position: result[0].position,
+          workstationId: result[0].workstation_id,
+          status: result[0].status,
+          permissions: result[0].permissions,
+          createdAt: result[0].created_at,
+          updatedAt: result[0].updated_at
+        };
+        
+        await this.addAuditLog(null, 'CREATE', 'employee', newEmployee.id, employee);
+        await this.updateTotalRecords();
+        
+        return newEmployee;
+      } catch (error) {
+        console.error('创建员工失败:', error);
+        throw error;
+      }
+    } else {
+      // 内存模式
+      const id = `emp-${Date.now()}`;
+      const newEmployee: Employee = {
+        id,
+        ...employee,
+        createdAt: now,
+        updatedAt: now
+      };
+      
+      this.memoryEmployees.set(id, newEmployee);
+      this.updateMemoryTotalRecords();
+      
+      await this.addAuditLog(null, 'CREATE', 'employee', id, employee);
+      
+      return newEmployee;
+    }
+  }
+
+  async updateEmployee(id: string, updates: Partial<Employee>): Promise<Employee | null> {
+    if (isUsingPostgreSQL()) {
+      try {
+        const setParts: string[] = [];
+        const values: any[] = [];
+        let paramIndex = 1;
+
+        if (updates.name !== undefined) {
+          setParts.push(`name = $${paramIndex++}`);
+          values.push(updates.name);
+        }
+        if (updates.email !== undefined) {
+          setParts.push(`email = $${paramIndex++}`);
+          values.push(updates.email);
+        }
+        if (updates.phone !== undefined) {
+          setParts.push(`phone = $${paramIndex++}`);
+          values.push(updates.phone);
+        }
+        if (updates.department !== undefined) {
+          setParts.push(`department = $${paramIndex++}`);
+          values.push(updates.department);
+        }
+        if (updates.position !== undefined) {
+          setParts.push(`position = $${paramIndex++}`);
+          values.push(updates.position);
+        }
+        if (updates.workstationId !== undefined) {
+          setParts.push(`workstation_id = $${paramIndex++}`);
+          values.push(updates.workstationId);
+        }
+        if (updates.status !== undefined) {
+          setParts.push(`status = $${paramIndex++}`);
+          values.push(updates.status);
+        }
+        if (updates.permissions !== undefined) {
+          setParts.push(`permissions = $${paramIndex++}`);
+          values.push(updates.permissions);
+        }
+
+        if (setParts.length === 0) {
+          return await this.getEmployeeById(id);
+        }
+
+        setParts.push(`updated_at = $${paramIndex++}`);
+        values.push(new Date());
+        values.push(id);
+
+        await executeQuery(`
+          UPDATE employees 
+          SET ${setParts.join(', ')}
+          WHERE id = $${paramIndex}
+        `, values);
+
+        await this.addAuditLog(null, 'UPDATE', 'employee', id, updates);
+        await this.updateTotalRecords();
+        
+        return await this.getEmployeeById(id);
+      } catch (error) {
+        console.error('更新员工失败:', error);
+        return null;
+      }
+    } else {
+      // 内存模式
+      const existing = this.memoryEmployees.get(id);
+      if (existing) {
+        const updated = { ...existing, ...updates, updatedAt: new Date() };
+        this.memoryEmployees.set(id, updated);
+        this.updateMemoryTotalRecords();
+        await this.addAuditLog(null, 'UPDATE', 'employee', id, updates);
+        return updated;
+      }
+      return null;
+    }
+  }
+
+  async deleteEmployee(id: string): Promise<boolean> {
+    if (isUsingPostgreSQL()) {
+      try {
+        const result = await executeQuery(`
+          DELETE FROM employees WHERE id = $1
+        `, [id]);
+        
+        const deleted = result.rowCount > 0;
+        if (deleted) {
+          await this.addAuditLog(null, 'DELETE', 'employee', id, {});
+          await this.updateTotalRecords();
+        }
+        return deleted;
+      } catch (error) {
+        console.error('删除员工失败:', error);
+        return false;
+      }
+    } else {
+      // 内存模式
+      const deleted = this.memoryEmployees.delete(id);
+      if (deleted) {
+        this.updateMemoryTotalRecords();
+        await this.addAuditLog(null, 'DELETE', 'employee', id, {});
+      }
+      return deleted;
     }
   }
 
@@ -483,7 +657,7 @@ class HybridDatabase {
             ip_address, user_agent, timestamp
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `, [
-          id, userId, action, resource, resourceId, JSON.stringify(details),
+          id, userId, action, resource, resourceId, details,
           '127.0.0.1', 'Server', timestamp
         ]);
       } catch (error) {
@@ -497,7 +671,7 @@ class HybridDatabase {
         action,
         resource,
         resourceId,
-        details: JSON.stringify(details),
+        details,
         ipAddress: '127.0.0.1',
         userAgent: 'Server',
         timestamp

@@ -6,14 +6,18 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000,
+    port: 3001,
     host: true,
     open: true
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
-    }
+    },
+    dedupe: ['react', 'react-dom']
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom']
   },
   build: {
     outDir: 'dist-server-management',

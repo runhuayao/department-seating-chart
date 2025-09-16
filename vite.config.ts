@@ -24,6 +24,12 @@ export default defineConfig({
     }), 
     tsconfigPaths(),
   ],
+  resolve: {
+    dedupe: ['react', 'react-dom']
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom']
+  },
   server: {
     port: 5173,
     proxy: {

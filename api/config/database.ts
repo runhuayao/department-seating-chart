@@ -35,7 +35,7 @@ pool.on('connect', (client) => {
 
 pool.on('error', (err) => {
   console.error('❌ PostgreSQL连接池错误:', err);
-  if (err.code === 'ECONNREFUSED') {
+  if ((err as any).code === 'ECONNREFUSED') {
     console.log('🔄 PostgreSQL连接被拒绝，请检查数据库服务是否启动');
   }
 });

@@ -545,5 +545,11 @@ export function initializeMemoryDatabase(): void {
 // 创建数据库实例
 export const db = new MemoryDatabase();
 
+// 导出executeQuery函数用于兼容
+export const executeQuery = async (sql: string, params: any[] = []): Promise<any[]> => {
+  const result = await db.query({ text: sql, values: params });
+  return result.rows;
+};
+
 // 初始化数据
 initializeMemoryDatabase();

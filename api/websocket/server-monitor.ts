@@ -198,7 +198,7 @@ class ServerMonitorWebSocket {
     return Math.round((totalUsage / cpus.length) * 100) / 100;
   }
 
-  private async broadcastMetrics(): void {
+  private async broadcastMetrics(): Promise<void> {
     try {
       const metrics = await this.collectMetrics();
       this.io.emit('metrics-update', metrics);
@@ -211,7 +211,7 @@ class ServerMonitorWebSocket {
     }
   }
 
-  private async sendMetrics(socketId: string): void {
+  private async sendMetrics(socketId: string): Promise<void> {
     try {
       const metrics = await this.collectMetrics();
       this.io.to(socketId).emit('metrics-update', metrics);

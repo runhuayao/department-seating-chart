@@ -169,14 +169,16 @@ const ServerMonitor: React.FC<ServerMonitorProps> = ({ className = '' }) => {
         borderColor: 'rgb(59, 130, 246)',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
         tension: 0.4,
-      },
+        fill: true,
+      } as any,
       {
         label: '内存使用率',
         data: metrics.map(m => m.memory),
         borderColor: 'rgb(16, 185, 129)',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         tension: 0.4,
-      },
+        fill: true,
+      } as any,
     ],
   };
 
@@ -420,7 +422,7 @@ const ServerMonitor: React.FC<ServerMonitorProps> = ({ className = '' }) => {
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     fill: true,
                     tension: 0.4
-                  },
+                  } as any,
                   {
                     label: '内存使用率',
                     data: historicalData.memory,
@@ -428,7 +430,7 @@ const ServerMonitor: React.FC<ServerMonitorProps> = ({ className = '' }) => {
                     backgroundColor: 'rgba(16, 185, 129, 0.1)',
                     fill: true,
                     tension: 0.4
-                  }
+                  } as any
                 ]
               }}
               options={{
@@ -481,16 +483,14 @@ const ServerMonitor: React.FC<ServerMonitorProps> = ({ className = '' }) => {
                     label: 'CPU使用率',
                     data: historicalData.cpu,
                     borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                    tension: 0.4
-                  },
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                  } as any,
                   {
                     label: '内存使用率',
                     data: historicalData.memory,
                     borderColor: 'rgb(16, 185, 129)',
-                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
-                    tension: 0.4
-                  }
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)'
+                  } as any
                 ]
               }}
               options={{
