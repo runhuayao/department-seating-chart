@@ -5,8 +5,12 @@ import { z } from 'zod';
 import { db } from '../database/memory.js';
 import { SystemLogDAO } from '../database/dao.js';
 import { authenticateToken, generateToken } from '../middleware/auth.js';
+import { requireRole, requirePermission, createRateLimitByRole } from '../middleware/authorization.js';
 
 const router = express.Router();
+
+// 应用频率限制中间件
+router.use(createRateLimitByRole());
 
 // 登录请求验证schema
 const loginSchema = z.object({
@@ -69,11 +73,26 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
+    // 获取用户权限信息
+    const permissionsResult = await db.query({
+      text: `
+        SELECT ARRAY_AGG(DISTINCT p.permission_name) as permissions
+        FROM role_permissions rp
+        JOIN permissions p ON rp.permission_id = p.id
+        WHERE rp.role_name = $1
+      `,
+      values: [user.role]
+    });
+
+    const permissions = permissionsResult.rows[0]?.permissions || [];
+
     // 生成JWT token
     const token = generateToken({
       id: user.id.toString(),
       username: user.username,
-      role: user.role
+      role: user.role,
+      permissions: permissions,
+      employeeId: user.employee_id
     });
 
     // 更新最后登录时间
@@ -93,6 +112,12 @@ router.post('/login', async (req: Request, res: Response) => {
       user_agent: req.get('User-Agent')
     });
     
+    // 更新最后登录时间
+    await db.query({
+      text: 'UPDATE users SET last_login_at = CURRENT_TIMESTAMP, last_login_ip = $1 WHERE id = $2',
+      values: [req.ip, user.id]
+    });
+    
     // 返回用户信息和token（不包含密码）
     const userInfo = {
       id: user.id,
@@ -102,7 +127,9 @@ router.post('/login', async (req: Request, res: Response) => {
       employee_id: user.employee_id,
       employee_name: user.employee_name,
       department_id: user.department_id,
-      created_at: user.created_at
+      created_at: user.created_at,
+      permissions: permissions,
+      lastLoginAt: new Date().toISOString()
     };
     
     res.json({
@@ -237,49 +264,261 @@ router.post('/register', async (req: Request, res: Response) => {
  */
 router.get('/verify', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.userId;
-    
-    const result = await db.query({
-      text: `
-        SELECT u.id, u.username, u.email, u.role, u.employee_id, u.created_at,
-               e.name as employee_name, e.department_id
-        FROM users u
-        LEFT JOIN employees e ON u.employee_id = e.id
-        WHERE u.id = $1 AND u.status = 'active'
-      `,
-      values: [userId]
-    });
-
-    if (result.rows.length === 0) {
+    // 中间件已经验证了token并设置了req.user
+    if (!(req as any).user) {
       return res.status(401).json({
         success: false,
-        message: '用户不存在或已被禁用'
+        message: '用户信息获取失败'
       });
     }
 
-    const user = result.rows[0];
-    
     res.json({
       success: true,
+      message: 'Token有效',
       data: {
         user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          employee_id: user.employee_id,
-          employee_name: user.employee_name,
-          department_id: user.department_id,
-          created_at: user.created_at
+          id: (req as any).user.userId,
+          username: (req as any).user.username,
+          role: (req as any).user.role,
+          employeeId: (req as any).user.employeeId,
+          departmentId: (req as any).user.departmentId,
+          permissions: (req as any).user.permissions
         }
-      },
-      message: 'Token验证成功'
+      }
     });
   } catch (error) {
     console.error('Token验证失败:', error);
+    res.status(401).json({
+      success: false,
+      message: 'Token验证失败'
+    });
+  }
+});
+
+// 获取用户权限列表
+router.get('/permissions', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    
+    res.json({
+      success: true,
+      message: '权限获取成功',
+      data: {
+        permissions: user.permissions,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('权限获取失败:', error);
     res.status(500).json({
       success: false,
-      message: '服务器内部错误'
+      message: '权限获取失败'
+    });
+  }
+});
+
+// 获取所有角色列表（仅管理员）
+router.get('/roles', authenticateToken, requireRole(['admin', 'super_admin']), async (req, res) => {
+  try {
+    const result = await db.query({
+      text: `
+        SELECT DISTINCT role_name, description
+        FROM role_permissions rp
+        LEFT JOIN roles r ON rp.role_name = r.name
+        ORDER BY role_name
+      `
+    });
+
+    res.json({
+      success: true,
+      message: '角色列表获取成功',
+      data: {
+        roles: result.rows
+      }
+    });
+  } catch (error) {
+    console.error('角色列表获取失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '角色列表获取失败'
+    });
+  }
+});
+
+// 获取角色权限详情（仅管理员）
+router.get('/roles/:roleName/permissions', authenticateToken, requireRole(['admin', 'super_admin']), async (req, res) => {
+  try {
+    const { roleName } = req.params;
+    
+    const result = await db.query({
+      text: `
+        SELECT p.id, p.permission_name, p.description, p.category
+        FROM role_permissions rp
+        JOIN permissions p ON rp.permission_id = p.id
+        WHERE rp.role_name = $1
+        ORDER BY p.category, p.permission_name
+      `,
+      values: [roleName]
+    });
+
+    res.json({
+      success: true,
+      message: '角色权限获取成功',
+      data: {
+        role: roleName,
+        permissions: result.rows
+      }
+    });
+  } catch (error) {
+    console.error('角色权限获取失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '角色权限获取失败'
+    });
+  }
+});
+
+// 修改用户角色（仅超级管理员）
+router.put('/users/:userId/role', authenticateToken, requireRole(['super_admin']), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+    const currentUser = (req as any).user;
+
+    if (!role) {
+      return res.status(400).json({
+        success: false,
+        message: '角色参数缺失'
+      });
+    }
+
+    // 验证角色是否存在
+    const roleCheck = await db.query({
+      text: 'SELECT name FROM roles WHERE name = $1',
+      values: [role]
+    });
+
+    if (roleCheck.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '无效的角色'
+      });
+    }
+
+    // 不能修改自己的角色
+    if (parseInt(userId) === currentUser.userId) {
+      return res.status(400).json({
+        success: false,
+        message: '不能修改自己的角色'
+      });
+    }
+
+    // 更新用户角色
+    await db.query({
+      text: 'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2',
+      values: [role, userId]
+    });
+
+    // 记录操作日志
+    await logActivity(currentUser.userId, 'role_change', `修改用户${userId}的角色为${role}`, req.ip);
+
+    res.json({
+      success: true,
+      message: '用户角色修改成功'
+    });
+  } catch (error) {
+    console.error('用户角色修改失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '用户角色修改失败'
+    });
+  }
+});
+
+// 用户登出
+router.post('/logout', authenticateToken, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    
+    // 记录登出日志
+    await logActivity(user.userId, 'logout', '用户登出', req.ip);
+
+    res.json({
+      success: true,
+      message: '登出成功'
+    });
+  } catch (error) {
+    console.error('登出失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '登出失败'
+    });
+  }
+});
+
+// 修改密码
+router.put('/password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = (req as any).user;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: '当前密码和新密码不能为空'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: '新密码长度至少6位'
+      });
+    }
+
+    // 获取用户当前密码
+    const userResult = await db.query({
+      text: 'SELECT password FROM users WHERE id = $1',
+      values: [user.userId]
+    });
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '用户不存在'
+      });
+    }
+
+    // 验证当前密码
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, userResult.rows[0].password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: '当前密码错误'
+      });
+    }
+
+    // 加密新密码
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // 更新密码
+    await db.query({
+      text: 'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2',
+      values: [hashedNewPassword, user.userId]
+    });
+
+    // 记录操作日志
+    await logActivity(user.userId, 'password_change', '用户修改密码', req.ip);
+
+    res.json({
+      success: true,
+      message: '密码修改成功'
+    });
+  } catch (error) {
+    console.error('密码修改失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '密码修改失败'
     });
   }
 });

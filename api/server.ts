@@ -15,6 +15,7 @@ import { dirname, join } from 'path';
 import db from './models/database.js';
 import { createServer } from 'http';
 import ServerMonitorWebSocket from './websocket/server-monitor.js';
+import DatabaseSyncWebSocket from './websocket/database-sync.js';
 import authRoutes from './routes/auth.js';
 import workstationRoutes from './routes/workstations.js';
 import databaseRoutes from './routes/database.js';
@@ -124,11 +125,18 @@ app.get('/api/database/status', asyncHandler(async (req: any, res: any) => {
 // WebSocket状态
 app.get('/api/websocket/status', asyncHandler(async (req: any, res: any) => {
   const status = {
-    connected: serverMonitorWS ? true : false,
-    clients: serverMonitorWS ? serverMonitorWS.getConnectedClientsCount() : 0,
+    serverMonitor: {
+      connected: serverMonitorWS ? true : false,
+      clients: serverMonitorWS ? serverMonitorWS.getConnectedClientsCount() : 0,
+      health: serverMonitorWS ? 'healthy' : 'disconnected'
+    },
+    databaseSync: {
+      connected: databaseSyncWS ? true : false,
+      clients: databaseSyncWS ? databaseSyncWS.getConnectedClientsCount() : 0,
+      health: databaseSyncWS ? 'healthy' : 'disconnected'
+    },
     uptime: process.uptime(),
-    lastUpdate: new Date().toISOString(),
-    health: serverMonitorWS ? 'healthy' : 'disconnected'
+    lastUpdate: new Date().toISOString()
   };
   res.json(status);
 }));
@@ -321,11 +329,12 @@ app.get('*', (req, res) => {
 /**
  * start server with port
  */
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3001;
 
 // 全局server变量
 let server: any = null;
 let serverMonitorWS: any = null;
+let databaseSyncWS: any = null;
 
 // 启动服务器
 async function startServer() {
@@ -338,6 +347,9 @@ async function startServer() {
 
     // Initialize WebSocket for server monitoring
     serverMonitorWS = new ServerMonitorWebSocket(server);
+    
+    // Initialize WebSocket for database synchronization
+    databaseSyncWS = new DatabaseSyncWebSocket(server);
 
     server.listen(PORT, () => {
       console.log(`🚀 服务器运行在端口 ${PORT}`);
@@ -367,6 +379,9 @@ const gracefulShutdown = async (signal: string) => {
       // 关闭WebSocket
       if (serverMonitorWS) {
         serverMonitorWS.close();
+      }
+      if (databaseSyncWS) {
+        databaseSyncWS.close();
       }
       
       // 关闭数据库连接
