@@ -6,10 +6,10 @@ interface User {
   id: number;
   username: string;
   email: string;
-  role: 'admin' | 'manager' | 'employee';
+  role: 'admin' | 'super_admin' | 'department_admin' | 'user';
+  departmentId: number;
   employee_id?: number;
   employee_name?: string;
-  department_id?: number;
   created_at: string;
 }
 
@@ -20,7 +20,10 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isDepartmentAdmin: boolean;
   isLoading: boolean;
+  hasRole: (roles: string[]) => boolean;
+  canAccessDepartment: (departmentId: number) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -118,7 +121,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const isAuthenticated = !!user && !!token;
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isDepartmentAdmin = user?.role === 'department_admin' || isAdmin;
+
+  // 权限检查函数
+  const hasRole = (roles: string[]): boolean => {
+    return user ? roles.includes(user.role) : false;
+  };
+
+  const canAccessDepartment = (departmentId: number): boolean => {
+    if (!user) return false;
+    if (isAdmin) return true; // 管理员可以访问所有部门
+    return user.departmentId === departmentId;
+  };
 
   const value: AuthContextType = {
     user,
@@ -127,7 +142,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     isAuthenticated,
     isAdmin,
+    isDepartmentAdmin,
     isLoading,
+    hasRole,
+    canAccessDepartment,
   };
 
   return (

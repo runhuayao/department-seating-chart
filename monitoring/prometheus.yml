@@ -1,0 +1,193 @@
+# Prometheus 监控配置文件
+# 基于系统架构关联逻辑文档的监控指标配置
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'department-map'
+    environment: 'production'
+
+# 规则文件配置
+rule_files:
+  - "alert_rules.yml"
+
+# 告警管理器配置
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# 抓取配置
+scrape_configs:
+  # Prometheus 自身监控
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # API 服务监控 (8080端口)
+  - job_name: 'department-map-api'
+    static_configs:
+      - targets: ['api-service:8080']
+    scrape_interval: 15s
+    metrics_path: /api/metrics
+    scrape_timeout: 10s
+    honor_labels: true
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'api-service'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'department-map-api'
+
+  # 前端服务监控 (5173端口)
+  - job_name: 'department-map-frontend'
+    static_configs:
+      - targets: ['frontend-service:5173']
+    scrape_interval: 30s
+    metrics_path: /health
+    scrape_timeout: 5s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'frontend-service'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'department-map-frontend'
+
+  # 服务器管理系统监控 (3000端口)
+  - job_name: 'server-management-system'
+    static_configs:
+      - targets: ['management-service:3000']
+    scrape_interval: 30s
+    metrics_path: /health
+    scrape_timeout: 5s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'management-service'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'server-management-system'
+
+  # PostgreSQL 数据库监控
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'postgresql-db'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'postgresql'
+
+  # Redis 缓存监控
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'redis-cache'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'redis'
+
+  # Nginx 反向代理监控
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'nginx-proxy'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'nginx'
+
+  # Node Exporter (系统指标)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'system-host'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'node-exporter'
+
+  # cAdvisor (容器监控)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'docker-containers'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'cadvisor'
+
+  # WebSocket 连接监控
+  - job_name: 'websocket-monitor'
+    static_configs:
+      - targets: ['api-service:8080']
+    scrape_interval: 10s
+    metrics_path: /api/websocket/metrics
+    scrape_timeout: 5s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'websocket-service'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'websocket-monitor'
+
+  # 自定义业务指标监控
+  - job_name: 'business-metrics'
+    static_configs:
+      - targets: ['api-service:8080']
+    scrape_interval: 30s
+    metrics_path: /api/business/metrics
+    scrape_timeout: 10s
+    params:
+      module: ['business']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'business-service'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'business-metrics'
+
+# 远程写入配置 (可选)
+# remote_write:
+#   - url: "https://your-remote-storage/api/v1/write"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-password"
+
+# 远程读取配置 (可选)
+# remote_read:
+#   - url: "https://your-remote-storage/api/v1/read"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-password"
