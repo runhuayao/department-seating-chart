@@ -98,15 +98,15 @@ class HybridDatabase {
       try {
         const result = await executeQuery<any[]>(`
           SELECT 
-            w.id, w.name, w.status, w.equipment, w.notes, w.floor_number, w.building,
-            w.x_position, w.y_position, w.width, w.height,
-            w.created_at, w.updated_at, w.department_id, w.employee_id,
-            d.name as department_name,
-            e.name as employee_name
-          FROM workstations w
-          LEFT JOIN departments d ON w.department_id = d.id
-          LEFT JOIN employees e ON w.employee_id = e.id
-          ORDER BY w.created_at DESC
+            d.id, d.desk_number as name, d.status, d.equipment, d.notes,
+            d.position_x as "xPosition", d.position_y as "yPosition", d.width, d.height,
+            d.created_at as "createdAt", d.updated_at as "updatedAt",
+            dept.name as department, ada.employee_id,
+            CASE WHEN ada.employee_id IS NOT NULL THEN ada.employee_name ELSE NULL END as "assignedUser"
+          FROM desks d
+          LEFT JOIN departments dept ON d.department_id = dept.id
+          LEFT JOIN active_desk_assignments ada ON d.id = ada.desk_id
+          ORDER BY d.created_at DESC
         `);
         
         // 转换为前端期望的格式
@@ -115,13 +115,13 @@ class HybridDatabase {
           name: row.name,
           ipAddress: '', // 从notes中提取或设为空
           macAddress: '',
-          location: `Floor ${row.floor_number}, ${row.building}`,
-          department: row.department_name || row.building,
+          location: `Position (${row.xPosition || 0}, ${row.yPosition || 0})`,
+          department: row.department || 'Unknown',
           status: row.status,
-          specifications: row.equipment ? JSON.parse(row.equipment) : {},
-          assignedUser: row.employee_name,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at
+          specifications: typeof row.equipment === 'string' ? JSON.parse(row.equipment) : (row.equipment || {}),
+          assignedUser: row.assignedUser,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt
         }));
       } catch (error) {
         console.error('获取工作站列表失败:', error);
@@ -137,15 +137,15 @@ class HybridDatabase {
     try {
       const result = await executeQuery<any[]>(`
         SELECT 
-          w.id, w.name, w.status, w.equipment, w.notes, w.floor_number, w.building,
-          w.x_position, w.y_position, w.width, w.height,
-          w.created_at, w.updated_at, w.department_id, w.employee_id,
-          d.name as department_name,
-          e.name as employee_name
-        FROM workstations w
-        LEFT JOIN departments d ON w.department_id = d.id
-        LEFT JOIN employees e ON w.employee_id = e.id
-        WHERE w.id = $1
+          d.id, d.desk_number as name, d.status, d.equipment, d.notes,
+          d.position_x as "xPosition", d.position_y as "yPosition", d.width, d.height,
+          d.created_at as "createdAt", d.updated_at as "updatedAt",
+          dept.name as department, ada.employee_id,
+          CASE WHEN ada.employee_id IS NOT NULL THEN ada.employee_name ELSE NULL END as "assignedUser"
+        FROM desks d
+        LEFT JOIN departments dept ON d.department_id = dept.id
+        LEFT JOIN active_desk_assignments ada ON d.id = ada.desk_id
+        WHERE d.id = $1
       `, [id]);
       
       if (result.length === 0) return null;
@@ -156,13 +156,13 @@ class HybridDatabase {
         name: row.name,
         ipAddress: '', // 从notes中提取或设为空
         macAddress: '',
-        location: `Floor ${row.floor_number}, ${row.building}`,
-        department: row.department_name || row.building,
+        location: `Position (${row.xPosition || 0}, ${row.yPosition || 0})`,
+        department: row.department || 'Unknown',
         status: row.status,
-        specifications: row.equipment ? JSON.parse(row.equipment) : {},
-        assignedUser: row.employee_name,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
+        specifications: typeof row.equipment === 'string' ? JSON.parse(row.equipment) : (row.equipment || {}),
+        assignedUser: row.assignedUser,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt
       };
     } catch (error) {
       console.error('获取工作站详情失败:', error);
@@ -177,8 +177,8 @@ class HybridDatabase {
       try {
         // 根据实际表结构创建工位
         const result = await executeQuery<any[]>(`
-          INSERT INTO workstations (
-            name, department_id, x_position, y_position, width, height, 
+          INSERT INTO desks (
+            desk_number, department_id, position_x, position_y, width, height, 
             status, equipment, notes, floor_number, building
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
           RETURNING *
@@ -248,7 +248,7 @@ class HybridDatabase {
         let paramIndex = 1;
 
         if (updates.name !== undefined) {
-          setParts.push(`name = $${paramIndex++}`);
+          setParts.push(`desk_number = $${paramIndex++}`);
           values.push(updates.name);
         }
         if (updates.status !== undefined) {
@@ -294,7 +294,7 @@ class HybridDatabase {
         values.push(id);
 
         const result = await executeQuery(`
-          UPDATE workstations 
+          UPDATE desks 
           SET ${setParts.join(', ')}
           WHERE id = $${paramIndex}
         `, values);
@@ -324,7 +324,7 @@ class HybridDatabase {
   async deleteWorkstation(id: string): Promise<boolean> {
     try {
       const result = await executeQuery<{count: number}[]>(`
-        DELETE FROM workstations WHERE id = $1
+        DELETE FROM desks WHERE id = $1
       `, [id]);
       
       const deleted = result.length > 0;

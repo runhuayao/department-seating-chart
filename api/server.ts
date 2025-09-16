@@ -121,6 +121,116 @@ app.get('/api/database/status', asyncHandler(async (req: any, res: any) => {
   res.json(status);
 }));
 
+// WebSocket状态
+app.get('/api/websocket/status', asyncHandler(async (req: any, res: any) => {
+  const status = {
+    connected: serverMonitorWS ? true : false,
+    clients: serverMonitorWS ? serverMonitorWS.getConnectedClientsCount() : 0,
+    uptime: process.uptime(),
+    lastUpdate: new Date().toISOString(),
+    health: serverMonitorWS ? 'healthy' : 'disconnected'
+  };
+  res.json(status);
+}));
+
+// 地图API - 获取部门地图信息
+app.get('/api/map', asyncHandler(async (req: any, res: any) => {
+  const { dept } = req.query;
+  if (!dept) {
+    return res.status(400).json({ error: 'Department parameter is required' });
+  }
+  
+  // 模拟地图数据
+  const mapData = {
+    map_id: `${dept.toLowerCase()}-floor-plan`,
+    type: 'svg',
+    url: `/images/${dept.toLowerCase()}-map.svg`
+  };
+  
+  res.json(mapData);
+}));
+
+// 工位API - 获取部门工位信息
+app.get('/api/desks', asyncHandler(async (req: any, res: any) => {
+  const { dept } = req.query;
+  if (!dept) {
+    return res.status(400).json({ error: 'Department parameter is required' });
+  }
+  
+  // 模拟工位数据
+  const mockDesks = [
+    {
+      desk_id: `${dept}-001`,
+      x: 100,
+      y: 100,
+      w: 80,
+      h: 60,
+      label: '001',
+      employee: '张三',
+      employee_id: 'emp001',
+      status: 'occupied'
+    },
+    {
+      desk_id: `${dept}-002`,
+      x: 200,
+      y: 100,
+      w: 80,
+      h: 60,
+      label: '002',
+      employee: '李四',
+      employee_id: 'emp002',
+      status: 'occupied'
+    },
+    {
+      desk_id: `${dept}-003`,
+      x: 300,
+      y: 100,
+      w: 80,
+      h: 60,
+      label: '003',
+      employee: null,
+      employee_id: null,
+      status: 'available'
+    }
+  ];
+  
+  res.json(mockDesks);
+}));
+
+// 用户查找API
+app.get('/api/findUser', asyncHandler(async (req: any, res: any) => {
+  const { name } = req.query;
+  if (!name) {
+    return res.status(400).json({ error: 'Name parameter is required' });
+  }
+  
+  // 模拟用户查找数据
+  const mockUsers = [
+    {
+      dept: 'Engineering',
+      map_id: 'engineering-floor-plan',
+      desk_id: 'Engineering-001',
+      x: 100,
+      y: 100,
+      status: 'occupied',
+      employee: '张三',
+      employee_id: 'emp001'
+    }
+  ];
+  
+  // 模糊匹配
+  const results = mockUsers.filter(user => 
+    user.employee && user.employee.includes(name as string)
+  );
+  
+  if (results.length === 0) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  // 如果只有一个结果，返回单个对象；否则返回数组
+  res.json(results.length === 1 ? results[0] : results);
+}));
+
 // 数据同步
 app.post('/api/database/sync', asyncHandler(async (req: any, res: any) => {
   const success = await db.syncData();
@@ -170,8 +280,41 @@ app.use((error: any, req: any, res: any, next: any) => {
   });
 });
 
-// 服务静态文件
+// 添加API根路径处理
+app.get('/api', (req, res) => {
+  res.json({ 
+    message: 'Department Map API Server',
+    version: '3.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      workstations: '/api/workstations',
+      employees: '/api/employees',
+      departments: '/api/departments',
+      database: '/api/database',
+      search: '/api/search',
+      overview: '/api/overview',
+      stats: '/api/stats'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 处理未匹配的API路径
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ 
+    error: 'API endpoint not found',
+    path: req.path,
+    method: req.method
+  });
+});
+
+// 服务静态文件（只处理非API路径）
 app.get('*', (req, res) => {
+  // 确保不处理API路径
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
   res.sendFile(join(__dirname, '../dist-server-management/server-management.html'));
 });
 
