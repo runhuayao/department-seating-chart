@@ -1,60 +1,88 @@
-// 渐进式API迁移服务层
-// 支持静态数据和API数据的混合使用，实现M0到M1的平滑过渡
-
-import { DataAdapter, M0Employee, M0Desk, M1Employee, M1Desk, M1Assignment } from '../adapters/dataAdapter';
-import {
-  Employee,
-  Desk,
-  DepartmentConfig,
-  getEmployeeById as getStaticEmployeeById,
-  getEmployeesByDepartment as getStaticEmployeesByDepartment,
-  getDesksByDepartment as getStaticDesksByDepartment,
-  getDepartmentConfig as getStaticDepartmentConfig,
-  getHomepageOverview as getStaticHomepageOverview
-} from '../data/departmentData';
-
 /**
- * API响应接口定义
+ * 数据服务 - 完全基于PostgreSQL API
+ * 移除静态数据依赖，统一使用数据库数据源
  */
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-  error?: string;
+
+// API基础配置
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+
+// 数据接口类型定义
+export interface Employee {
+  id: number;
+  employee_id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  department_id: number;
+  position?: string;
+  status: 'online' | 'offline';
+  hire_date?: string;
+  created_at: string;
+  updated_at: string;
 }
 
-interface DeskWithAssignment {
-  desk: M1Desk;
-  assignment?: M1Assignment;
+export interface Department {
+  id: number;
+  name: string;
+  display_name: string;
+  description?: string;
+  floor?: number;
+  building?: string;
+  created_at: string;
+  updated_at: string;
 }
 
-/**
- * 数据服务类 - 统一的数据访问接口
- * 支持静态数据和API数据的混合使用
- */
+export interface Workstation {
+  id: string;
+  name: string;
+  ip_address?: string;
+  mac_address?: string;
+  location: {
+    room?: string;
+    seat?: string;
+    floor?: number;
+    position?: {
+      x: number;
+      y: number;
+    };
+    dimensions?: {
+      width: number;
+      height: number;
+    };
+  };
+  department: string;
+  status: 'available' | 'occupied' | 'maintenance';
+  specifications?: any;
+  assigned_user?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MapConfig {
+  id: number;
+  department: string;
+  map_id: string;
+  type: string;
+  url: string;
+  dept_name: string;
+  width?: number;
+  height?: number;
+  background_color?: string;
+  border_color?: string;
+  border_width?: number;
+  border_radius?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// 统一的数据获取类
 export class DataService {
   private static instance: DataService;
-  private useAPI: boolean;
-  private apiBaseUrl: string;
-  private fallbackToStatic: boolean;
-
-  private constructor() {
-    // 通过环境变量控制是否使用API
-    this.useAPI = process.env.REACT_APP_USE_API === 'true';
-    this.apiBaseUrl = process.env.REACT_APP_API_BASE_URL || '/api';
-    this.fallbackToStatic = process.env.REACT_APP_FALLBACK_TO_STATIC !== 'false';
-    
-    console.log('DataService initialized:', {
-      useAPI: this.useAPI,
-      apiBaseUrl: this.apiBaseUrl,
-      fallbackToStatic: this.fallbackToStatic
-    });
-  }
-
-  /**
-   * 获取DataService单例实例
-   */
-  static getInstance(): DataService {
+  private cache: Map<string, { data: any; timestamp: number; ttl: number }> = new Map();
+  
+  private constructor() {}
+  
+  public static getInstance(): DataService {
     if (!DataService.instance) {
       DataService.instance = new DataService();
     }
@@ -62,303 +90,365 @@ export class DataService {
   }
 
   /**
-   * 动态切换数据源
-   * @param useAPI 是否使用API
+   * 通用API请求方法
    */
-  setUseAPI(useAPI: boolean): void {
-    this.useAPI = useAPI;
-    console.log('DataService switched to:', useAPI ? 'API' : 'Static');
+  private async apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+        ...options,
+      });
+
+      if (!response.ok) {
+        throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error(`API请求错误 [${endpoint}]:`, error);
+      throw error;
+    }
   }
 
   /**
-   * 获取部门配置信息
-   * @param department 部门名称
-   * @returns 部门配置
+   * 缓存管理
    */
-  async getDepartmentConfig(department: string): Promise<DepartmentConfig | undefined> {
-    if (this.useAPI) {
-      try {
-        const response = await this.fetchAPI<DepartmentConfig>(`/departments/${department}`);
-        if (response.success) {
-          return response.data;
-        }
-        throw new Error(response.error || 'Failed to fetch department config');
-      } catch (error) {
-        console.warn('API调用失败，降级到静态数据:', error);
-        if (this.fallbackToStatic) {
-          return this.getStaticDepartmentConfig(department);
-        }
-        throw error;
+  private getCachedData<T>(key: string): T | null {
+    const cached = this.cache.get(key);
+    if (cached && Date.now() - cached.timestamp < cached.ttl) {
+      return cached.data as T;
+    }
+    this.cache.delete(key);
+    return null;
+  }
+
+  private setCachedData<T>(key: string, data: T, ttl: number = 300000): void { // 默认5分钟缓存
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl,
+    });
+  }
+
+  /**
+   * 获取所有部门
+   */
+  async getDepartments(): Promise<Department[]> {
+    const cacheKey = 'departments:all';
+    const cached = this.getCachedData<Department[]>(cacheKey);
+    if (cached) {
+      console.log('📦 从缓存获取部门数据');
+      return cached;
+    }
+
+    try {
+      const response = await this.apiRequest<{ success: boolean; data: Department[] }>('/departments');
+      if (response.success) {
+        this.setCachedData(cacheKey, response.data);
+        console.log(`✅ 从PostgreSQL获取到 ${response.data.length} 个部门`);
+        return response.data;
       }
-    } else {
-      return this.getStaticDepartmentConfig(department);
+      throw new Error('获取部门数据失败');
+    } catch (error) {
+      console.error('❌ 获取部门数据失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 根据部门名称获取部门信息
+   */
+  async getDepartmentByName(name: string): Promise<Department | null> {
+    const departments = await this.getDepartments();
+    return departments.find(dept => 
+      dept.name === name || 
+      dept.display_name === name ||
+      this.matchDepartmentName(name, dept)
+    ) || null;
+  }
+
+  /**
+   * 部门名称匹配逻辑
+   */
+  private matchDepartmentName(searchName: string, dept: Department): boolean {
+    const nameMapping: Record<string, string[]> = {
+      'Engineering': ['工程部', '技术部', '开发部'],
+      'Marketing': ['市场部', '产品部'],
+      'Sales': ['销售部', '运营部'],
+      'HR': ['人事部', '人力资源部']
+    };
+
+    const aliases = nameMapping[dept.name] || [];
+    return aliases.includes(searchName) || 
+           aliases.some(alias => alias.includes(searchName)) ||
+           searchName.includes(dept.name) ||
+           searchName.includes(dept.display_name);
+  }
+
+  /**
+   * 获取所有工位
+   */
+  async getWorkstations(department?: string): Promise<Workstation[]> {
+    const cacheKey = department ? `workstations:${department}` : 'workstations:all';
+    const cached = this.getCachedData<Workstation[]>(cacheKey);
+    if (cached) {
+      console.log(`📦 从缓存获取工位数据 (${department || 'all'})`);
+      return cached;
+    }
+
+    try {
+      const endpoint = department ? `/workstations?department=${encodeURIComponent(department)}` : '/workstations';
+      const workstations = await this.apiRequest<Workstation[]>(endpoint);
+      
+      this.setCachedData(cacheKey, workstations);
+      console.log(`✅ 从PostgreSQL获取到 ${workstations.length} 个工位 (${department || 'all'})`);
+      return workstations;
+    } catch (error) {
+      console.error('❌ 获取工位数据失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取部门工位（支持多种部门名称匹配）
+   */
+  async getDepartmentWorkstations(department: string): Promise<Workstation[]> {
+    try {
+      // 获取部门信息
+      const deptInfo = await this.getDepartmentByName(department);
+      
+      // 获取所有工位
+      const allWorkstations = await this.getWorkstations();
+      
+      // 过滤部门工位
+      const departmentWorkstations = allWorkstations.filter(ws => {
+        return ws.department === department ||
+               ws.department === deptInfo?.name ||
+               ws.department === deptInfo?.display_name ||
+               this.matchDepartmentName(ws.department, deptInfo || { name: department, display_name: department } as Department);
+      });
+
+      console.log(`🎯 ${department} 部门匹配到 ${departmentWorkstations.length} 个工位`);
+      return departmentWorkstations;
+    } catch (error) {
+      console.error(`❌ 获取 ${department} 部门工位失败:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取员工信息
+   */
+  async getEmployees(departmentId?: number): Promise<Employee[]> {
+    const cacheKey = departmentId ? `employees:dept:${departmentId}` : 'employees:all';
+    const cached = this.getCachedData<Employee[]>(cacheKey);
+    if (cached) {
+      console.log(`📦 从缓存获取员工数据 (dept:${departmentId || 'all'})`);
+      return cached;
+    }
+
+    try {
+      const endpoint = departmentId ? `/employees?department_id=${departmentId}` : '/employees';
+      const employees = await this.apiRequest<Employee[]>(endpoint);
+      
+      this.setCachedData(cacheKey, employees);
+      console.log(`✅ 从PostgreSQL获取到 ${employees.length} 个员工 (dept:${departmentId || 'all'})`);
+      return employees;
+    } catch (error) {
+      console.error('❌ 获取员工数据失败:', error);
+      return [];
     }
   }
 
   /**
    * 根据员工ID获取员工信息
-   * @param employeeId 员工ID
-   * @returns 员工信息
    */
-  async getEmployeeById(employeeId: number): Promise<Employee | undefined> {
-    if (this.useAPI) {
-      try {
-        const response = await this.fetchAPI<M1Employee>(`/employees/${employeeId}`);
-        if (response.success) {
-          return DataAdapter.adaptEmployee(response.data);
-        }
-        throw new Error(response.error || 'Employee not found');
-      } catch (error) {
-        console.warn('API调用失败，降级到静态数据:', error);
-        if (this.fallbackToStatic) {
-          return getStaticEmployeeById(employeeId);
-        }
-        throw error;
-      }
-    } else {
-      return getStaticEmployeeById(employeeId);
+  async getEmployeeById(employeeId: string): Promise<Employee | null> {
+    try {
+      const employee = await this.apiRequest<Employee>(`/employees/${employeeId}`);
+      return employee;
+    } catch (error) {
+      console.error(`❌ 获取员工 ${employeeId} 信息失败:`, error);
+      return null;
     }
   }
 
   /**
-   * 根据部门获取员工列表
-   * @param department 部门名称
-   * @returns 员工列表
+   * 获取地图配置
    */
-  async getEmployeesByDepartment(department: string): Promise<Employee[]> {
-    if (this.useAPI) {
-      try {
-        const deptId = DataAdapter.getDepartmentId(department);
-        const response = await this.fetchAPI<M1Employee[]>(`/employees/by-dept/${deptId}`);
-        if (response.success) {
-          return DataAdapter.adaptEmployees(response.data);
-        }
-        throw new Error(response.error || 'Failed to fetch employees');
-      } catch (error) {
-        console.warn('API调用失败，降级到静态数据:', error);
-        if (this.fallbackToStatic) {
-          return getStaticEmployeesByDepartment(department);
-        }
-        throw error;
-      }
-    } else {
-      return getStaticEmployeesByDepartment(department);
-    }
-  }
-
-  /**
-   * 根据部门获取工位列表
-   * @param department 部门名称
-   * @returns 工位列表
-   */
-  async getDesksByDepartment(department: string): Promise<Desk[]> {
-    if (this.useAPI) {
-      try {
-        const deptId = DataAdapter.getDepartmentId(department);
-        const response = await this.fetchAPI<DeskWithAssignment[]>(`/desks/by-dept/${deptId}`);
-        if (response.success) {
-          return response.data.map(item => 
-            DataAdapter.adaptDesk(item.desk, item.assignment)
-          );
-        }
-        throw new Error(response.error || 'Failed to fetch desks');
-      } catch (error) {
-        console.warn('API调用失败，降级到静态数据:', error);
-        if (this.fallbackToStatic) {
-          return getStaticDesksByDepartment(department);
-        }
-        throw error;
-      }
-    } else {
-      return getStaticDesksByDepartment(department);
-    }
-  }
-
-  /**
-   * 搜索员工
-   * @param query 搜索关键词
-   * @param department 部门过滤（可选）
-   * @returns 员工列表
-   */
-  async searchEmployees(query: string, department?: string): Promise<Employee[]> {
-    if (this.useAPI) {
-      try {
-        const params = new URLSearchParams({ q: query });
-        if (department) {
-          params.append('dept', DataAdapter.getDepartmentId(department).toString());
-        }
-        const response = await this.fetchAPI<M1Employee[]>(`/employees/search?${params}`);
-        if (response.success) {
-          return DataAdapter.adaptEmployees(response.data);
-        }
-        throw new Error(response.error || 'Search failed');
-      } catch (error) {
-        console.warn('API搜索失败，降级到静态数据搜索:', error);
-        if (this.fallbackToStatic) {
-          return this.searchStaticEmployees(query, department);
-        }
-        throw error;
-      }
-    } else {
-      return this.searchStaticEmployees(query, department);
-    }
-  }
-
-  /**
-   * 获取首页概览数据
-   * @returns 首页概览
-   */
-  async getHomepageOverview(): Promise<Record<string, { totalDesks: number; occupiedDesks: number; onlineCount: number; offlineCount: number }>> {
-    if (this.useAPI) {
-      try {
-        const response = await this.fetchAPI<Record<string, { totalDesks: number; occupiedDesks: number; onlineCount: number; offlineCount: number }>>('/overview/homepage');
-        if (response.success) {
-          return response.data;
-        }
-        throw new Error(response.error || 'Failed to fetch overview');
-      } catch (error) {
-        console.warn('API调用失败，降级到静态数据:', error);
-        if (this.fallbackToStatic) {
-          return getStaticHomepageOverview();
-        }
-        throw error;
-      }
-    } else {
-      return getStaticHomepageOverview();
-    }
-  }
-
-  /**
-   * 上报员工状态心跳
-   * @param employeeId 员工ID
-   * @param status 状态
-   * @returns 是否成功
-   */
-  async reportHeartbeat(employeeId: number, status: 'online' | 'offline'): Promise<boolean> {
-    if (this.useAPI) {
-      try {
-        const response = await this.fetchAPI<{ success: boolean }>('/status/heartbeat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ employeeId, status })
-        });
-        return response.success && response.data.success;
-      } catch (error) {
-        console.warn('心跳上报失败:', error);
-        return false;
-      }
-    } else {
-      // 静态数据模式下，心跳上报无效果
-      console.log('静态数据模式，心跳上报被忽略:', { employeeId, status });
-      return true;
-    }
-  }
-
-  /**
-   * 检查API健康状态
-   * @returns 健康状态
-   */
-  async checkHealth(): Promise<{ healthy: boolean; message?: string }> {
-    if (!this.useAPI) {
-      return { healthy: true, message: 'Static data mode' };
+  async getMapConfig(department: string): Promise<MapConfig | null> {
+    const cacheKey = `map_config:${department}`;
+    const cached = this.getCachedData<MapConfig>(cacheKey);
+    if (cached) {
+      console.log(`📦 从缓存获取地图配置 (${department})`);
+      return cached;
     }
 
     try {
-      const response = await this.fetchAPI<{ status: string; timestamp: string }>('/health');
-      return {
-        healthy: response.success && response.data.status === 'ok',
-        message: response.success ? 'API is healthy' : response.error
-      };
-    } catch (error) {
-      return {
-        healthy: false,
-        message: `API health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
-    }
-  }
-
-  // 私有方法
-
-  /**
-   * 统一的API请求方法
-   * @param endpoint API端点
-   * @param options 请求选项
-   * @returns API响应
-   */
-  private async fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
-    const url = `${this.apiBaseUrl}${endpoint}`;
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers
+      const configs = await this.apiRequest<MapConfig[]>(`/maps/department/${encodeURIComponent(department)}`);
+      const config = configs.length > 0 ? configs[0] : null;
+      
+      if (config) {
+        this.setCachedData(cacheKey, config);
+        console.log(`✅ 从PostgreSQL获取到 ${department} 地图配置`);
+      } else {
+        console.log(`⚠️ ${department} 部门没有地图配置`);
       }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      
+      return config;
+    } catch (error) {
+      console.error(`❌ 获取 ${department} 地图配置失败:`, error);
+      return null;
     }
-
-    const data = await response.json();
-    return data;
   }
 
   /**
-   * 获取静态部门配置
-   * @param department 部门名称
-   * @returns 部门配置
+   * 搜索功能
    */
-  private getStaticDepartmentConfig(department: string): DepartmentConfig | undefined {
-    return getStaticDepartmentConfig(department);
+  async searchEmployees(query: string, department?: string): Promise<Employee[]> {
+    try {
+      const endpoint = `/search?q=${encodeURIComponent(query)}&type=employee${department ? `&department=${encodeURIComponent(department)}` : ''}`;
+      const results = await this.apiRequest<{ employees: Employee[] }>(endpoint);
+      return results.employees || [];
+    } catch (error) {
+      console.error('❌ 搜索员工失败:', error);
+      return [];
+    }
   }
 
   /**
-   * 静态数据员工搜索
-   * @param query 搜索关键词
-   * @param department 部门过滤
-   * @returns 员工列表
+   * 搜索工位
    */
-  private searchStaticEmployees(query: string, department?: string): Employee[] {
-    let employees = department 
-      ? getStaticEmployeesByDepartment(department)
-      : [];
-    
-    if (!department) {
-      // 如果没有指定部门，搜索所有部门
-      const allDepts = ['Engineering', 'Marketing', 'Sales', 'HR'];
-      employees = allDepts.flatMap(dept => getStaticEmployeesByDepartment(dept));
+  async searchWorkstations(query: string, department?: string): Promise<Workstation[]> {
+    try {
+      const endpoint = `/search?q=${encodeURIComponent(query)}&type=workstation${department ? `&department=${encodeURIComponent(department)}` : ''}`;
+      const results = await this.apiRequest<{ workstations: Workstation[] }>(endpoint);
+      return results.workstations || [];
+    } catch (error) {
+      console.error('❌ 搜索工位失败:', error);
+      return [];
     }
+  }
 
-    const lowerQuery = query.toLowerCase();
-    return employees.filter(emp => 
-      emp.name.toLowerCase().includes(lowerQuery) ||
-      emp.department.toLowerCase().includes(lowerQuery)
-    );
+  /**
+   * 清除缓存
+   */
+  clearCache(pattern?: string): void {
+    if (pattern) {
+      const keysToDelete = Array.from(this.cache.keys()).filter(key => key.includes(pattern));
+      keysToDelete.forEach(key => this.cache.delete(key));
+      console.log(`🗑️ 清除缓存: ${keysToDelete.length} 项 (pattern: ${pattern})`);
+    } else {
+      this.cache.clear();
+      console.log('🗑️ 清除所有缓存');
+    }
+  }
+
+  /**
+   * 获取缓存统计
+   */
+  getCacheStats(): { size: number; keys: string[] } {
+    return {
+      size: this.cache.size,
+      keys: Array.from(this.cache.keys())
+    };
   }
 }
 
 // 导出单例实例
 export const dataService = DataService.getInstance();
 
-// 导出便捷函数
-export const {
-  getDepartmentConfig,
-  getEmployeeById,
-  getEmployeesByDepartment,
-  getDesksByDepartment,
-  searchEmployees,
-  getHomepageOverview,
-  reportHeartbeat,
-  checkHealth
-} = {
-  getDepartmentConfig: (dept: string) => dataService.getDepartmentConfig(dept),
-  getEmployeeById: (id: number) => dataService.getEmployeeById(id),
-  getEmployeesByDepartment: (dept: string) => dataService.getEmployeesByDepartment(dept),
-  getDesksByDepartment: (dept: string) => dataService.getDesksByDepartment(dept),
-  searchEmployees: (query: string, dept?: string) => dataService.searchEmployees(query, dept),
-  getHomepageOverview: () => dataService.getHomepageOverview(),
-  reportHeartbeat: (id: number, status: 'online' | 'offline') => dataService.reportHeartbeat(id, status),
-  checkHealth: () => dataService.checkHealth()
+// 兼容性导出（用于逐步迁移）
+export const getDepartmentConfig = async (department: string) => {
+  const deptInfo = await dataService.getDepartmentByName(department);
+  const mapConfig = await dataService.getMapConfig(department);
+  const workstations = await dataService.getDepartmentWorkstations(department);
+  
+  if (!deptInfo) {
+    return null;
+  }
+
+  return {
+    name: deptInfo.name,
+    displayName: deptInfo.display_name,
+    mapData: mapConfig ? {
+      map_id: mapConfig.map_id,
+      type: mapConfig.type,
+      url: mapConfig.url,
+      dept_name: mapConfig.dept_name,
+      department: mapConfig.department
+    } : {
+      map_id: `${deptInfo.name.toLowerCase()}_default`,
+      type: 'svg',
+      url: `/maps/${deptInfo.name.toLowerCase()}.svg`,
+      dept_name: deptInfo.display_name,
+      department: deptInfo.name
+    },
+    desks: workstations.map(ws => ({
+      desk_id: ws.id,
+      x: ws.location.position?.x || 0,
+      y: ws.location.position?.y || 0,
+      w: ws.location.dimensions?.width || 60,
+      h: ws.location.dimensions?.height || 40,
+      label: ws.name,
+      employee_id: ws.assigned_user ? parseInt(ws.assigned_user) || undefined : undefined,
+      department: ws.department,
+      assignedUser: ws.assigned_user
+    }))
+  };
+};
+
+export const getEmployeeById = async (employeeId: number) => {
+  return await dataService.getEmployeeById(employeeId.toString());
+};
+
+export const getEmployeesByDepartment = async (department: string) => {
+  const deptInfo = await dataService.getDepartmentByName(department);
+  if (!deptInfo) {
+    return [];
+  }
+  return await dataService.getEmployees(deptInfo.id);
+};
+
+export const getDesksByDepartment = async (department: string) => {
+  const workstations = await dataService.getDepartmentWorkstations(department);
+  return workstations.map(ws => ({
+    desk_id: ws.id,
+    x: ws.location.position?.x || 0,
+    y: ws.location.position?.y || 0,
+    w: ws.location.dimensions?.width || 60,
+    h: ws.location.dimensions?.height || 40,
+    label: ws.name,
+    employee_id: ws.assigned_user ? parseInt(ws.assigned_user) || undefined : undefined,
+    department: ws.department,
+    assignedUser: ws.assigned_user,
+    status: ws.status
+  }));
+};
+
+export const searchEmployees = async (query: string, department?: string) => {
+  return await dataService.searchEmployees(query, department);
+};
+
+export const getHomepageOverview = async () => {
+  const departments = await dataService.getDepartments();
+  const overview: Record<string, { totalDesks: number; occupiedDesks: number; onlineCount: number; offlineCount: number }> = {};
+  
+  for (const dept of departments) {
+    const workstations = await dataService.getDepartmentWorkstations(dept.name);
+    const employees = await dataService.getEmployees(dept.id);
+    
+    overview[dept.name] = {
+      totalDesks: workstations.length,
+      occupiedDesks: workstations.filter(ws => ws.status === 'occupied').length,
+      onlineCount: employees.filter(emp => emp.status === 'online').length,
+      offlineCount: employees.filter(emp => emp.status === 'offline').length
+    };
+  }
+  
+  return overview;
 };

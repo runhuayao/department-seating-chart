@@ -2,17 +2,25 @@ import React, { useRef, useEffect, useState } from 'react';
 import { select } from 'd3-selection';
 import { zoom, zoomIdentity, ZoomBehavior } from 'd3-zoom';
 import { validateMapStyle, preserveStyleProperties, createStyleUpdater } from '../utils/mapStyleUtils';
-import { 
-  getDepartmentConfig, 
-  getEmployeeById, 
-  Desk as DeskType, 
-  Employee, 
-  MapData 
-} from '../data/departmentData';
+import { dataService, getDepartmentConfig, getEmployeeById } from '../services/dataService';
 
 // 扩展Desk接口以包含员工信息
-interface DeskWithEmployee extends DeskType {
-  employee?: Employee;
+interface DeskWithEmployee {
+  desk_id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label: string;
+  employee_id?: number;
+  department: string;
+  assignedUser?: string;
+  employee?: {
+    employee_id: number;
+    name: string;
+    department: string;
+    status: 'online' | 'offline';
+  };
 }
 
 interface MapContainerConfig {
@@ -44,69 +52,48 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   // 获取当前部门的配置数据
   const deptConfig = getDepartmentConfig(department);
   
-  // 从API获取实时部门和工位数据
+  // 从API获取实时部门和工位数据（完全基于PostgreSQL）
   useEffect(() => {
     const fetchDepartmentData = async () => {
       if (!department) return;
       
       setIsLoadingDesks(true);
       try {
-        // 1. 首先获取部门数据
-        const deptResponse = await fetch('http://localhost:8080/api/departments');
-        let departmentData = null;
+        console.log(`🔄 开始获取 ${department} 部门数据...`);
         
-        if (deptResponse.ok) {
-          const deptResult = await deptResponse.json();
-          if (deptResult.success) {
-            // 查找匹配的部门（支持中英文名称匹配）
-            departmentData = deptResult.data.find((dept: any) => 
-              dept.name === department || 
-              dept.displayName === department ||
-              (department === 'Engineering' && (dept.name === '技术部' || dept.displayName === '技术部')) ||
-              (department === 'Marketing' && (dept.name === '产品部' || dept.displayName === '产品部')) ||
-              (department === 'Sales' && (dept.name === '运营部' || dept.displayName === '运营部')) ||
-              (department === 'HR' && (dept.name === '人事部' || dept.displayName === '人事部'))
-            );
-          }
-        }
+        // 使用新的数据服务获取部门工位
+        const workstations = await dataService.getDepartmentWorkstations(department);
         
-        // 2. 获取工位数据
-        const wsResponse = await fetch('http://localhost:8080/api/workstations');
-        if (wsResponse.ok) {
-          const workstations = await wsResponse.json();
-          // 过滤当前部门的工位
-          const departmentDesks = workstations.filter((ws: any) => {
-            // 支持多种部门名称匹配方式
-            return ws.department === department || 
-                   ws.department === departmentData?.name ||
-                   ws.department === departmentData?.displayName ||
-                   (department === 'Engineering' && (ws.department === '技术部' || ws.department === 'Engineering')) ||
-                   (department === 'Marketing' && (ws.department === '产品部' || ws.department === 'Marketing')) ||
-                   (department === 'Sales' && (ws.department === '运营部' || ws.department === 'Sales')) ||
-                   (department === 'HR' && (ws.department === '人事部' || ws.department === 'HR'));
-          });
-          
-          setApiDesks(departmentDesks);
-          
-          // 根据数据来源显示不同的日志信息
-          if (departmentDesks.length > 0) {
-            console.log(`✅ ${department} 部门从PostgreSQL获取到 ${departmentDesks.length} 个工位`);
-            console.log('PostgreSQL工位数据:', departmentDesks);
-          } else {
-             console.log(`⚠️ ${department} 部门在PostgreSQL中没有工位数据，将使用静态数据`);
-             console.log(`静态数据工位数量: ${deptConfig?.desks?.length || 0}`);
-           }
+        // 转换为组件需要的格式
+        const apiDesks = workstations.map(ws => ({
+          id: ws.id,
+          name: ws.name,
+          department: ws.department,
+          location: ws.location,
+          status: ws.status,
+          assignedUser: ws.assigned_user
+        }));
+        
+        setApiDesks(apiDesks);
+        
+        // 根据数据来源显示不同的日志信息
+        if (apiDesks.length > 0) {
+          console.log(`✅ ${department} 部门从PostgreSQL获取到 ${apiDesks.length} 个工位`);
+          console.log('PostgreSQL工位数据:', apiDesks);
+        } else {
+          console.log(`⚠️ ${department} 部门在PostgreSQL中没有工位数据`);
         }
       } catch (error) {
         console.error('获取部门和工位数据失败:', error);
-        console.log(`❌ ${department} 部门API获取失败，将使用静态数据`);
+        console.log(`❌ ${department} 部门API获取失败`);
+        setApiDesks([]);
       } finally {
         setIsLoadingDesks(false);
       }
     };
     
     fetchDepartmentData();
-   }, [department]);
+  }, [department]);
   
   // 如果部门配置不存在，显示错误提示
   if (!deptConfig) {
