@@ -224,6 +224,78 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     const initialTransform = `translate(${offsetX - minX * initialScale}, ${offsetY - minY * initialScale}) scale(${initialScale})`;
     g.attr('transform', initialTransform);
 
+    // 重置缩放到自适应初始状态
+    const resetZoom = () => {
+      try {
+        // 清除工位高亮状态
+        setHighlightedDesk(null);
+        
+        // 调用父组件的重置回调，清除highlightDeskId
+        if (onResetView) {
+          onResetView();
+        }
+        
+        // 重新计算当前容器尺寸和适配参数
+        const currentWidth = container.clientWidth;
+        const currentHeight = container.clientHeight;
+        
+        // 检查是否有工位数据
+        if (desksWithEmployees.length === 0) {
+          console.warn('No desks data available for reset');
+          return;
+        }
+        
+        // 重新计算工位边界
+        const currentMinX = Math.min(...desksWithEmployees.map(d => d.x));
+        const currentMaxX = Math.max(...desksWithEmployees.map(d => d.x + d.w));
+        const currentMinY = Math.min(...desksWithEmployees.map(d => d.y));
+        const currentMaxY = Math.max(...desksWithEmployees.map(d => d.y + d.h));
+        
+        // 使用与初始化相同的边距和计算逻辑
+        const currentContentWidth = currentMaxX - currentMinX + 100; // 与初始化保持一致
+        const currentContentHeight = currentMaxY - currentMinY + 150; // 与初始化保持一致
+        
+        // 重新计算适配缩放比例，与初始化逻辑一致
+        const currentScaleX = currentWidth / currentContentWidth;
+        const currentScaleY = currentHeight / currentContentHeight;
+        const currentInitialScale = Math.min(currentScaleX, currentScaleY, 1);
+        
+        // 重新计算居中偏移，与初始化逻辑一致
+        const currentOffsetX = (currentWidth - currentContentWidth * currentInitialScale) / 2;
+        const currentOffsetY = (currentHeight - currentContentHeight * currentInitialScale) / 2;
+        
+        // 使用与初始化完全相同的变换计算
+        const resetTranslateX = currentOffsetX - currentMinX * currentInitialScale;
+        const resetTranslateY = currentOffsetY - currentMinY * currentInitialScale;
+        
+        console.log('Reset zoom with initial logic:', {
+          containerSize: { width: currentWidth, height: currentHeight },
+          contentBounds: { minX: currentMinX, maxX: currentMaxX, minY: currentMinY, maxY: currentMaxY },
+          contentSize: { width: currentContentWidth, height: currentContentHeight },
+          scale: currentInitialScale,
+          offset: { x: currentOffsetX, y: currentOffsetY },
+          finalTranslate: { x: resetTranslateX, y: resetTranslateY }
+        });
+        
+        if (storedZoomBehavior && typeof storedZoomBehavior.transform === 'function' && !isHomepage) {
+          svg.transition()
+            .duration(750)
+            .call(storedZoomBehavior.transform, 
+              zoomIdentity
+                .translate(resetTranslateX, resetTranslateY)
+                .scale(currentInitialScale)
+            );
+        } else {
+          // 首页模式或缺少zoomBehavior时直接设置变换
+          g.transition()
+            .duration(750)
+            .attr('transform', `translate(${resetTranslateX}, ${resetTranslateY}) scale(${currentInitialScale})`);
+        }
+      } catch (error) {
+        console.warn('Reset zoom operation failed:', error);
+      }
+    };
+
     // 绘制地图背景
     g.append('rect')
       .attr('x', minX - 50)
@@ -387,78 +459,6 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
       .attr('font-size', '12px')
       .attr('fill', '#374151')
       .text(d => d.text);
-
-    // 重置缩放到自适应初始状态
-    const resetZoom = () => {
-      try {
-        // 清除工位高亮状态
-        setHighlightedDesk(null);
-        
-        // 调用父组件的重置回调，清除highlightDeskId
-        if (onResetView) {
-          onResetView();
-        }
-        
-        // 重新计算当前容器尺寸和适配参数
-        const currentWidth = container.clientWidth;
-        const currentHeight = container.clientHeight;
-        
-        // 检查是否有工位数据
-        if (desksWithEmployees.length === 0) {
-          console.warn('No desks data available for reset');
-          return;
-        }
-        
-        // 重新计算工位边界
-        const currentMinX = Math.min(...desksWithEmployees.map(d => d.x));
-        const currentMaxX = Math.max(...desksWithEmployees.map(d => d.x + d.w));
-        const currentMinY = Math.min(...desksWithEmployees.map(d => d.y));
-        const currentMaxY = Math.max(...desksWithEmployees.map(d => d.y + d.h));
-        
-        // 使用与初始化相同的边距和计算逻辑
-        const currentContentWidth = currentMaxX - currentMinX + 100; // 与初始化保持一致
-        const currentContentHeight = currentMaxY - currentMinY + 150; // 与初始化保持一致
-        
-        // 重新计算适配缩放比例，与初始化逻辑一致
-        const currentScaleX = currentWidth / currentContentWidth;
-        const currentScaleY = currentHeight / currentContentHeight;
-        const currentInitialScale = Math.min(currentScaleX, currentScaleY, 1);
-        
-        // 重新计算居中偏移，与初始化逻辑一致
-        const currentOffsetX = (currentWidth - currentContentWidth * currentInitialScale) / 2;
-        const currentOffsetY = (currentHeight - currentContentHeight * currentInitialScale) / 2;
-        
-        // 使用与初始化完全相同的变换计算
-        const resetTranslateX = currentOffsetX - currentMinX * currentInitialScale;
-        const resetTranslateY = currentOffsetY - currentMinY * currentInitialScale;
-        
-        console.log('Reset zoom with initial logic:', {
-          containerSize: { width: currentWidth, height: currentHeight },
-          contentBounds: { minX: currentMinX, maxX: currentMaxX, minY: currentMinY, maxY: currentMaxY },
-          contentSize: { width: currentContentWidth, height: currentContentHeight },
-          scale: currentInitialScale,
-          offset: { x: currentOffsetX, y: currentOffsetY },
-          finalTranslate: { x: resetTranslateX, y: resetTranslateY }
-        });
-        
-        if (storedZoomBehavior && typeof storedZoomBehavior.transform === 'function' && !isHomepage) {
-          svg.transition()
-            .duration(750)
-            .call(storedZoomBehavior.transform, 
-              zoomIdentity
-                .translate(resetTranslateX, resetTranslateY)
-                .scale(currentInitialScale)
-            );
-        } else if (isHomepage) {
-          // 首页模式直接设置变换，不使用缩放行为
-          g.transition()
-            .duration(750)
-            .attr('transform', `translate(${resetTranslateX}, ${resetTranslateY}) scale(${currentInitialScale})`);
-        }
-      } catch (error) {
-        console.warn('Reset zoom operation failed:', error);
-      }
-    };
 
     // 添加重置按钮事件监听
     const resetButton = container.querySelector('.reset-zoom');
