@@ -149,12 +149,15 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         const translateX = centerX - deskCenterX * scale;
         const translateY = centerY - deskCenterY * scale;
         
-        // 简化zoom操作，避免复杂的引用
+        // 应用变换到g元素而不是svg元素，保持一致性
         setTimeout(() => {
           try {
-            svg.transition()
-              .duration(1000)
-              .attr('transform', `translate(${translateX}, ${translateY}) scale(${scale})`);
+            const g = svg.select('g');
+            if (!g.empty()) {
+              g.transition()
+                .duration(1000)
+                .attr('transform', `translate(${translateX}, ${translateY}) scale(${scale})`);
+            }
           } catch (error) {
             console.warn('Zoom operation failed:', error);
           }
@@ -277,6 +280,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
           finalTranslate: { x: resetTranslateX, y: resetTranslateY }
         });
         
+        // 统一使用g元素的变换，确保重置后居中显示
         if (storedZoomBehavior && typeof storedZoomBehavior.transform === 'function' && !isHomepage) {
           svg.transition()
             .duration(750)
@@ -286,7 +290,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
                 .scale(currentInitialScale)
             );
         } else {
-          // 首页模式或缺少zoomBehavior时直接设置变换
+          // 直接设置g元素的变换，确保居中显示
           g.transition()
             .duration(750)
             .attr('transform', `translate(${resetTranslateX}, ${resetTranslateY}) scale(${currentInitialScale})`);
