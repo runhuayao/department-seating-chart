@@ -464,7 +464,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   return (
     <div className="relative w-full h-full bg-gray-50" ref={containerRef}>
       {isLoadingDesks && (
-        <div className="absolute top-4 left-4 bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm">
+        <div className="absolute top-4 left-4 bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm z-20">
           正在加载工位数据...
         </div>
       )}
@@ -473,12 +473,16 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
       <svg
         ref={svgRef}
         className="w-full h-full"
-        style={{ minHeight: isHomepage ? '300px' : '500px' }}
+        style={{ 
+          minHeight: isHomepage ? '300px' : '500px',
+          pointerEvents: 'auto',
+          zIndex: 1
+        }}
       />
       
       {/* 控制面板 - 仅在详情页显示 */}
       {!isHomepage && (
-        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 min-w-48">
+        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 min-w-48 z-30">
           <h3 className="text-lg font-semibold text-gray-800 mb-2">
             {mapData.dept_name} 部门
           </h3>
@@ -488,14 +492,15 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
             <div>在线: {desksWithEmployees.filter(d => d.employee?.status === 'online').length}</div>
           </div>
           <button 
-            className="reset-zoom mt-3 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
+            className="reset-zoom mt-3 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors z-40 relative"
+            style={{ pointerEvents: 'auto' }}
           >重置视图</button>
         </div>
       )}
 
       {/* 工位信息显示 */}
         {!isLoadingDesks && combinedDesks.length > 0 && (
-          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-md p-3 text-sm">
+          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-md p-3 text-sm z-30">
             <div className="text-gray-600">
               工位总数: <span className="font-semibold text-blue-600">{combinedDesks.length}</span>
             </div>
@@ -507,14 +512,15 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
 
       {/* 工位详情面板 */}
         {selectedDesk && (
-          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 min-w-64">
+          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 min-w-64 z-40">
             <div className="flex justify-between items-start mb-3">
               <h4 className="text-lg font-semibold text-gray-800">
                 工位 {selectedDesk.label}
               </h4>
               <button 
                 onClick={() => setSelectedDesk(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 z-50 relative"
+                style={{ pointerEvents: 'auto' }}
               >
                 ✕
               </button>

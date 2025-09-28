@@ -325,21 +325,23 @@ function HomePage() {
               </h1>
               
               {/* 导航按钮和部门选择器 */}
-              <nav className="flex items-center space-x-6">
+              <nav className="flex items-center space-x-6 relative z-50">
                 <button
                   onClick={handleHomeClick}
-                  className={`px-4 py-2 rounded-md transition-colors ${
+                  className={`px-4 py-2 rounded-md transition-colors relative z-50 ${
                     currentDept === null 
                       ? 'bg-blue-600 text-white' 
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
+                  style={{ pointerEvents: 'auto' }}
                 >
                   首页
                 </button>
                 <select 
                   value={currentDept || ''} 
                   onChange={(e) => handleDepartmentChange(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 relative z-50"
+                  style={{ pointerEvents: 'auto' }}
                 >
                   <option value="">选择部门</option>
                   {apiDepartments.length > 0 ? (
@@ -358,7 +360,7 @@ function HomePage() {
             </div>
             
             {/* 搜索框和工位管理 */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 relative z-50">
               <div className="relative search-container">
                 <input
                   type="text"
@@ -371,7 +373,8 @@ function HomePage() {
                       handleSearch(searchQuery);
                     }
                   }}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 relative z-50"
+                  style={{ pointerEvents: 'auto' }}
                 />
                 {isSearching && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -442,7 +445,8 @@ function HomePage() {
               {/* 添加工位按钮 */}
               <button 
                 onClick={() => setShowAddWorkstation(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors flex items-center space-x-2"
+                className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors flex items-center space-x-2 relative z-50"
+                style={{ pointerEvents: 'auto' }}
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -452,7 +456,7 @@ function HomePage() {
               
               {/* 用户认证区域 */}
               {isAuthenticated ? (
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 relative z-50">
                   <div className="flex items-center space-x-2 text-sm text-gray-700">
                     <User className="h-4 w-4" />
                     <span>{user?.username}</span>
@@ -462,7 +466,8 @@ function HomePage() {
                   </div>
                   <button 
                     onClick={logout}
-                    className="px-3 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors flex items-center space-x-1"
+                    className="px-3 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors flex items-center space-x-1 relative z-50"
+                    style={{ pointerEvents: 'auto' }}
                   >
                     <LogOut className="h-4 w-4" />
                     <span>退出</span>
@@ -471,7 +476,8 @@ function HomePage() {
               ) : (
                 <button 
                   onClick={() => setShowLoginModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition-colors relative z-50"
+                  style={{ pointerEvents: 'auto' }}
                 >
                   登录
                 </button>
