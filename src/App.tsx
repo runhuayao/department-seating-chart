@@ -334,9 +334,7 @@ function HomePage() {
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                   style={{ pointerEvents: 'auto' }}
-                >
-                  首页
-                </button>
+                >首页</button>
                 <select 
                   value={currentDept || ''} 
                   onChange={(e) => handleDepartmentChange(e.target.value)}
