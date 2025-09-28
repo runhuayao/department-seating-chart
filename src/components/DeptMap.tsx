@@ -26,9 +26,39 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedDesk, setSelectedDesk] = useState<DeskWithEmployee | null>(null);
   const [highlightedDesk, setHighlightedDesk] = useState<string | null>(null);
+  const [apiDesks, setApiDesks] = useState<any[]>([]);
+  const [isLoadingDesks, setIsLoadingDesks] = useState(false);
   
   // 获取当前部门的配置数据
   const deptConfig = getDepartmentConfig(department);
+  
+  // 从API获取实时工位数据
+  useEffect(() => {
+    const fetchWorkstations = async () => {
+      if (!department) return;
+      
+      setIsLoadingDesks(true);
+      try {
+        const response = await fetch('http://localhost:8080/api/workstations');
+        if (response.ok) {
+          const workstations = await response.json();
+          // 过滤当前部门的工位
+          const departmentDesks = workstations.filter((ws: any) => 
+            ws.department === department || 
+            (department === 'Engineering' && (ws.department === '工程部' || ws.department === 'Engineering'))
+          );
+          setApiDesks(departmentDesks);
+          console.log(`获取到 ${departmentDesks.length} 个 ${department} 部门的工位`);
+        }
+      } catch (error) {
+        console.error('获取工位数据失败:', error);
+      } finally {
+        setIsLoadingDesks(false);
+      }
+    };
+    
+    fetchWorkstations();
+  }, [department]);
   
   // 如果部门配置不存在，显示错误提示
   if (!deptConfig) {
@@ -37,6 +67,10 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         <div className="text-center">
           <h3 className="text-lg font-semibold text-gray-800 mb-2">部门不存在</h3>
           <p className="text-gray-600">未找到部门 "{department}" 的配置信息</p>
+          <div className="mt-4 text-sm text-gray-500">
+            <p>可用的部门：Engineering, Marketing, Sales, HR</p>
+            <p>或中文名称：工程部, 市场部, 销售部, 人事部</p>
+          </div>
         </div>
       </div>
     );
@@ -44,8 +78,39 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   
   const { mapData, desks } = deptConfig;
   
+  // 合并静态工位数据和API工位数据
+  const combinedDesks = [...desks];
+  
+  // 将API工位数据转换为地图工位格式并添加到列表中
+  apiDesks.forEach((apiDesk, index) => {
+    const existingDesk = combinedDesks.find(desk => desk.label === apiDesk.name);
+    if (!existingDesk) {
+      // 为新工位分配位置（简单的网格布局）
+      const baseX = 100;
+      const baseY = 300; // 在现有工位下方
+      const spacing = 120;
+      const cols = 6;
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+      
+      const newDesk = {
+        desk_id: apiDesk.id,
+        x: baseX + col * spacing,
+        y: baseY + row * 60,
+        w: 60,
+        h: 40,
+        label: apiDesk.name,
+        employee_id: undefined,
+        department: department
+      };
+      
+      combinedDesks.push(newDesk);
+      console.log(`添加新工位: ${apiDesk.name} 位置: (${newDesk.x}, ${newDesk.y})`);
+    }
+  });
+  
   // 为工位数据添加员工信息
-  const desksWithEmployees: DeskWithEmployee[] = desks.map(desk => ({
+  const desksWithEmployees: DeskWithEmployee[] = combinedDesks.map(desk => ({
     ...desk,
     employee: desk.employee_id ? getEmployeeById(desk.employee_id) : undefined
   }));
@@ -283,6 +348,12 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
 
   return (
     <div className="relative w-full h-full bg-gray-50" ref={containerRef}>
+      {isLoadingDesks && (
+        <div className="absolute top-4 left-4 bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm">
+          正在加载工位数据...
+        </div>
+      )}
+      
       {/* 地图SVG */}
       <svg
         ref={svgRef}
@@ -306,6 +377,18 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
           >
             重置视图
           </button>
+        </div>
+      )}
+
+      {/* 工位信息显示 */}
+      {!isLoadingDesks && combinedDesks.length > 0 && (
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-md p-3 text-sm">
+          <div className="text-gray-600">
+            工位总数: <span className="font-semibold text-blue-600">{combinedDesks.length}</span>
+          </div>
+          <div className="text-gray-600">
+            API工位: <span className="font-semibold text-green-600">{apiDesks.length}</span>
+          </div>
         </div>
       )}
 

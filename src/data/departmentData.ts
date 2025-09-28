@@ -142,9 +142,75 @@ export const getDesksByDepartment = (department: string): Desk[] => {
   return config ? config.desks : [];
 };
 
-// 工具函数：获取部门配置
+// 部门名称映射 - 支持中英文名称转换
+export const DEPARTMENT_NAME_MAPPING: Record<string, string> = {
+  // 中文到英文映射
+  '工程部': 'Engineering',
+  '市场部': 'Marketing', 
+  '销售部': 'Sales',
+  '人事部': 'HR',
+  '开发部': 'Engineering', // 别名支持
+  '技术部': 'Engineering', // 别名支持
+  
+  // 英文到英文映射（保持一致性）
+  'Engineering': 'Engineering',
+  'Marketing': 'Marketing',
+  'Sales': 'Sales', 
+  'HR': 'HR',
+  
+  // 其他可能的变体
+  'engineering': 'Engineering',
+  'marketing': 'Marketing',
+  'sales': 'Sales',
+  'hr': 'HR'
+};
+
+// 工具函数：标准化部门名称
+export const normalizeDepartmentName = (department: string): string => {
+  if (!department) return '';
+  
+  // 去除前后空格并查找映射
+  const trimmed = department.trim();
+  const normalized = DEPARTMENT_NAME_MAPPING[trimmed];
+  
+  if (normalized) {
+    return normalized;
+  }
+  
+  // 如果没有找到映射，尝试大小写不敏感匹配
+  const lowerCase = trimmed.toLowerCase();
+  for (const [key, value] of Object.entries(DEPARTMENT_NAME_MAPPING)) {
+    if (key.toLowerCase() === lowerCase) {
+      return value;
+    }
+  }
+  
+  // 如果仍然没有找到，返回原始值
+  return trimmed;
+};
+
+// 工具函数：获取部门配置（支持名称映射）
 export const getDepartmentConfig = (department: string): DepartmentConfig | undefined => {
-  return departmentConfigs[department];
+  if (!department) return undefined;
+  
+  // 首先尝试直接匹配
+  let config = departmentConfigs[department];
+  if (config) return config;
+  
+  // 如果直接匹配失败，尝试标准化名称后匹配
+  const normalizedName = normalizeDepartmentName(department);
+  config = departmentConfigs[normalizedName];
+  if (config) return config;
+  
+  // 如果仍然没有找到，尝试模糊匹配
+  for (const [key, value] of Object.entries(departmentConfigs)) {
+    if (key.toLowerCase().includes(department.toLowerCase()) || 
+        department.toLowerCase().includes(key.toLowerCase())) {
+      return value;
+    }
+  }
+  
+  return undefined;
 };
 
 // 工具函数：验证员工ID唯一性

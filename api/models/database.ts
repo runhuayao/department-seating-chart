@@ -192,6 +192,7 @@ class HybridDatabase {
       
       // 清除相关缓存
       await cacheService.del('workstations:all');
+      await cacheService.del('departments:all'); // 清除部门缓存，因为工位数量可能变化
       
       return newWorkstation;
     } catch (error) {
@@ -365,17 +366,135 @@ class HybridDatabase {
 
   // 获取部门列表
   async getDepartments(): Promise<Department[]> {
+    const cacheKey = 'departments:all';
+    
+    // 尝试从缓存获取
+    const cached = await cacheService.get<Department[]>(cacheKey);
+    if (cached) {
+      console.log('从Redis缓存获取部门数据');
+      return cached;
+    }
+
     try {
+      let departments: Department[];
+      
       if (await this.isPostgreSQLAvailable()) {
         const result = await dbManager.query(`
-          SELECT * FROM departments ORDER BY name
+          SELECT * FROM departments ORDER BY id ASC
         `);
-        return result.rows;
+        departments = result.rows.map(row => ({
+          id: row.id,
+          name: row.name,
+          displayName: row.display_name,
+          description: row.description,
+          floor: row.floor,
+          totalDesks: row.total_desks || 0,
+          occupiedDesks: row.occupied_desks || 0,
+          createdAt: new Date(row.created_at),
+          updatedAt: new Date(row.updated_at)
+        }));
+      } else {
+        // 内存模式返回默认部门数据
+        departments = [
+          { 
+            id: '1', 
+            name: 'Engineering', 
+            displayName: '工程部',
+            description: '负责产品开发和技术创新',
+            floor: 3,
+            totalDesks: 20,
+            occupiedDesks: 15,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          { 
+            id: '2', 
+            name: 'Marketing', 
+            displayName: '市场部',
+            description: '负责市场推广和品牌建设',
+            floor: 2,
+            totalDesks: 12,
+            occupiedDesks: 10,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          { 
+            id: '3', 
+            name: 'Sales', 
+            displayName: '销售部',
+            description: '负责销售业务和客户关系',
+            floor: 2,
+            totalDesks: 15,
+            occupiedDesks: 12,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          { 
+            id: '4', 
+            name: 'HR', 
+            displayName: '人力资源部',
+            description: '负责人力资源管理和企业文化',
+            floor: 1,
+            totalDesks: 8,
+            occupiedDesks: 6,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        ];
       }
-      return Array.from(this.memoryDepartments.values());
+
+      // 缓存结果
+      await cacheService.set(cacheKey, departments, 600); // 缓存10分钟
+      return departments;
     } catch (error) {
       console.error('获取部门列表失败:', error);
-      return Array.from(this.memoryDepartments.values());
+      // 返回默认部门数据作为降级方案
+      return [
+        { 
+          id: '1', 
+          name: 'Engineering', 
+          displayName: '工程部',
+          description: '负责产品开发和技术创新',
+          floor: 3,
+          totalDesks: 20,
+          occupiedDesks: 15,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        { 
+          id: '2', 
+          name: 'Marketing', 
+          displayName: '市场部',
+          description: '负责市场推广和品牌建设',
+          floor: 2,
+          totalDesks: 12,
+          occupiedDesks: 10,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        { 
+          id: '3', 
+          name: 'Sales', 
+          displayName: '销售部',
+          description: '负责销售业务和客户关系',
+          floor: 2,
+          totalDesks: 15,
+          occupiedDesks: 12,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        { 
+          id: '4', 
+          name: 'HR', 
+          displayName: '人力资源部',
+          description: '负责人力资源管理和企业文化',
+          floor: 1,
+          totalDesks: 8,
+          occupiedDesks: 6,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      ];
     }
   }
 

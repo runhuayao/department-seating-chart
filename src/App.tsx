@@ -33,6 +33,27 @@ function HomePage() {
   const departments = getAllDepartments();
   const homepageOverview = getHomepageOverview();
   
+  // 从API获取部门列表（包含实时统计数据）
+  const [apiDepartments, setApiDepartments] = useState([]);
+  
+  React.useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/departments');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setApiDepartments(result.data);
+          }
+        }
+      } catch (error) {
+        console.error('获取部门列表失败:', error);
+      }
+    };
+    
+    fetchDepartments();
+  }, []);
+  
   const handleDepartmentChange = (dept: string) => {
     if (dept === 'home') {
       setCurrentDept(null);
@@ -90,6 +111,29 @@ function HomePage() {
         username: '',
         description: ''
       });
+      
+      // 重新获取部门列表以更新统计数据
+      try {
+        const response = await fetch('http://localhost:8080/api/departments');
+        if (response.ok) {
+          const departmentResult = await response.json();
+          if (departmentResult.success) {
+            setApiDepartments(departmentResult.data);
+          }
+        }
+      } catch (error) {
+        console.error('更新部门统计失败:', error);
+      }
+      
+      // 触发地图组件重新加载工位数据
+      if (currentDept) {
+        // 通过改变部门状态来触发DeptMap组件重新渲染
+        const tempDept = currentDept;
+        setCurrentDept(null);
+        setTimeout(() => {
+          setCurrentDept(tempDept);
+        }, 100);
+      }
     } catch (error) {
       console.error('添加工位请求错误:', error);
       alert('添加工位失败，请检查网络连接');
@@ -279,9 +323,17 @@ function HomePage() {
                   className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">选择部门</option>
-                  {departments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
+                  {apiDepartments.length > 0 ? (
+                    apiDepartments.map(dept => (
+                      <option key={dept.id} value={dept.name}>
+                        {dept.displayName} ({dept.occupiedDesks}/{dept.totalDesks})
+                      </option>
+                    ))
+                  ) : (
+                    departments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))
+                  )}
                 </select>
               </nav>
             </div>
@@ -567,9 +619,7 @@ function HomePage() {
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  添加工位
-                </button>
+                >添加工位</button>
               </div>
             </form>
           </div>

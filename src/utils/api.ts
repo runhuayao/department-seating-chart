@@ -130,20 +130,20 @@ export const workstationAPI = {
 export const authAPI = {
   // 登录
   login: (credentials: { username: string; password: string }) => 
-    apiRequest<{ token: string; user: any }>('/auth/login', {
+    apiRequest<{ success: boolean; message: string; data: { accessToken: string; refreshToken: string; user: any } }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     }),
   
   // 注册
   register: (userData: { username: string; email: string; password: string; role?: string }) => 
-    apiRequest<{ message: string }>('/auth/register', {
+    apiRequest<{ success: boolean; message: string; data?: any }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     }),
   
   // 验证token
-  verifyToken: () => apiRequest<{ user: any }>('/auth/verify'),
+  verifyToken: () => apiRequest<{ success: boolean; data: { user: any } }>('/auth/verify'),
 };
 
 // 用户相关API

@@ -80,10 +80,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const verifyToken = async (tokenToVerify: string) => {
     try {
-      const data = await authAPI.verifyToken();
-      if (data.user) {
-        setUser(data.user);
-        localStorage.setItem('auth_user', JSON.stringify(data.user));
+      const response = await authAPI.verifyToken();
+      if (response.success && response.data && response.data.user) {
+        setUser(response.data.user);
+        localStorage.setItem('auth_user', JSON.stringify(response.data.user));
       } else {
         throw new Error('Token verification failed');
       }
@@ -95,16 +95,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const data = await authAPI.login({ username, password });
+      const response = await authAPI.login({ username, password });
       
-      if (data.token && data.user) {
-        setUser(data.user);
-        setToken(data.token);
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('auth_user', JSON.stringify(data.user));
-        return true;
+      // 检查API响应格式
+      if (response.success && response.data) {
+        const { accessToken, user } = response.data;
+        
+        if (accessToken && user) {
+          setUser(user);
+          setToken(accessToken);
+          localStorage.setItem('auth_token', accessToken);
+          localStorage.setItem('auth_user', JSON.stringify(user));
+          return true;
+        } else {
+          console.error('Login failed: Missing token or user in response data');
+          return false;
+        }
       } else {
-        console.error('Login failed: Invalid response format');
+        console.error('Login failed: Invalid response format', response);
         return false;
       }
     } catch (error) {
