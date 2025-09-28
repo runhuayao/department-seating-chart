@@ -163,7 +163,7 @@ class HybridDatabase {
 
     try {
       if (await this.isPostgreSQLAvailable()) {
-        // 尝试插入到workstations表，如果不存在则使用内存模式
+        // 插入到workstations表
         try {
           await dbManager.query(`
             INSERT INTO workstations (id, name, ip_address, mac_address, location, department, status, specifications, assigned_user, created_at, updated_at)
@@ -181,9 +181,9 @@ class HybridDatabase {
             newWorkstation.createdAt,
             newWorkstation.updatedAt
           ]);
+          console.log('工位已成功插入PostgreSQL数据库:', newWorkstation.id);
         } catch (dbError: any) {
-          console.warn('PostgreSQL表不存在，使用内存模式:', dbError.message);
-          // 如果表不存在，继续使用内存模式
+          console.warn('PostgreSQL插入失败，使用内存模式:', dbError.message);
         }
       }
       

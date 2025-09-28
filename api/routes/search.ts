@@ -65,9 +65,10 @@ router.get('/', async (req, res) => {
       searchResults.employees = employees.rows;
     }
 
-    // 搜索工位 - 使用desks表，并关联员工信息
+    // 搜索工位 - 同时搜索desks表和workstations表
     if (type === 'all' || type === 'workstation') {
-      let workstationQuery = `
+      // 搜索desks表中的工位
+      let deskQuery = `
         SELECT d.*, dept.name as department_name, 
                e.name as employee_name, e.employee_number as employee_code,
                d.desk_number as name
@@ -77,17 +78,38 @@ router.get('/', async (req, res) => {
         LEFT JOIN employees e ON da.employee_id = e.id
         WHERE (d.desk_number ILIKE $1 OR d.equipment::text ILIKE $2 OR e.name ILIKE $3)
       `;
-      const params = [`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`];
+      const deskParams = [`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`];
       
       if (department) {
-        workstationQuery += ' AND dept.name = $4';
-        params.push(department);
+        deskQuery += ' AND dept.name = $4';
+        deskParams.push(department);
       }
       
-      workstationQuery += ' ORDER BY d.desk_number LIMIT 20';
+      deskQuery += ' ORDER BY d.desk_number LIMIT 10';
       
-      const workstations = await dbManager.query(workstationQuery, params);
-      searchResults.workstations = workstations.rows;
+      const desks = await dbManager.query(deskQuery, deskParams);
+      
+      // 搜索workstations表中的工位（新增工位）
+      let workstationQuery = `
+        SELECT w.id, w.name, w.department, w.status, w.assigned_user as assignedUser,
+               w.ip_address, w.location, w.created_at, w.updated_at,
+               w.department as department_name, w.assigned_user as employee_name
+        FROM workstations w
+        WHERE (w.name ILIKE $1 OR w.assigned_user ILIKE $2 OR w.department ILIKE $3)
+      `;
+      const workstationParams = [`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`];
+      
+      if (department) {
+        workstationQuery += ' AND w.department = $4';
+        workstationParams.push(department);
+      }
+      
+      workstationQuery += ' ORDER BY w.name LIMIT 10';
+      
+      const workstations = await dbManager.query(workstationQuery, workstationParams);
+      
+      // 合并两个表的结果
+      searchResults.workstations = [...desks.rows, ...workstations.rows];
     }
 
     searchResults.total = searchResults.employees.length + searchResults.workstations.length;

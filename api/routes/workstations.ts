@@ -9,8 +9,8 @@ const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-// 应用频率限制
-router.use(rateLimiter(50, 15 * 60 * 1000)); // 每15分钟最多50次请求
+// 应用频率限制 - 调整为更宽松的限制
+router.use(rateLimiter(200, 15 * 60 * 1000)); // 每15分钟最多200次请求
 
 // 获取所有工作站 - 已移除登录验证
 router.get('/', asyncHandler(async (req: any, res: any) => {

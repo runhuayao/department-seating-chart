@@ -127,35 +127,37 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
 
   // 处理工位高亮
   useEffect(() => {
-    if (highlightDeskId) {
+    if (highlightDeskId && svgRef.current && containerRef.current) {
       setHighlightedDesk(highlightDeskId);
       
       // 找到对应的工位并聚焦
       const targetDesk = desksWithEmployees.find(desk => desk.desk_id === highlightDeskId);
-      if (targetDesk && svgRef.current) {
+      if (targetDesk) {
         const svg = select(svgRef.current);
         const container = containerRef.current;
-        if (container) {
-          const containerRect = container.getBoundingClientRect();
-          const centerX = containerRect.width / 2;
-          const centerY = containerRect.height / 2;
-          
-          // 计算目标工位的中心点
-          const deskCenterX = targetDesk.x + targetDesk.w / 2;
-          const deskCenterY = targetDesk.y + targetDesk.h / 2;
-          
-          // 设置缩放级别为1.5倍
-          const scale = 1.5;
-          const translateX = centerX - deskCenterX * scale;
-          const translateY = centerY - deskCenterY * scale;
-          
-          // 平滑过渡到目标位置
-          (svg as any).transition()
-            .duration(1000)
-            .call((svg as any).node().__zoom.transform, 
-              zoomIdentity.translate(translateX, translateY).scale(scale)
-            );
-        }
+        const containerRect = container.getBoundingClientRect();
+        const centerX = containerRect.width / 2;
+        const centerY = containerRect.height / 2;
+        
+        // 计算目标工位的中心点
+        const deskCenterX = targetDesk.x + targetDesk.w / 2;
+        const deskCenterY = targetDesk.y + targetDesk.h / 2;
+        
+        // 设置缩放级别为1.5倍
+        const scale = 1.5;
+        const translateX = centerX - deskCenterX * scale;
+        const translateY = centerY - deskCenterY * scale;
+        
+        // 简化zoom操作，避免复杂的引用
+        setTimeout(() => {
+          try {
+            svg.transition()
+              .duration(1000)
+              .attr('transform', `translate(${translateX}, ${translateY}) scale(${scale})`);
+          } catch (error) {
+            console.warn('Zoom operation failed:', error);
+          }
+        }, 200);
       }
       
       // 3秒后取消高亮
@@ -208,6 +210,9 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
 
     // 应用缩放行为到SVG
     svg.call(zoomBehavior);
+    
+    // 直接使用zoomBehavior变量而不是存储在DOM上
+    const storedZoomBehavior = zoomBehavior;
 
     // 创建主要的g元素用于缩放和平移
     const g = svg.append('g');
@@ -382,14 +387,19 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
 
     // 重置缩放到自适应初始状态
     const resetZoom = () => {
-      const transform = `translate(${offsetX - minX * initialScale}, ${offsetY - minY * initialScale}) scale(${initialScale})`;
-      (svg as any).transition()
-        .duration(750)
-        .call(zoomBehavior.transform, 
-          zoomIdentity
-            .translate(offsetX - minX * initialScale, offsetY - minY * initialScale)
-            .scale(initialScale)
-        );
+      try {
+        if (storedZoomBehavior && typeof storedZoomBehavior.transform === 'function') {
+          svg.transition()
+            .duration(750)
+            .call(storedZoomBehavior.transform, 
+              zoomIdentity
+                .translate(offsetX - minX * initialScale, offsetY - minY * initialScale)
+                .scale(initialScale)
+            );
+        }
+      } catch (error) {
+        console.warn('Reset zoom operation failed:', error);
+      }
     };
 
     // 添加重置按钮事件监听
@@ -449,11 +459,6 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
             <div className="text-gray-600">
               API工位: <span className="font-semibold text-green-600">{apiDesks.length}</span>
             </div>
-            {process.env.NODE_ENV === 'development' && (
-              <div className="text-gray-600 mt-1 pt-1 border-t border-gray-200">
-                <div className="text-xs">🔧 开发模式：显示坐标网格</div>
-              </div>
-            )}
           </div>
         )}
 

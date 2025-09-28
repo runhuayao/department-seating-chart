@@ -83,8 +83,8 @@ function HomePage() {
   const handleWorkstationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!workstationForm.name || !workstationForm.ipAddress || !workstationForm.department) {
-      alert('请填写所有必填字段');
+    if (!workstationForm.name || !workstationForm.department) {
+      alert('请填写工位名称和所属部门');
       return;
     }
 
@@ -92,7 +92,7 @@ function HomePage() {
       // 使用API工具添加工位，构造符合Workstation接口的数据结构
       const result = await workstationAPI.create({
         name: workstationForm.name,
-        ipAddress: workstationForm.ipAddress,
+        ipAddress: workstationForm.ipAddress || '', // IP地址改为可选
         macAddress: '', // 可选字段，暂时为空
         location: workstationForm.description || `Floor 3, Building A`, // 使用描述作为位置信息
         department: workstationForm.department,
@@ -124,6 +124,12 @@ function HomePage() {
         width: '',
         height: ''
       });
+      
+      // 触发地图组件重新加载数据
+      setCurrentDept(null);
+      setTimeout(() => {
+        setCurrentDept(workstationForm.department);
+      }, 100);
       
       // 重新获取部门列表以更新统计数据
       try {
@@ -587,10 +593,9 @@ function HomePage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">IP地址</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">IP地址 (可选)</label>
                 <input
                   type="text"
-                  required
                   value={workstationForm.ipAddress}
                   onChange={(e) => handleFormChange('ipAddress', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
