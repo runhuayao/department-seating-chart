@@ -21,7 +21,9 @@ function HomePage() {
     username: '',
     description: '',
     x: '',
-    y: ''
+    y: '',
+    width: '',
+    height: ''
   });
   const [searchResults, setSearchResults] = useState({
     employees: [],
@@ -103,7 +105,9 @@ function HomePage() {
         },
         assignedUser: workstationForm.username || undefined,
         x_position: workstationForm.x ? parseInt(workstationForm.x) : undefined,
-        y_position: workstationForm.y ? parseInt(workstationForm.y) : undefined
+        y_position: workstationForm.y ? parseInt(workstationForm.y) : undefined,
+        width: workstationForm.width ? parseInt(workstationForm.width) : 60,
+        height: workstationForm.height ? parseInt(workstationForm.height) : 40
       });
       
       console.log('工位添加成功:', result);
@@ -116,7 +120,9 @@ function HomePage() {
         username: '',
         description: '',
         x: '',
-        y: ''
+        y: '',
+        width: '',
+        height: ''
       });
       
       // 重新获取部门列表以更新统计数据
@@ -598,11 +604,19 @@ function HomePage() {
                   <CoordinateHelper 
                     currentX={workstationForm.x}
                     currentY={workstationForm.y}
+                    selectedDepartment={workstationForm.department}
                     onCoordinateSelect={(x, y) => {
                       setWorkstationForm(prev => ({
                         ...prev,
                         x: x.toString(),
                         y: y.toString()
+                      }));
+                    }}
+                    onSizeChange={(width, height) => {
+                      setWorkstationForm(prev => ({
+                        ...prev,
+                        width: width.toString(),
+                        height: height.toString()
                       }));
                     }}
                   />
