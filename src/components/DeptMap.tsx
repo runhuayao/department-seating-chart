@@ -44,32 +44,60 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   // 获取当前部门的配置数据
   const deptConfig = getDepartmentConfig(department);
   
-  // 从API获取实时工位数据
+  // 从API获取实时部门和工位数据
   useEffect(() => {
-    const fetchWorkstations = async () => {
+    const fetchDepartmentData = async () => {
       if (!department) return;
       
       setIsLoadingDesks(true);
       try {
-        const response = await fetch('http://localhost:8080/api/workstations');
-        if (response.ok) {
-          const workstations = await response.json();
+        // 1. 首先获取部门数据
+        const deptResponse = await fetch('http://localhost:8080/api/departments');
+        let departmentData = null;
+        
+        if (deptResponse.ok) {
+          const deptResult = await deptResponse.json();
+          if (deptResult.success) {
+            // 查找匹配的部门（支持中英文名称匹配）
+            departmentData = deptResult.data.find((dept: any) => 
+              dept.name === department || 
+              dept.displayName === department ||
+              (department === 'Engineering' && (dept.name === '技术部' || dept.displayName === '技术部')) ||
+              (department === 'Marketing' && (dept.name === '产品部' || dept.displayName === '产品部')) ||
+              (department === 'Sales' && (dept.name === '运营部' || dept.displayName === '运营部')) ||
+              (department === 'HR' && (dept.name === '人事部' || dept.displayName === '人事部'))
+            );
+          }
+        }
+        
+        // 2. 获取工位数据
+        const wsResponse = await fetch('http://localhost:8080/api/workstations');
+        if (wsResponse.ok) {
+          const workstations = await wsResponse.json();
           // 过滤当前部门的工位
-          const departmentDesks = workstations.filter((ws: any) => 
-            ws.department === department || 
-            (department === 'Engineering' && (ws.department === '工程部' || ws.department === 'Engineering'))
-          );
+          const departmentDesks = workstations.filter((ws: any) => {
+            // 支持多种部门名称匹配方式
+            return ws.department === department || 
+                   ws.department === departmentData?.name ||
+                   ws.department === departmentData?.displayName ||
+                   (department === 'Engineering' && (ws.department === '技术部' || ws.department === 'Engineering')) ||
+                   (department === 'Marketing' && (ws.department === '产品部' || ws.department === 'Marketing')) ||
+                   (department === 'Sales' && (ws.department === '运营部' || ws.department === 'Sales')) ||
+                   (department === 'HR' && (ws.department === '人事部' || ws.department === 'HR'));
+          });
+          
           setApiDesks(departmentDesks);
-          console.log(`获取到 ${departmentDesks.length} 个 ${department} 部门的工位`);
+          console.log(`从PostgreSQL获取到 ${departmentDesks.length} 个 ${department} 部门的工位`);
+          console.log('PostgreSQL工位数据:', departmentDesks);
         }
       } catch (error) {
-        console.error('获取工位数据失败:', error);
+        console.error('获取部门和工位数据失败:', error);
       } finally {
         setIsLoadingDesks(false);
       }
     };
     
-    fetchWorkstations();
+    fetchDepartmentData();
   }, [department]);
   
   // 如果部门配置不存在，显示错误提示
@@ -90,17 +118,41 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   
   const { mapData, desks } = deptConfig;
   
-  // 合并静态工位数据和API工位数据
+  // 合并PostgreSQL工位数据和静态工位数据，优先使用PostgreSQL数据
   const combinedDesks = [...desks];
   
-  // 将API工位数据转换为地图工位格式并添加到列表中
+  // 将PostgreSQL工位数据转换为地图工位格式并添加到列表中
   apiDesks.forEach((apiDesk, index) => {
-    const existingDesk = combinedDesks.find(desk => desk.label === apiDesk.name);
-    if (!existingDesk) {
-      // 优先使用用户设置的坐标，否则使用自动分配
+    const existingDeskIndex = combinedDesks.findIndex(desk => 
+      desk.label === apiDesk.name || 
+      desk.desk_id === apiDesk.id ||
+      desk.desk_id === apiDesk.name
+    );
+    
+    if (existingDeskIndex >= 0) {
+      // 如果找到匹配的工位，用PostgreSQL数据更新静态数据
+      const existingDesk = combinedDesks[existingDeskIndex];
+      combinedDesks[existingDeskIndex] = {
+        ...existingDesk,
+        desk_id: apiDesk.id,
+        label: apiDesk.name,
+        // 优先使用PostgreSQL中的位置数据
+        x: apiDesk.location?.position?.x || existingDesk.x,
+        y: apiDesk.location?.position?.y || existingDesk.y,
+        // 保持原有的尺寸
+        w: existingDesk.w,
+        h: existingDesk.h,
+        department: department,
+        // 从assignedUser字段获取员工信息
+        assignedUser: apiDesk.assignedUser
+      };
+      console.log(`更新工位: ${apiDesk.name} 位置: (${combinedDesks[existingDeskIndex].x}, ${combinedDesks[existingDeskIndex].y})`);
+    } else {
+      // 如果没有找到匹配的工位，添加新工位
+      // 优先使用PostgreSQL设置的坐标，否则使用自动分配
       let x, y;
       if (apiDesk.location?.position?.x && apiDesk.location?.position?.y) {
-        // 使用用户设置的坐标
+        // 使用PostgreSQL中设置的坐标
         x = apiDesk.location.position.x;
         y = apiDesk.location.position.y;
       } else {
@@ -123,7 +175,8 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         h: 40,
         label: apiDesk.name,
         employee_id: undefined,
-        department: department
+        department: department,
+        assignedUser: apiDesk.assignedUser
       };
       
       combinedDesks.push(newDesk);
@@ -131,11 +184,26 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     }
   });
   
-  // 为工位数据添加员工信息
-  const desksWithEmployees: DeskWithEmployee[] = combinedDesks.map(desk => ({
-    ...desk,
-    employee: desk.employee_id ? getEmployeeById(desk.employee_id) : undefined
-  }));
+  // 为工位数据添加员工信息，优先使用PostgreSQL的assignedUser数据
+  const desksWithEmployees: DeskWithEmployee[] = combinedDesks.map(desk => {
+    // 优先使用PostgreSQL的assignedUser数据
+    if ((desk as any).assignedUser) {
+      return {
+        ...desk,
+        employee: {
+          employee_id: 0, // PostgreSQL数据没有employee_id，使用0作为占位符
+          name: (desk as any).assignedUser,
+          department: desk.department,
+          status: 'online' // 默认状态
+        }
+      };
+    }
+    // 如果没有PostgreSQL数据，使用静态员工数据
+    return {
+      ...desk,
+      employee: desk.employee_id ? getEmployeeById(desk.employee_id) : undefined
+    };
+  });
 
   // 处理工位高亮
   useEffect(() => {
