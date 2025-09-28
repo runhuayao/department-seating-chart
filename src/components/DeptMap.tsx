@@ -49,8 +49,29 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   const [apiDesks, setApiDesks] = useState<any[]>([]);
   const [isLoadingDesks, setIsLoadingDesks] = useState(false);
   
-  // 获取当前部门的配置数据
-  const deptConfig = getDepartmentConfig(department);
+  // 获取当前部门的配置数据（异步获取）
+  const [deptConfig, setDeptConfig] = useState<any>(null);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  
+  // 获取部门配置
+  useEffect(() => {
+    const fetchConfig = async () => {
+      if (!department) return;
+      
+      setIsLoadingConfig(true);
+      try {
+        const config = await getDepartmentConfig(department);
+        setDeptConfig(config);
+      } catch (error) {
+        console.error('获取部门配置失败:', error);
+        setDeptConfig(null);
+      } finally {
+        setIsLoadingConfig(false);
+      }
+    };
+    
+    fetchConfig();
+  }, [department]);
   
   // 从API获取实时部门和工位数据（完全基于PostgreSQL）
   useEffect(() => {
@@ -95,6 +116,18 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     fetchDepartmentData();
   }, [department]);
   
+  // 如果正在加载配置，显示加载状态
+  if (isLoadingConfig) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+          <p className="text-gray-600">正在加载部门配置...</p>
+        </div>
+      </div>
+    );
+  }
+
   // 如果部门配置不存在，显示错误提示
   if (!deptConfig) {
     return (
@@ -111,7 +144,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     );
   }
   
-  const { mapData, desks } = deptConfig;
+  const { mapData, desks = [] } = deptConfig; // 为desks提供默认值
   
   // 合并PostgreSQL工位数据和静态工位数据，优先使用PostgreSQL数据
   const combinedDesks = [...desks];
@@ -223,6 +256,8 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
 
   // 处理工位高亮
   useEffect(() => {
+    if (!deptConfig) return; // 确保配置已加载
+    
     if (highlightDeskId && svgRef.current && containerRef.current) {
       setHighlightedDesk(highlightDeskId);
       
@@ -265,10 +300,10 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [highlightDeskId, desksWithEmployees]);
+  }, [highlightDeskId, desksWithEmployees, deptConfig]);
 
   useEffect(() => {
-    if (!svgRef.current || !containerRef.current) return;
+    if (!svgRef.current || !containerRef.current || !deptConfig) return;
 
     const svg = select(svgRef.current);
     const container = containerRef.current;

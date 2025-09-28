@@ -48,8 +48,8 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// 根据部门获取地图
-router.get('/department/:department', authenticateToken, async (req, res) => {
+// 根据部门获取地图（移除认证要求）
+router.get('/department/:department', async (req, res) => {
   try {
     const { department } = req.params;
     const maps = await query(

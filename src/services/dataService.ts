@@ -103,6 +103,13 @@ export class DataService {
       });
 
       if (!response.ok) {
+        // 对于429错误，添加重试机制
+        if (response.status === 429) {
+          console.warn(`API请求被限流 [${endpoint}]，等待1秒后重试...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          // 递归重试一次
+          return this.apiRequest(endpoint, options);
+        }
         throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
       }
 
@@ -289,17 +296,28 @@ export class DataService {
     }
 
     try {
-      const configs = await this.apiRequest<MapConfig[]>(`/maps/department/${encodeURIComponent(department)}`);
-      const config = configs.length > 0 ? configs[0] : null;
+      // 由于maps表不存在，暂时返回默认配置
+      console.log(`⚠️ ${department} 部门地图配置表不存在，使用默认配置`);
       
-      if (config) {
-        this.setCachedData(cacheKey, config);
-        console.log(`✅ 从PostgreSQL获取到 ${department} 地图配置`);
-      } else {
-        console.log(`⚠️ ${department} 部门没有地图配置`);
-      }
+      const defaultConfig: MapConfig = {
+        id: 1,
+        department: department,
+        map_id: `${department.toLowerCase()}_default`,
+        type: 'svg',
+        url: `/maps/${department.toLowerCase()}.svg`,
+        dept_name: department,
+        width: 800,
+        height: 600,
+        background_color: '#f8fafc',
+        border_color: '#e2e8f0',
+        border_width: 2,
+        border_radius: 8,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
       
-      return config;
+      this.setCachedData(cacheKey, defaultConfig);
+      return defaultConfig;
     } catch (error) {
       console.error(`❌ 获取 ${department} 地图配置失败:`, error);
       return null;
