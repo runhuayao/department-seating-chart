@@ -87,18 +87,26 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
           });
           
           setApiDesks(departmentDesks);
-          console.log(`从PostgreSQL获取到 ${departmentDesks.length} 个 ${department} 部门的工位`);
-          console.log('PostgreSQL工位数据:', departmentDesks);
+          
+          // 根据数据来源显示不同的日志信息
+          if (departmentDesks.length > 0) {
+            console.log(`✅ ${department} 部门从PostgreSQL获取到 ${departmentDesks.length} 个工位`);
+            console.log('PostgreSQL工位数据:', departmentDesks);
+          } else {
+             console.log(`⚠️ ${department} 部门在PostgreSQL中没有工位数据，将使用静态数据`);
+             console.log(`静态数据工位数量: ${deptConfig?.desks?.length || 0}`);
+           }
         }
       } catch (error) {
         console.error('获取部门和工位数据失败:', error);
+        console.log(`❌ ${department} 部门API获取失败，将使用静态数据`);
       } finally {
         setIsLoadingDesks(false);
       }
     };
     
     fetchDepartmentData();
-  }, [department]);
+   }, [department]);
   
   // 如果部门配置不存在，显示错误提示
   if (!deptConfig) {
@@ -120,6 +128,10 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   
   // 合并PostgreSQL工位数据和静态工位数据，优先使用PostgreSQL数据
   const combinedDesks = [...desks];
+  
+  // 数据来源统计
+  let postgresqlCount = 0;
+  let staticCount = desks.length;
   
   // 将PostgreSQL工位数据转换为地图工位格式并添加到列表中
   apiDesks.forEach((apiDesk, index) => {
@@ -144,9 +156,11 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         h: existingDesk.h,
         department: department,
         // 从assignedUser字段获取员工信息
-        assignedUser: apiDesk.assignedUser
+        assignedUser: apiDesk.assignedUser,
+        dataSource: 'postgresql' // 标记数据来源
       };
-      console.log(`更新工位: ${apiDesk.name} 位置: (${combinedDesks[existingDeskIndex].x}, ${combinedDesks[existingDeskIndex].y})`);
+      postgresqlCount++;
+      console.log(`🔄 更新工位: ${apiDesk.name} 位置: (${combinedDesks[existingDeskIndex].x}, ${combinedDesks[existingDeskIndex].y}) [PostgreSQL数据]`);
     } else {
       // 如果没有找到匹配的工位，添加新工位
       // 优先使用PostgreSQL设置的坐标，否则使用自动分配
@@ -176,13 +190,28 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         label: apiDesk.name,
         employee_id: undefined,
         department: department,
-        assignedUser: apiDesk.assignedUser
+        assignedUser: apiDesk.assignedUser,
+        dataSource: 'postgresql' // 标记数据来源
       };
       
       combinedDesks.push(newDesk);
-      console.log(`添加新工位: ${apiDesk.name} 位置: (${newDesk.x}, ${newDesk.y})`);
+      postgresqlCount++;
+      console.log(`➕ 添加新工位: ${apiDesk.name} 位置: (${newDesk.x}, ${newDesk.y}) [PostgreSQL数据]`);
     }
   });
+  
+  // 标记静态数据工位
+  combinedDesks.forEach(desk => {
+    if (!(desk as any).dataSource) {
+      (desk as any).dataSource = 'static';
+    }
+  });
+  
+  // 输出数据来源统计
+  console.log(`📊 ${department} 部门数据统计:`);
+  console.log(`   PostgreSQL工位: ${postgresqlCount} 个`);
+  console.log(`   静态数据工位: ${staticCount - postgresqlCount} 个`);
+  console.log(`   总工位数: ${combinedDesks.length} 个`);
   
   // 为工位数据添加员工信息，优先使用PostgreSQL的assignedUser数据
   const desksWithEmployees: DeskWithEmployee[] = combinedDesks.map(desk => {
