@@ -1,0 +1,58 @@
+{
+  "mcpServers": {
+    "Redis": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-redis",
+        "redis://localhost:6379"
+      ],
+      "env": {}
+    },
+    "PostgreSQL": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://postgres@localhost:5432/department_map",
+        "PGHOST": "localhost",
+        "PGPORT": "5432",
+        "PGDATABASE": "department_map",
+        "PGUSER": "postgres"
+      }
+    }
+  },
+  "_comments": {
+    "description": "MCP 服务器配置 - NPX 方式 (Redis + PostgreSQL)",
+    "usage": "此配置使用 npx 动态下载并运行 MCP 服务器",
+    "redis_url_format": "redis://[username:password@]host:port[/database]",
+    "postgresql_url_format": "postgresql://[username:password@]host:port/database",
+    "examples": {
+      "redis_with_password": "redis://:password123@localhost:6379",
+      "redis_with_database": "redis://localhost:6379/1",
+      "postgresql_basic": "postgresql://postgres:password@localhost:5432/dbname",
+      "postgresql_with_ssl": "postgresql://user:pass@host:5432/db?sslmode=require"
+    },
+    "advantages": [
+      "无需本地安装 MCP 服务器",
+      "自动使用最新版本",
+      "配置简单，即用即下载",
+      "适合快速测试和开发",
+      "支持多种数据库类型"
+    ],
+    "requirements": [
+      "需要 Node.js 和 npm/npx",
+      "需要网络连接下载包",
+      "Redis 服务器必须运行在 localhost:6379",
+      "PostgreSQL 服务器必须运行在 localhost:5432",
+      "确保数据库用户有足够权限"
+    ],
+    "troubleshooting": {
+      "postgresql_auth_failed": "检查用户名密码是否正确，确保PostgreSQL服务已启动",
+      "connection_refused": "检查服务器地址和端口是否正确",
+      "permission_denied": "确保数据库用户有访问指定数据库的权限"
+    }
+  }
+}
