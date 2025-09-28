@@ -201,16 +201,18 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     const offsetX = (width - contentWidth * initialScale) / 2;
     const offsetY = (height - contentHeight * initialScale) / 2;
 
-    // 创建缩放行为
+    // 创建缩放行为 - 根据是否为首页模式调整缩放范围
     const zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.3, 3])
+      .scaleExtent(isHomepage ? [1, 1] : [0.3, 3]) // 首页模式禁用缩放，详情页允许缩放
       .on('zoom', (event) => {
         const { transform } = event;
         g.attr('transform', transform.toString());
       });
 
-    // 应用缩放行为到SVG
-    svg.call(zoomBehavior);
+    // 应用缩放行为到SVG - 首页模式禁用交互
+    if (!isHomepage) {
+      svg.call(zoomBehavior);
+    }
     
     // 直接使用zoomBehavior变量而不是存储在DOM上
     const storedZoomBehavior = zoomBehavior;
@@ -413,45 +415,45 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         const currentMinY = Math.min(...desksWithEmployees.map(d => d.y));
         const currentMaxY = Math.max(...desksWithEmployees.map(d => d.y + d.h));
         
-        // 计算内容区域尺寸，添加适当边距
-        const padding = 80; // 增加边距以确保更好的视觉效果
-        const currentContentWidth = currentMaxX - currentMinX + padding * 2;
-        const currentContentHeight = currentMaxY - currentMinY + padding * 2;
+        // 使用与初始化相同的边距和计算逻辑
+        const currentContentWidth = currentMaxX - currentMinX + 100; // 与初始化保持一致
+        const currentContentHeight = currentMaxY - currentMinY + 150; // 与初始化保持一致
         
-        // 重新计算适配缩放比例，确保内容完全可见
+        // 重新计算适配缩放比例，与初始化逻辑一致
         const currentScaleX = currentWidth / currentContentWidth;
         const currentScaleY = currentHeight / currentContentHeight;
         const currentInitialScale = Math.min(currentScaleX, currentScaleY, 1);
         
-        // 计算内容的实际显示尺寸
-        const scaledContentWidth = currentContentWidth * currentInitialScale;
-        const scaledContentHeight = currentContentHeight * currentInitialScale;
+        // 重新计算居中偏移，与初始化逻辑一致
+        const currentOffsetX = (currentWidth - currentContentWidth * currentInitialScale) / 2;
+        const currentOffsetY = (currentHeight - currentContentHeight * currentInitialScale) / 2;
         
-        // 计算完美居中的偏移量
-        const currentOffsetX = (currentWidth - scaledContentWidth) / 2;
-        const currentOffsetY = (currentHeight - scaledContentHeight) / 2;
+        // 使用与初始化完全相同的变换计算
+        const resetTranslateX = currentOffsetX - currentMinX * currentInitialScale;
+        const resetTranslateY = currentOffsetY - currentMinY * currentInitialScale;
         
-        // 计算最终的变换参数，确保内容居中
-        const finalTranslateX = currentOffsetX - (currentMinX - padding) * currentInitialScale;
-        const finalTranslateY = currentOffsetY - (currentMinY - padding) * currentInitialScale;
-        
-        console.log('Reset zoom with optimized centering:', {
+        console.log('Reset zoom with initial logic:', {
           containerSize: { width: currentWidth, height: currentHeight },
           contentBounds: { minX: currentMinX, maxX: currentMaxX, minY: currentMinY, maxY: currentMaxY },
           contentSize: { width: currentContentWidth, height: currentContentHeight },
           scale: currentInitialScale,
           offset: { x: currentOffsetX, y: currentOffsetY },
-          finalTranslate: { x: finalTranslateX, y: finalTranslateY }
+          finalTranslate: { x: resetTranslateX, y: resetTranslateY }
         });
         
-        if (storedZoomBehavior && typeof storedZoomBehavior.transform === 'function') {
+        if (storedZoomBehavior && typeof storedZoomBehavior.transform === 'function' && !isHomepage) {
           svg.transition()
             .duration(750)
             .call(storedZoomBehavior.transform, 
               zoomIdentity
-                .translate(finalTranslateX, finalTranslateY)
+                .translate(resetTranslateX, resetTranslateY)
                 .scale(currentInitialScale)
             );
+        } else if (isHomepage) {
+          // 首页模式直接设置变换，不使用缩放行为
+          g.transition()
+            .duration(750)
+            .attr('transform', `translate(${resetTranslateX}, ${resetTranslateY}) scale(${currentInitialScale})`);
         }
       } catch (error) {
         console.warn('Reset zoom operation failed:', error);

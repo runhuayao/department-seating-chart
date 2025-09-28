@@ -521,9 +521,7 @@ function HomePage() {
                     <button
                       onClick={() => handleDepartmentChange(dept)}
                       className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      查看详情
-                    </button>
+                    >查看详情</button>
                   </div>
                   <div className="h-64">
                     <DeptMap 
