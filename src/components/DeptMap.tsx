@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { zoom, zoomIdentity, ZoomBehavior } from 'd3-zoom';
+import React, { useRef, useEffect, useState } from 'react';
 import { select } from 'd3-selection';
+import { zoom, zoomIdentity, ZoomBehavior } from 'd3-zoom';
+import { validateMapStyle, preserveStyleProperties, createStyleUpdater } from '../utils/mapStyleUtils';
 import { 
   getDepartmentConfig, 
   getEmployeeById, 
@@ -14,15 +15,25 @@ interface DeskWithEmployee extends DeskType {
   employee?: Employee;
 }
 
+interface MapContainerConfig {
+  width?: number;
+  height?: number;
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderRadius?: number;
+}
+
 interface DeptMapProps {
   department: string;
   searchQuery?: string; // 搜索查询字符串
   isHomepage?: boolean; // 新增：标识是否为首页模式
   highlightDeskId?: string; // 需要高亮的工位ID
   onResetView?: () => void; // 重置视图回调函数
+  mapConfig?: MapContainerConfig; // 新增地图容器配置
 }
 
-const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomepage = false, highlightDeskId, onResetView }) => {
+const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomepage = false, highlightDeskId, onResetView, mapConfig }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedDesk, setSelectedDesk] = useState<DeskWithEmployee | null>(null);
@@ -300,19 +311,33 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
       }
     };
 
-    // 绘制地图背景 - 居中显示
+    // 绘制地图背景 - 居中显示，支持动态配置，确保样式一致性
     const backgroundX = (contentWidth - (maxX - minX)) / 2 - 50;
     const backgroundY = (contentHeight - (maxY - minY)) / 2 - 50;
     
-    g.append('rect')
+    // 使用样式工具函数验证和处理配置
+    const validatedConfig = validateMapStyle({
+      width: mapConfig?.width || (maxX - minX + 100),
+      height: mapConfig?.height || (maxY - minY + 100),
+      backgroundColor: mapConfig?.backgroundColor || '#f8fafc',
+      borderColor: mapConfig?.borderColor || '#e2e8f0',
+      borderWidth: mapConfig?.borderWidth || 2,
+      borderRadius: mapConfig?.borderRadius || 8
+    });
+    
+    // 创建背景rect元素
+    const backgroundRect = g.append('rect')
       .attr('x', backgroundX)
       .attr('y', backgroundY)
-      .attr('width', maxX - minX + 100)
-      .attr('height', maxY - minY + 100)
-      .attr('fill', '#f8fafc')
-      .attr('stroke', '#e2e8f0')
-      .attr('stroke-width', 2)
-      .attr('rx', 8);
+      .attr('width', validatedConfig.width)
+      .attr('height', validatedConfig.height)
+      .attr('fill', validatedConfig.backgroundColor)
+      .attr('stroke', validatedConfig.borderColor)
+      .attr('stroke-width', validatedConfig.borderWidth)
+      .attr('rx', validatedConfig.borderRadius);
+    
+    // 创建样式更新器，用于后续动态更新
+    const updateBackgroundStyle = createStyleUpdater(backgroundRect);
 
     // 添加地图标题 - 居中显示
     const titleX = contentWidth / 2;
