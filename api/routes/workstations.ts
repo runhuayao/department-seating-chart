@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../models/database.js';
-import { authenticateToken, requireAdmin, requireUserOrAdmin, rateLimit } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin, requireUserOrAdmin, rateLimiter } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -10,7 +10,7 @@ const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
 };
 
 // 应用频率限制
-router.use(rateLimit(50, 15 * 60 * 1000)); // 每15分钟最多50次请求
+router.use(rateLimiter(50, 15 * 60 * 1000)); // 每15分钟最多50次请求
 
 // 获取所有工作站 - 已移除登录验证
 router.get('/', asyncHandler(async (req: any, res: any) => {

@@ -442,4 +442,5 @@ export class WebSocketServer {
   }
 }
 
-export { MessageType, WebSocketMessage };
+export { MessageType, WebSocketMessage, WebSocketServer };
+export default WebSocketServer;

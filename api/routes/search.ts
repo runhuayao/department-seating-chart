@@ -1,12 +1,12 @@
 import express from 'express';
 import { z } from 'zod';
-import { executeQuery } from '../config/database.js';
-import { authenticateToken, requireUserOrAdmin, rateLimit } from '../middleware/auth.js';
+import dbManager from '../config/database.js';
+import { authenticateToken, requireUserOrAdmin, rateLimiter } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // 应用频率限制（移除认证要求以支持无登录搜索）
-router.use(rateLimit(100, 15 * 60 * 1000)); // 每15分钟最多100次搜索请求
+router.use(rateLimiter(100, 15 * 60 * 1000)); // 每15分钟最多100次搜索请求
 // 移除认证要求，允许无登录访问搜索功能
 // router.use(authenticateToken); // 所有搜索API都需要认证
 // router.use(requireUserOrAdmin); // 需要用户或管理员权限
@@ -61,8 +61,8 @@ router.get('/', async (req, res) => {
       
       employeeQuery += ' ORDER BY e.id LIMIT 10'
       
-      const employees = await executeQuery<any[]>(employeeQuery, params);
-      searchResults.employees = employees;
+      const employees = await dbManager.query(employeeQuery, params);
+      searchResults.employees = employees.rows;
     }
 
     // 搜索工位 - 使用desks表，并关联员工信息
@@ -86,15 +86,15 @@ router.get('/', async (req, res) => {
       
       workstationQuery += ' ORDER BY d.desk_number LIMIT 20';
       
-      const workstations = await executeQuery<any[]>(workstationQuery, params);
-      searchResults.workstations = workstations;
+      const workstations = await dbManager.query(workstationQuery, params);
+      searchResults.workstations = workstations.rows;
     }
 
     searchResults.total = searchResults.employees.length + searchResults.workstations.length;
 
     // 记录搜索日志
     try {
-      await executeQuery(
+      await dbManager.query(
         'INSERT INTO system_logs (action, details, ip_address, created_at) VALUES ($1, $2, $3, $4)',
         [
           'search',
@@ -137,27 +137,27 @@ router.get('/suggestions', async (req, res) => {
     }
 
     // 获取员工姓名建议
-    const employeeNames = await executeQuery<{name: string}[]>(
+    const employeeNames = await dbManager.query(
       'SELECT DISTINCT name FROM employees WHERE (name ILIKE $1 OR name_pinyin ILIKE $1 OR name_pinyin_short ILIKE $1) LIMIT 5',
       [`%${query}%`]
     );
 
     // 获取工位名称建议
-    const workstationNames = await executeQuery<{desk_number: string}[]>(
+    const workstationNames = await dbManager.query(
       'SELECT DISTINCT desk_number FROM desks WHERE desk_number ILIKE $1 LIMIT 5',
       [`%${query}%`]
     );
 
     // 获取部门名称建议
-    const departmentNames = await executeQuery<{name: string}[]>(
+    const departmentNames = await dbManager.query(
       'SELECT DISTINCT name FROM departments WHERE name ILIKE $1 LIMIT 3',
       [`%${query}%`]
     );
 
     const suggestions = [
-      ...employeeNames.map((item: any) => ({ type: 'employee', value: item.name })),
-      ...workstationNames.map((item: any) => ({ type: 'workstation', value: item.desk_number })),
-      ...departmentNames.map((item: any) => ({ type: 'department', value: item.name }))
+      ...employeeNames.rows.map((item: any) => ({ type: 'employee', value: item.name })),
+      ...workstationNames.rows.map((item: any) => ({ type: 'workstation', value: item.desk_number })),
+      ...departmentNames.rows.map((item: any) => ({ type: 'department', value: item.name }))
     ];
 
     res.json({

@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import db from '../models/database.js';
-import { authenticateToken, requireUserOrAdmin, requireAdmin, rateLimit } from '../middleware/auth.js';
+import { authenticateToken, requireUserOrAdmin, requireAdmin, rateLimiter } from '../middleware/auth.js';
 
 const router = Router();
 
 // 应用频率限制和认证
-router.use(rateLimit(50, 15 * 60 * 1000)); // 每15分钟最多50次请求
+router.use(rateLimiter(50, 15 * 60 * 1000)); // 每15分钟最多50次请求
 router.use(authenticateToken); // 所有员工API都需要认证
 
 // 错误处理包装器

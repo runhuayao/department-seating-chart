@@ -110,6 +110,9 @@ export const requireAdmin = requireRole(['admin', 'super_admin']);
 // 部门管理员权限验证
 export const requireDepartmentAdmin = requireRole(['admin', 'super_admin', 'department_admin']);
 
+// 用户或管理员权限验证
+export const requireUserOrAdmin = requireRole(['user', 'admin', 'super_admin', 'department_admin']);
+
 // 部门访问权限验证
 export const requireDepartmentAccess = (req: AuthRequest, res: Response, next: NextFunction) => {
   if (!req.user) {

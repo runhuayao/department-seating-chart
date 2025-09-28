@@ -3,12 +3,12 @@
  * 处理部门信息、员工、工位等相关接口
  */
 import { Router, type Request, type Response } from 'express';
-import { authenticateToken, requireUserOrAdmin, rateLimit } from '../middleware/auth.js';
+import { authenticateToken, requireUserOrAdmin, rateLimiter } from '../middleware/auth.js';
 
 const router = Router();
 
 // 应用频率限制和认证
-router.use(rateLimit(30, 15 * 60 * 1000)); // 每15分钟最多30次请求
+router.use(rateLimiter(30, 15 * 60 * 1000)); // 每15分钟最多30次请求
 router.use(authenticateToken); // 所有部门API都需要认证
 
 /**
