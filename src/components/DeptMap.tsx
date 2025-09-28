@@ -296,21 +296,27 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
       }
     };
 
-    // 绘制地图背景
+    // 绘制地图背景 - 居中显示
+    const backgroundX = (contentWidth - (maxX - minX)) / 2 - 50;
+    const backgroundY = (contentHeight - (maxY - minY)) / 2 - 50;
+    
     g.append('rect')
-      .attr('x', minX - 50)
-      .attr('y', minY - 50)
-      .attr('width', contentWidth)
-      .attr('height', contentHeight)
+      .attr('x', backgroundX)
+      .attr('y', backgroundY)
+      .attr('width', maxX - minX + 100)
+      .attr('height', maxY - minY + 100)
       .attr('fill', '#f8fafc')
       .attr('stroke', '#e2e8f0')
       .attr('stroke-width', 2)
       .attr('rx', 8);
 
-    // 添加地图标题
+    // 添加地图标题 - 居中显示
+    const titleX = contentWidth / 2;
+    const titleY = backgroundY + 30;
+    
     g.append('text')
-      .attr('x', (minX + maxX) / 2)
-      .attr('y', minY - 20)
+      .attr('x', titleX)
+      .attr('y', titleY)
       .attr('text-anchor', 'middle')
       .attr('font-size', isHomepage ? '14px' : '18px')
       .attr('font-weight', 'bold')
