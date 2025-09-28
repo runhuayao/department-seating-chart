@@ -413,24 +413,35 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         const currentMinY = Math.min(...desksWithEmployees.map(d => d.y));
         const currentMaxY = Math.max(...desksWithEmployees.map(d => d.y + d.h));
         
-        const currentContentWidth = currentMaxX - currentMinX + 100;
-        const currentContentHeight = currentMaxY - currentMinY + 150;
+        // 计算内容区域尺寸，添加适当边距
+        const padding = 80; // 增加边距以确保更好的视觉效果
+        const currentContentWidth = currentMaxX - currentMinX + padding * 2;
+        const currentContentHeight = currentMaxY - currentMinY + padding * 2;
         
-        // 重新计算适配缩放比例
+        // 重新计算适配缩放比例，确保内容完全可见
         const currentScaleX = currentWidth / currentContentWidth;
         const currentScaleY = currentHeight / currentContentHeight;
         const currentInitialScale = Math.min(currentScaleX, currentScaleY, 1);
         
-        // 重新计算居中偏移
-        const currentOffsetX = (currentWidth - currentContentWidth * currentInitialScale) / 2;
-        const currentOffsetY = (currentHeight - currentContentHeight * currentInitialScale) / 2;
+        // 计算内容的实际显示尺寸
+        const scaledContentWidth = currentContentWidth * currentInitialScale;
+        const scaledContentHeight = currentContentHeight * currentInitialScale;
         
-        console.log('Reset zoom with current parameters:', {
-          width: currentWidth,
-          height: currentHeight,
+        // 计算完美居中的偏移量
+        const currentOffsetX = (currentWidth - scaledContentWidth) / 2;
+        const currentOffsetY = (currentHeight - scaledContentHeight) / 2;
+        
+        // 计算最终的变换参数，确保内容居中
+        const finalTranslateX = currentOffsetX - (currentMinX - padding) * currentInitialScale;
+        const finalTranslateY = currentOffsetY - (currentMinY - padding) * currentInitialScale;
+        
+        console.log('Reset zoom with optimized centering:', {
+          containerSize: { width: currentWidth, height: currentHeight },
+          contentBounds: { minX: currentMinX, maxX: currentMaxX, minY: currentMinY, maxY: currentMaxY },
+          contentSize: { width: currentContentWidth, height: currentContentHeight },
           scale: currentInitialScale,
-          offsetX: currentOffsetX,
-          offsetY: currentOffsetY
+          offset: { x: currentOffsetX, y: currentOffsetY },
+          finalTranslate: { x: finalTranslateX, y: finalTranslateY }
         });
         
         if (storedZoomBehavior && typeof storedZoomBehavior.transform === 'function') {
@@ -438,7 +449,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
             .duration(750)
             .call(storedZoomBehavior.transform, 
               zoomIdentity
-                .translate(currentOffsetX - currentMinX * currentInitialScale, currentOffsetY - currentMinY * currentInitialScale)
+                .translate(finalTranslateX, finalTranslateY)
                 .scale(currentInitialScale)
             );
         }
