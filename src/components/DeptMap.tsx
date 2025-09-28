@@ -177,6 +177,12 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     const width = container.clientWidth;
     const height = container.clientHeight;
 
+    // 设置SVG尺寸
+    svg.attr('width', width).attr('height', height);
+
+    // 清除之前的内容
+    svg.selectAll('*').remove();
+
     // 计算工位的边界
     const minX = Math.min(...desksWithEmployees.map(d => d.x));
     const maxX = Math.max(...desksWithEmployees.map(d => d.x + d.w));
@@ -191,19 +197,9 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     const scaleY = height / contentHeight;
     const initialScale = Math.min(scaleX, scaleY, 1); // 不超过1倍缩放
     
-    // 计算实际SVG尺寸（基于内容和缩放）
-    const actualSvgWidth = contentWidth * initialScale;
-    const actualSvgHeight = contentHeight * initialScale;
-    
-    // 设置SVG尺寸为实际内容尺寸，让div居中来实现整体居中
-    svg.attr('width', actualSvgWidth).attr('height', actualSvgHeight);
-
-    // 清除之前的内容
-    svg.selectAll('*').remove();
-    
-    // 计算居中偏移（现在由于SVG尺寸已调整，偏移为0）
-    const offsetX = 0; // 不需要偏移，由外层div居中
-    const offsetY = 0; // 不需要偏移，由外层div居中
+    // 计算居中偏移
+    const offsetX = (width - contentWidth * initialScale) / 2;
+    const offsetY = (height - contentHeight * initialScale) / 2;
 
     // 创建缩放行为 - 根据是否为首页模式调整缩放范围
     const zoomBehavior: ZoomBehavior<SVGSVGElement, unknown> = zoom<SVGSVGElement, unknown>()
@@ -264,16 +260,9 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
         const currentScaleY = currentHeight / currentContentHeight;
         const currentInitialScale = Math.min(currentScaleX, currentScaleY, 1);
         
-        // 重新计算实际SVG尺寸
-        const currentActualSvgWidth = currentContentWidth * currentInitialScale;
-        const currentActualSvgHeight = currentContentHeight * currentInitialScale;
-        
-        // 更新SVG尺寸
-        svg.attr('width', currentActualSvgWidth).attr('height', currentActualSvgHeight);
-        
-        // 重新计算居中偏移（现在为0，由外层div居中）
-        const currentOffsetX = 0; // 不需要偏移，由外层div居中
-        const currentOffsetY = 0; // 不需要偏移，由外层div居中
+        // 重新计算居中偏移，与初始化逻辑一致
+        const currentOffsetX = (currentWidth - currentContentWidth * currentInitialScale) / 2;
+        const currentOffsetY = (currentHeight - currentContentHeight * currentInitialScale) / 2;
         
         // 使用与初始化完全相同的变换计算
         const resetTranslateX = currentOffsetX - currentMinX * currentInitialScale;
@@ -486,24 +475,23 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   }, [department, mapData, desksWithEmployees, isHomepage]);
 
   return (
-    <div className="relative w-full h-full bg-gray-50 flex items-center justify-center" ref={containerRef}>
+    <div className="relative w-full h-full bg-gray-50" ref={containerRef}>
       {isLoadingDesks && (
         <div className="absolute top-4 left-4 bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm z-20">
           正在加载工位数据...
         </div>
       )}
       
-      {/* 居中的SVG容器 */}
-      <div className="relative z-10 flex items-center justify-center w-full h-full">
-        <svg
-          ref={svgRef}
-          className="block"
-          style={{ 
-            minHeight: isHomepage ? '300px' : '500px',
-            pointerEvents: 'auto'
-          }}
-        />
-      </div>
+      {/* 地图SVG */}
+      <svg
+        ref={svgRef}
+        className="w-full h-full"
+        style={{ 
+          minHeight: isHomepage ? '300px' : '500px',
+          pointerEvents: 'auto',
+          zIndex: 1
+        }}
+      />
       
       {/* 控制面板 - 仅在详情页显示 */}
       {!isHomepage && (
