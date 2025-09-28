@@ -1,6 +1,42 @@
 # 更新日志
 
-## [v3.1.1] - 2024-01-17
+## [v3.1.1] - 2024-12-28
+
+### 🔧 修复 (Fixes)
+- **数据库访问层重构**
+  - 修复 `api/models/database.ts` 中 `executeQuery` 等函数的导入错误
+  - 重写 `HybridDatabase` 类，简化数据库操作逻辑
+  - 统一使用 `dbManager.query()` 替代已废弃的 `executeQuery`
+
+- **认证中间件完善**
+  - 修复 `api/middleware/auth.ts` 中缺失的 `requireUserOrAdmin` 函数
+  - 统一所有路由文件中的 `rateLimit` 导入，改为 `rateLimiter`
+  - 完善权限验证体系
+
+- **API路由系统优化**
+  - 修复所有路由文件 (`departments.ts`, `employees.ts`, `overview.ts`, `search.ts`, `workstations.ts`) 中的导入错误
+  - 更新数据库查询调用，使用 `dbManager.query()` 并正确访问 `result.rows`
+  - 优化搜索功能的数据处理逻辑
+
+- **WebSocket服务器修复**
+  - 修复 `api/websocket/server-monitor.ts` 中缺失的默认导出
+  - 完善 WebSocket 服务器的模块导出结构
+
+### 🚀 技术改进 (Improvements)
+- 统一数据库查询接口，提升代码一致性
+- 优化错误处理机制，增强系统稳定性
+- 完善模块导入导出结构，减少运行时错误
+
+### 📝 影响范围 (Impact)
+- 后端API路由系统
+- 数据库访问层
+- 认证和授权中间件
+- WebSocket服务器
+- 搜索功能
+
+---
+
+## [v3.1.0] - 2024-01-17
 
 ### 修复问题
 - 🔧 修复登录功能：创建admin测试用户，修复AuthContext响应数据格式处理

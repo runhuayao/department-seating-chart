@@ -1,0 +1,94 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "部门地图系统 (Department Map System)",
+  "description": "基于React + TypeScript + Node.js的企业部门地图管理系统，支持员工工位管理、实时数据同步、PostgreSQL数据库和Redis缓存",
+  "folders": [
+    "src",
+    "api",
+    "shared",
+    "docs",
+    ".trae/documents"
+  ],
+  "excludeFolders": [
+    "node_modules",
+    "dist",
+    "build",
+    ".git",
+    "deprecated",
+    "temp*",
+    "Redis",
+    "migrations",
+    "supabase/migrations",
+    "test",
+    "tests",
+    "monitoring"
+  ],
+  "excludeFiles": [
+    "*.log",
+    "*.exe",
+    "*.msi",
+    "*.zip",
+    "*.dll",
+    "*.pdb",
+    "dump.rdb",
+    "pgpass.txt",
+    "*.ps1",
+    "package-lock.json"
+  ],
+  "rules": [
+    "使用TypeScript进行类型安全的开发",
+    "遵循React Hooks最佳实践",
+    "使用PostgreSQL作为主数据库，内存数据库作为备用",
+    "实现Redis缓存机制提升性能",
+    "采用Express.js构建RESTful API",
+    "使用WebSocket实现实时数据同步",
+    "遵循Git版本管理规范，使用语义化版本控制",
+    "保持代码模块化和可维护性",
+    "实现完善的错误处理和日志记录",
+    "确保API安全性，使用JWT认证和频率限制"
+  ],
+  "previousVersions": [
+    {
+      "tag": "v3.1.1_database_auth_fixes",
+      "title": "v3.1.1 数据库模型和认证系统修复"
+    },
+    {
+      "tag": "v3.1.0",
+      "title": "v3.1.0 功能完善版本"
+    },
+    {
+      "tag": "v3.0.0",
+      "title": "v3.0.0 重大架构升级"
+    }
+  ],
+  "contextPreservation": {
+    "keyComponents": [
+      "前端React应用 (src/App.tsx, src/components/)",
+      "后端API服务 (api/server.ts, api/routes/)",
+      "数据库模型 (api/models/database.ts)",
+      "认证中间件 (api/middleware/auth.ts)",
+      "WebSocket服务 (api/websocket/)",
+      "类型定义 (shared/types.ts)"
+    ],
+    "criticalIssues": [
+      "Too Many Requests错误 - 部门API认证问题",
+      "数据库连接和查询优化",
+      "前后端数据同步机制",
+      "Redis缓存实现"
+    ],
+    "developmentEnvironment": {
+      "frontend": "React + TypeScript + Vite (端口5173)",
+      "backend": "Node.js + Express + TypeScript (端口8080)",
+      "database": "PostgreSQL (主) + 内存数据库 (备用)",
+      "cache": "Redis (端口6379)",
+      "tools": "Git版本管理, Context7上下文保留"
+    },
+    "recentChanges": [
+      "修复数据库模型导入错误",
+      "完善认证中间件功能",
+      "优化API路由系统",
+      "修复WebSocket服务器导出",
+      "实现Git版本管理规范"
+    ]
+  }
+}

@@ -3,7 +3,7 @@
 
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
-import { pool } from '../config/database';
+import dbManager from '../config/database.js';
 
 // 扩展Request接口
 interface AuthRequest extends Request {
@@ -37,7 +37,7 @@ export const authenticateToken = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret') as any;
     
     // 验证用户是否仍然存在且活跃
-    const userResult = await pool.query(
+    const userResult = await dbManager.query(
       `SELECT u.id, u.username, u.role, u.department_id, u.email, u.is_active,
               d.name as department_name
        FROM users u 

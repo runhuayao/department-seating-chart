@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
       return res.status(400).json({
         success: false,
         message: '参数验证失败',
-        errors: validation.error.errors
+        errors: validation.error.issues
       });
     }
 

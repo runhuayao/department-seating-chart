@@ -103,6 +103,36 @@ class HybridDatabase {
     }
   }
 
+  // 根据ID获取工位
+  async getWorkstationById(id: string): Promise<Workstation | null> {
+    try {
+      if (await this.isPostgreSQLAvailable()) {
+        const result = await dbManager.query(`
+          SELECT * FROM workstations WHERE id = $1
+        `, [id]);
+        if (result.rows.length === 0) return null;
+        const row = result.rows[0];
+        return {
+          id: row.id,
+          name: row.name,
+          ipAddress: row.ip_address,
+          macAddress: row.mac_address,
+          location: row.location,
+          department: row.department,
+          status: row.status,
+          specifications: row.specifications,
+          assignedUser: row.assigned_user,
+          createdAt: new Date(row.created_at),
+          updatedAt: new Date(row.updated_at)
+        };
+      }
+      return this.memoryWorkstations.get(id) || null;
+    } catch (error) {
+      console.error('获取工位详情失败:', error);
+      return this.memoryWorkstations.get(id) || null;
+    }
+  }
+
   // 创建工位
   async createWorkstation(workstation: Omit<Workstation, 'id' | 'createdAt' | 'updatedAt'>): Promise<Workstation> {
     const id = `ws-${Date.now()}`;
@@ -140,6 +170,107 @@ class HybridDatabase {
     } catch (error) {
       console.error('创建工位失败:', error);
       throw error;
+    }
+  }
+
+  // 更新工位
+  async updateWorkstation(id: string, updates: Partial<Workstation>): Promise<Workstation | null> {
+    try {
+      if (await this.isPostgreSQLAvailable()) {
+        const setParts: string[] = [];
+        const values: any[] = [];
+        let paramIndex = 1;
+
+        if (updates.name !== undefined) {
+          setParts.push(`name = $${paramIndex++}`);
+          values.push(updates.name);
+        }
+        if (updates.ipAddress !== undefined) {
+          setParts.push(`ip_address = $${paramIndex++}`);
+          values.push(updates.ipAddress);
+        }
+        if (updates.macAddress !== undefined) {
+          setParts.push(`mac_address = $${paramIndex++}`);
+          values.push(updates.macAddress);
+        }
+        if (updates.location !== undefined) {
+          setParts.push(`location = $${paramIndex++}`);
+          values.push(JSON.stringify(updates.location));
+        }
+        if (updates.department !== undefined) {
+          setParts.push(`department = $${paramIndex++}`);
+          values.push(updates.department);
+        }
+        if (updates.status !== undefined) {
+          setParts.push(`status = $${paramIndex++}`);
+          values.push(updates.status);
+        }
+        if (updates.specifications !== undefined) {
+          setParts.push(`specifications = $${paramIndex++}`);
+          values.push(JSON.stringify(updates.specifications));
+        }
+        if (updates.assignedUser !== undefined) {
+          setParts.push(`assigned_user = $${paramIndex++}`);
+          values.push(updates.assignedUser);
+        }
+
+        if (setParts.length === 0) {
+          return await this.getWorkstationById(id);
+        }
+
+        setParts.push(`updated_at = $${paramIndex++}`);
+        values.push(new Date());
+        values.push(id);
+
+        await dbManager.query(`
+          UPDATE workstations 
+          SET ${setParts.join(', ')}
+          WHERE id = $${paramIndex}
+        `, values);
+
+        await this.addAuditLog('UPDATE', 'workstation', id, null, updates);
+        return await this.getWorkstationById(id);
+      } else {
+        // 内存模式
+        const existing = this.memoryWorkstations.get(id);
+        if (existing) {
+          const updated = { ...existing, ...updates, updatedAt: new Date() };
+          this.memoryWorkstations.set(id, updated);
+          await this.addAuditLog('UPDATE', 'workstation', id, existing, updates);
+          return updated;
+        }
+        return null;
+      }
+    } catch (error) {
+      console.error('更新工位失败:', error);
+      return null;
+    }
+  }
+
+  // 删除工位
+  async deleteWorkstation(id: string): Promise<boolean> {
+    try {
+      if (await this.isPostgreSQLAvailable()) {
+        const result = await dbManager.query(`
+          DELETE FROM workstations WHERE id = $1
+        `, [id]);
+        
+        const deleted = result.rowCount > 0;
+        if (deleted) {
+          await this.addAuditLog('DELETE', 'workstation', id, null, {});
+        }
+        return deleted;
+      } else {
+        // 内存模式
+        const deleted = this.memoryWorkstations.delete(id);
+        if (deleted) {
+          await this.addAuditLog('DELETE', 'workstation', id, null, {});
+        }
+        return deleted;
+      }
+    } catch (error) {
+      console.error('删除工位失败:', error);
+      return false;
     }
   }
 
@@ -234,6 +365,186 @@ class HybridDatabase {
     } catch (error) {
       console.error('获取部门失败:', error);
       return this.memoryDepartments.get(id) || null;
+    }
+  }
+
+  // 获取员工列表
+  async getEmployees(): Promise<Employee[]> {
+    try {
+      if (await this.isPostgreSQLAvailable()) {
+        const result = await dbManager.query(`
+          SELECT * FROM employees ORDER BY created_at DESC
+        `);
+        return result.rows.map(row => ({
+          id: row.id,
+          employeeId: row.employee_id,
+          name: row.name,
+          email: row.email,
+          phone: row.phone,
+          department: row.department,
+          position: row.position,
+          workstationId: row.workstation_id,
+          status: row.status,
+          permissions: row.permissions,
+          createdAt: new Date(row.created_at),
+          updatedAt: new Date(row.updated_at)
+        }));
+      }
+      return Array.from(this.memoryEmployees.values());
+    } catch (error) {
+      console.error('获取员工列表失败:', error);
+      return Array.from(this.memoryEmployees.values());
+    }
+  }
+
+  // 根据ID获取员工
+  async getEmployeeById(id: string): Promise<Employee | null> {
+    try {
+      if (await this.isPostgreSQLAvailable()) {
+        const result = await dbManager.query(`
+          SELECT * FROM employees WHERE id = $1
+        `, [id]);
+        if (result.rows.length === 0) return null;
+        const row = result.rows[0];
+        return {
+          id: row.id,
+          employeeId: row.employee_id,
+          name: row.name,
+          email: row.email,
+          phone: row.phone,
+          department: row.department,
+          position: row.position,
+          workstationId: row.workstation_id,
+          status: row.status,
+          permissions: row.permissions,
+          createdAt: new Date(row.created_at),
+          updatedAt: new Date(row.updated_at)
+        };
+      }
+      return this.memoryEmployees.get(id) || null;
+    } catch (error) {
+      console.error('获取员工详情失败:', error);
+      return this.memoryEmployees.get(id) || null;
+    }
+  }
+
+  // 更新员工
+  async updateEmployee(id: string, updates: Partial<Employee>): Promise<Employee | null> {
+    try {
+      if (await this.isPostgreSQLAvailable()) {
+        const setParts: string[] = [];
+        const values: any[] = [];
+        let paramIndex = 1;
+
+        if (updates.name !== undefined) {
+          setParts.push(`name = $${paramIndex++}`);
+          values.push(updates.name);
+        }
+        if (updates.email !== undefined) {
+          setParts.push(`email = $${paramIndex++}`);
+          values.push(updates.email);
+        }
+        if (updates.phone !== undefined) {
+          setParts.push(`phone = $${paramIndex++}`);
+          values.push(updates.phone);
+        }
+        if (updates.department !== undefined) {
+          setParts.push(`department = $${paramIndex++}`);
+          values.push(updates.department);
+        }
+        if (updates.position !== undefined) {
+          setParts.push(`position = $${paramIndex++}`);
+          values.push(updates.position);
+        }
+        if (updates.workstationId !== undefined) {
+          setParts.push(`workstation_id = $${paramIndex++}`);
+          values.push(updates.workstationId);
+        }
+        if (updates.status !== undefined) {
+          setParts.push(`status = $${paramIndex++}`);
+          values.push(updates.status);
+        }
+        if (updates.permissions !== undefined) {
+          setParts.push(`permissions = $${paramIndex++}`);
+          values.push(updates.permissions);
+        }
+
+        if (setParts.length === 0) {
+          return await this.getEmployeeById(id);
+        }
+
+        setParts.push(`updated_at = $${paramIndex++}`);
+        values.push(new Date());
+        values.push(id);
+
+        await dbManager.query(`
+          UPDATE employees 
+          SET ${setParts.join(', ')}
+          WHERE id = $${paramIndex}
+        `, values);
+
+        await this.addAuditLog('UPDATE', 'employee', id, null, updates);
+        return await this.getEmployeeById(id);
+      } else {
+        // 内存模式
+        const existing = this.memoryEmployees.get(id);
+        if (existing) {
+          const updated = { ...existing, ...updates, updatedAt: new Date() };
+          this.memoryEmployees.set(id, updated);
+          await this.addAuditLog('UPDATE', 'employee', id, existing, updates);
+          return updated;
+        }
+        return null;
+      }
+    } catch (error) {
+      console.error('更新员工失败:', error);
+      return null;
+    }
+  }
+
+  // 删除员工
+  async deleteEmployee(id: string): Promise<boolean> {
+    try {
+      if (await this.isPostgreSQLAvailable()) {
+        const result = await dbManager.query(`
+          DELETE FROM employees WHERE id = $1
+        `, [id]);
+        
+        const deleted = result.rowCount > 0;
+        if (deleted) {
+          await this.addAuditLog('DELETE', 'employee', id, null, {});
+        }
+        return deleted;
+      } else {
+        // 内存模式
+        const deleted = this.memoryEmployees.delete(id);
+        if (deleted) {
+          await this.addAuditLog('DELETE', 'employee', id, null, {});
+        }
+        return deleted;
+      }
+    } catch (error) {
+      console.error('删除员工失败:', error);
+      return false;
+    }
+  }
+
+  // 获取数据库状态
+  async getStatus(): Promise<DatabaseStatus> {
+    return await this.getDatabaseStatus();
+  }
+
+  // 数据同步
+  async syncData(): Promise<boolean> {
+    try {
+      if (await this.isPostgreSQLAvailable()) {
+        await dbManager.query('SELECT 1');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('数据同步失败:', error);
+      return false;
     }
   }
 }

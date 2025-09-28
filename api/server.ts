@@ -7,12 +7,14 @@ dotenv.config();
 
 import express from 'express';
 import cors from 'cors';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
-import { initializeDatabase, closeDatabaseConnections } from './config/database.js';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import fs from 'fs';
 import db from './models/database.js';
+import dbManager from './config/database.js';
 import { createServer } from 'http';
 import ServerMonitorWebSocket from './websocket/server-monitor.js';
 import DatabaseSyncWebSocket from './websocket/database-sync.js';
@@ -339,17 +341,17 @@ let databaseSyncWS: any = null;
 // 启动服务器
 async function startServer() {
   try {
-    // 初始化数据库
-    await initializeDatabase();
+    // 初始化数据库连接
+    await dbManager.testConnection();
     
     // Create HTTP server
     server = createServer(app);
 
-    // Initialize WebSocket for server monitoring
-    serverMonitorWS = new ServerMonitorWebSocket(server);
+    // Initialize WebSocket for server monitoring (简化初始化)
+    // serverMonitorWS = new ServerMonitorWebSocket(server, dbManager, null);
     
     // Initialize WebSocket for database synchronization
-    databaseSyncWS = new DatabaseSyncWebSocket(server);
+    // databaseSyncWS = new DatabaseSyncWebSocket(server);
 
     server.listen(PORT, () => {
       console.log(`🚀 服务器运行在端口 ${PORT}`);
