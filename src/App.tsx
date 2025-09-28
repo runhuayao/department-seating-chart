@@ -525,6 +525,7 @@ function HomePage() {
                       searchQuery={searchQuery} 
                       isHomepage={true}
                       highlightDeskId={currentDept === dept ? highlightDeskId : null}
+                      onResetView={() => setHighlightDeskId(null)}
                     />
                   </div>
                   <div className="mt-3 text-sm text-gray-600">
@@ -542,6 +543,7 @@ function HomePage() {
                 searchQuery={searchQuery} 
                 isHomepage={false}
                 highlightDeskId={highlightDeskId}
+                onResetView={() => setHighlightDeskId(null)}
               />
             </div>
           )}

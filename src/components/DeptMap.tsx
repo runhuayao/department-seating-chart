@@ -19,9 +19,10 @@ interface DeptMapProps {
   searchQuery?: string; // 搜索查询字符串
   isHomepage?: boolean; // 新增：标识是否为首页模式
   highlightDeskId?: string; // 需要高亮的工位ID
+  onResetView?: () => void; // 重置视图回调函数
 }
 
-const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomepage = false, highlightDeskId }) => {
+const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomepage = false, highlightDeskId, onResetView }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedDesk, setSelectedDesk] = useState<DeskWithEmployee | null>(null);
@@ -388,13 +389,57 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
     // 重置缩放到自适应初始状态
     const resetZoom = () => {
       try {
+        // 清除工位高亮状态
+        setHighlightedDesk(null);
+        
+        // 调用父组件的重置回调，清除highlightDeskId
+        if (onResetView) {
+          onResetView();
+        }
+        
+        // 重新计算当前容器尺寸和适配参数
+        const currentWidth = container.clientWidth;
+        const currentHeight = container.clientHeight;
+        
+        // 检查是否有工位数据
+        if (desksWithEmployees.length === 0) {
+          console.warn('No desks data available for reset');
+          return;
+        }
+        
+        // 重新计算工位边界
+        const currentMinX = Math.min(...desksWithEmployees.map(d => d.x));
+        const currentMaxX = Math.max(...desksWithEmployees.map(d => d.x + d.w));
+        const currentMinY = Math.min(...desksWithEmployees.map(d => d.y));
+        const currentMaxY = Math.max(...desksWithEmployees.map(d => d.y + d.h));
+        
+        const currentContentWidth = currentMaxX - currentMinX + 100;
+        const currentContentHeight = currentMaxY - currentMinY + 150;
+        
+        // 重新计算适配缩放比例
+        const currentScaleX = currentWidth / currentContentWidth;
+        const currentScaleY = currentHeight / currentContentHeight;
+        const currentInitialScale = Math.min(currentScaleX, currentScaleY, 1);
+        
+        // 重新计算居中偏移
+        const currentOffsetX = (currentWidth - currentContentWidth * currentInitialScale) / 2;
+        const currentOffsetY = (currentHeight - currentContentHeight * currentInitialScale) / 2;
+        
+        console.log('Reset zoom with current parameters:', {
+          width: currentWidth,
+          height: currentHeight,
+          scale: currentInitialScale,
+          offsetX: currentOffsetX,
+          offsetY: currentOffsetY
+        });
+        
         if (storedZoomBehavior && typeof storedZoomBehavior.transform === 'function') {
           svg.transition()
             .duration(750)
             .call(storedZoomBehavior.transform, 
               zoomIdentity
-                .translate(offsetX - minX * initialScale, offsetY - minY * initialScale)
-                .scale(initialScale)
+                .translate(currentOffsetX - currentMinX * currentInitialScale, currentOffsetY - currentMinY * currentInitialScale)
+                .scale(currentInitialScale)
             );
         }
       } catch (error) {
@@ -444,9 +489,7 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
           </div>
           <button 
             className="reset-zoom mt-3 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
-          >
-            重置视图
-          </button>
+          >重置视图</button>
         </div>
       )}
 
