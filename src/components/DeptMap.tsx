@@ -85,18 +85,28 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
   apiDesks.forEach((apiDesk, index) => {
     const existingDesk = combinedDesks.find(desk => desk.label === apiDesk.name);
     if (!existingDesk) {
-      // 为新工位分配位置（简单的网格布局）
-      const baseX = 100;
-      const baseY = 300; // 在现有工位下方
-      const spacing = 120;
-      const cols = 6;
-      const row = Math.floor(index / cols);
-      const col = index % cols;
+      // 优先使用用户设置的坐标，否则使用自动分配
+      let x, y;
+      if (apiDesk.location?.position?.x && apiDesk.location?.position?.y) {
+        // 使用用户设置的坐标
+        x = apiDesk.location.position.x;
+        y = apiDesk.location.position.y;
+      } else {
+        // 自动分配位置（网格布局）
+        const baseX = 100;
+        const baseY = 300; // 在现有工位下方
+        const spacing = 120;
+        const cols = 6;
+        const row = Math.floor(index / cols);
+        const col = index % cols;
+        x = baseX + col * spacing;
+        y = baseY + row * 60;
+      }
       
       const newDesk = {
         desk_id: apiDesk.id,
-        x: baseX + col * spacing,
-        y: baseY + row * 60,
+        x: x,
+        y: y,
         w: 60,
         h: 40,
         label: apiDesk.name,
@@ -226,6 +236,56 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
       .attr('font-weight', 'bold')
       .attr('fill', '#1e293b')
       .text(`${mapData.dept_name} 部门地图`);
+
+    // 坐标网格辅助线 (开发模式)
+    if (process.env.NODE_ENV === 'development') {
+      const gridGroup = g.append('g')
+        .attr('class', 'coordinate-grid')
+        .attr('opacity', 0.1);
+      
+      // 垂直网格线
+      for (let i = 0; i <= 10; i++) {
+        gridGroup.append('line')
+          .attr('x1', i * 100)
+          .attr('y1', 0)
+          .attr('x2', i * 100)
+          .attr('y2', 800)
+          .attr('stroke', '#666')
+          .attr('stroke-width', 1);
+      }
+      
+      // 水平网格线
+      for (let i = 0; i <= 8; i++) {
+        gridGroup.append('line')
+          .attr('x1', 0)
+          .attr('y1', i * 100)
+          .attr('x2', 1000)
+          .attr('y2', i * 100)
+          .attr('stroke', '#666')
+          .attr('stroke-width', 1);
+      }
+      
+      // 坐标标签
+      for (let i = 0; i <= 10; i++) {
+        gridGroup.append('text')
+          .attr('x', i * 100)
+          .attr('y', 15)
+          .attr('font-size', '10px')
+          .attr('fill', '#666')
+          .attr('text-anchor', 'middle')
+          .text(i * 100);
+      }
+      
+      for (let i = 0; i <= 8; i++) {
+        gridGroup.append('text')
+          .attr('x', 15)
+          .attr('y', i * 100 + 5)
+          .attr('font-size', '10px')
+          .attr('fill', '#666')
+          .attr('text-anchor', 'middle')
+          .text(i * 100);
+      }
+    }
 
     // 绘制工位
     const deskGroups = g.selectAll('.desk')
@@ -381,73 +441,89 @@ const DeptMap: React.FC<DeptMapProps> = ({ department, searchQuery = '', isHomep
       )}
 
       {/* 工位信息显示 */}
-      {!isLoadingDesks && combinedDesks.length > 0 && (
-        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-md p-3 text-sm">
-          <div className="text-gray-600">
-            工位总数: <span className="font-semibold text-blue-600">{combinedDesks.length}</span>
+        {!isLoadingDesks && combinedDesks.length > 0 && (
+          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-md p-3 text-sm">
+            <div className="text-gray-600">
+              工位总数: <span className="font-semibold text-blue-600">{combinedDesks.length}</span>
+            </div>
+            <div className="text-gray-600">
+              API工位: <span className="font-semibold text-green-600">{apiDesks.length}</span>
+            </div>
+            {process.env.NODE_ENV === 'development' && (
+              <div className="text-gray-600 mt-1 pt-1 border-t border-gray-200">
+                <div className="text-xs">🔧 开发模式：显示坐标网格</div>
+              </div>
+            )}
           </div>
-          <div className="text-gray-600">
-            API工位: <span className="font-semibold text-green-600">{apiDesks.length}</span>
-          </div>
-        </div>
-      )}
+        )}
 
       {/* 工位详情面板 */}
-      {selectedDesk && (
-        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 min-w-64">
-          <div className="flex justify-between items-start mb-3">
-            <h4 className="text-lg font-semibold text-gray-800">
-              工位 {selectedDesk.label}
-            </h4>
-            <button 
-              onClick={() => setSelectedDesk(null)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">工位ID:</span>
-              <span className="font-medium">{selectedDesk.desk_id}</span>
+        {selectedDesk && (
+          <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 min-w-64">
+            <div className="flex justify-between items-start mb-3">
+              <h4 className="text-lg font-semibold text-gray-800">
+                工位 {selectedDesk.label}
+              </h4>
+              <button 
+                onClick={() => setSelectedDesk(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">员工:</span>
-              <span className="font-medium">
-                {selectedDesk.employee?.name || '无'}
-              </span>
-            </div>
-            {selectedDesk.employee && (
-              <>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">工位ID:</span>
+                <span className="font-medium">{selectedDesk.desk_id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">员工:</span>
+                <span className="font-medium">
+                  {selectedDesk.employee?.name || 
+                   (apiDesks.find(desk => desk.id === selectedDesk.desk_id)?.assignedUser) || 
+                   '无'}
+                </span>
+              </div>
+              {selectedDesk.employee && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">员工ID:</span>
+                    <span className="font-medium">{selectedDesk.employee.employee_id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">部门:</span>
+                    <span className="font-medium">{selectedDesk.employee.department}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">状态:</span>
+                    <span className={`font-medium ${
+                      selectedDesk.employee.status === 'online' 
+                        ? 'text-green-600' 
+                        : 'text-red-600'
+                    }`}>
+                      {selectedDesk.employee.status === 'online' ? '在线' : '离线'}
+                    </span>
+                  </div>
+                </>
+              )}
+              {/* 显示API工位的分配用户信息 */}
+              {!selectedDesk.employee && apiDesks.find(desk => desk.id === selectedDesk.desk_id)?.assignedUser && (
                 <div className="flex justify-between">
-                  <span className="text-gray-600">员工ID:</span>
-                  <span className="font-medium">{selectedDesk.employee.employee_id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">部门:</span>
-                  <span className="font-medium">{selectedDesk.employee.department}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">状态:</span>
-                  <span className={`font-medium ${
-                    selectedDesk.employee.status === 'online' 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
-                    {selectedDesk.employee.status === 'online' ? '在线' : '离线'}
+                  <span className="text-gray-600">分配用户:</span>
+                  <span className="font-medium text-blue-600">
+                    {apiDesks.find(desk => desk.id === selectedDesk.desk_id)?.assignedUser}
                   </span>
                 </div>
-              </>
-            )}
-            <div className="flex justify-between">
-              <span className="text-gray-600">位置:</span>
-              <span className="font-medium">
-                ({selectedDesk.x}, {selectedDesk.y})
-              </span>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-600">位置:</span>
+                <span className="font-medium">
+                  ({selectedDesk.x}, {selectedDesk.y})
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 };

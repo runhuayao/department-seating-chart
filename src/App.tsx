@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import DeptMap from './components/DeptMap';
 import LoginForm from './components/LoginForm';
+import CoordinateHelper from './components/CoordinateHelper';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { getAllDepartments, getHomepageOverview } from './data/departmentData';
 import { workstationAPI } from './utils/api';
@@ -18,7 +19,9 @@ function HomePage() {
     department: '',
     ipAddress: '',
     username: '',
-    description: ''
+    description: '',
+    x: '',
+    y: ''
   });
   const [searchResults, setSearchResults] = useState({
     employees: [],
@@ -98,7 +101,9 @@ function HomePage() {
           storage: '256GB SSD',
           os: 'Windows 10'
         },
-        assignedUser: workstationForm.username || undefined
+        assignedUser: workstationForm.username || undefined,
+        x_position: workstationForm.x ? parseInt(workstationForm.x) : undefined,
+        y_position: workstationForm.y ? parseInt(workstationForm.y) : undefined
       });
       
       console.log('工位添加成功:', result);
@@ -109,7 +114,9 @@ function HomePage() {
         department: '',
         ipAddress: '',
         username: '',
-        description: ''
+        description: '',
+        x: '',
+        y: ''
       });
       
       // 重新获取部门列表以更新统计数据
@@ -586,14 +593,101 @@ function HomePage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">工位坐标</label>
+                  <CoordinateHelper 
+                    currentX={workstationForm.x}
+                    currentY={workstationForm.y}
+                    onCoordinateSelect={(x, y) => {
+                      setWorkstationForm(prev => ({
+                        ...prev,
+                        x: x.toString(),
+                        y: y.toString()
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">X坐标 (水平位置)</label>
+                    <input
+                      type="number"
+                      value={workstationForm.x || ''}
+                      onChange={(e) => handleFormChange('x', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0-1000"
+                      min="0"
+                      max="1000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Y坐标 (垂直位置)</label>
+                    <input
+                      type="number"
+                      value={workstationForm.y || ''}
+                      onChange={(e) => handleFormChange('y', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0-800"
+                      min="0"
+                      max="800"
+                    />
+                  </div>
+                </div>
+                
+                {/* 坐标参照说明 */}
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-start space-x-2">
+                    <svg className="w-4 h-4 text-blue-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="text-xs text-blue-800">
+                      <div className="font-medium mb-1">坐标参照说明：</div>
+                      <div className="space-y-1">
+                        <div>• X坐标：0(左侧) → 1000(右侧)</div>
+                        <div>• Y坐标：0(顶部) → 800(底部)</div>
+                        <div>• 现有工位区域：X(100-500), Y(100-200)</div>
+                        <div>• 建议新工位：X(100-700), Y(300-600)</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 实时坐标预览 */}
+                {(workstationForm.x || workstationForm.y) && (
+                  <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-md">
+                    <div className="text-xs text-gray-600">
+                      <span className="font-medium">预览位置：</span>
+                      {workstationForm.x && workstationForm.y ? (
+                        <span>
+                          工位将显示在地图的
+                          <span className="font-medium text-blue-600">
+                            {parseInt(workstationForm.x) < 300 ? '左侧' : parseInt(workstationForm.x) < 700 ? '中间' : '右侧'}
+                          </span>
+                          <span className="font-medium text-blue-600">
+                            {parseInt(workstationForm.y) < 250 ? '上方' : parseInt(workstationForm.y) < 500 ? '中间' : '下方'}
+                          </span>
+                          区域
+                        </span>
+                      ) : (
+                        <span>请输入完整的X、Y坐标查看位置预览</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                <p className="text-xs text-gray-500 mt-2">
+                  💡 留空将自动分配位置，手动设置可精确控制工位在地图中的显示位置
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">分配用户</label>
                 <input
                   type="text"
-                  required
                   value={workstationForm.username}
                   onChange={(e) => handleFormChange('username', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="请输入用户名"
+                  placeholder="请输入用户名（可选）"
                 />
               </div>
               

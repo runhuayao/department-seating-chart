@@ -92,7 +92,7 @@ router.post('/', asyncHandler(async (req: any, res: any) => {
         os: equipment ? 'Windows 10' : undefined
       },
       department: department || 'IT',
-      assignedUser: employee_id ? `Employee-${employee_id}` : null
+      assignedUser: req.body.assignedUser || null // 直接使用前端传递的assignedUser字段
     });
 
     res.status(201).json({
