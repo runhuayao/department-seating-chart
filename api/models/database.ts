@@ -1,6 +1,7 @@
 // 混合数据库模型和操作类（PostgreSQL + 内存备用模式）
 import { Workstation, Employee, Department, User, AuditLog, DatabaseStatus } from '../../shared/types.js';
 import dbManager from '../config/database.js';
+import cacheService from '../services/cache.js';
 
 // 混合数据库类（PostgreSQL + 内存备用模式）
 class HybridDatabase {
@@ -77,12 +78,23 @@ class HybridDatabase {
 
   // 获取所有工位
   async getWorkstations(): Promise<Workstation[]> {
+    const cacheKey = 'workstations:all';
+    
+    // 尝试从缓存获取
+    const cached = await cacheService.get<Workstation[]>(cacheKey);
+    if (cached) {
+      console.log('从Redis缓存获取工位数据');
+      return cached;
+    }
+
     try {
+      let workstations: Workstation[];
+      
       if (await this.isPostgreSQLAvailable()) {
         const result = await dbManager.query(`
           SELECT * FROM workstations ORDER BY created_at DESC
         `);
-        return result.rows.map(row => ({
+        workstations = result.rows.map(row => ({
           id: row.id,
           name: row.name,
           ipAddress: row.ip_address,
@@ -95,8 +107,13 @@ class HybridDatabase {
           createdAt: new Date(row.created_at),
           updatedAt: new Date(row.updated_at)
         }));
+      } else {
+        workstations = Array.from(this.memoryWorkstations.values());
       }
-      return Array.from(this.memoryWorkstations.values());
+
+      // 缓存结果
+      await cacheService.set(cacheKey, workstations, 300); // 缓存5分钟
+      return workstations;
     } catch (error) {
       console.error('获取工位失败:', error);
       return Array.from(this.memoryWorkstations.values());
@@ -146,26 +163,36 @@ class HybridDatabase {
 
     try {
       if (await this.isPostgreSQLAvailable()) {
-        await dbManager.query(`
-          INSERT INTO workstations (id, name, ip_address, mac_address, location, department, status, specifications, assigned_user, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        `, [
-          newWorkstation.id,
-          newWorkstation.name,
-          newWorkstation.ipAddress,
-          newWorkstation.macAddress,
-          JSON.stringify(newWorkstation.location),
-          newWorkstation.department,
-          newWorkstation.status,
-          JSON.stringify(newWorkstation.specifications),
-          newWorkstation.assignedUser,
-          newWorkstation.createdAt,
-          newWorkstation.updatedAt
-        ]);
+        // 尝试插入到workstations表，如果不存在则使用内存模式
+        try {
+          await dbManager.query(`
+            INSERT INTO workstations (id, name, ip_address, mac_address, location, department, status, specifications, assigned_user, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          `, [
+            newWorkstation.id,
+            newWorkstation.name,
+            newWorkstation.ipAddress,
+            newWorkstation.macAddress,
+            JSON.stringify(newWorkstation.location),
+            newWorkstation.department,
+            newWorkstation.status,
+            JSON.stringify(newWorkstation.specifications),
+            newWorkstation.assignedUser,
+            newWorkstation.createdAt,
+            newWorkstation.updatedAt
+          ]);
+        } catch (dbError: any) {
+          console.warn('PostgreSQL表不存在，使用内存模式:', dbError.message);
+          // 如果表不存在，继续使用内存模式
+        }
       }
       
       this.memoryWorkstations.set(id, newWorkstation);
       await this.addAuditLog('CREATE', 'workstation', id, null, newWorkstation);
+      
+      // 清除相关缓存
+      await cacheService.del('workstations:all');
+      
       return newWorkstation;
     } catch (error) {
       console.error('创建工位失败:', error);

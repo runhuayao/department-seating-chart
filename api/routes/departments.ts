@@ -7,9 +7,10 @@ import { authenticateToken, requireUserOrAdmin, rateLimiter } from '../middlewar
 
 const router = Router();
 
-// 应用频率限制和认证
+// 应用频率限制（移除认证要求以支持无登录访问）
 router.use(rateLimiter(30, 15 * 60 * 1000)); // 每15分钟最多30次请求
-router.use(authenticateToken); // 所有部门API都需要认证
+// 移除认证要求，允许无登录访问部门信息
+// router.use(authenticateToken); // 所有部门API都需要认证
 
 /**
  * 获取部门配置信息

@@ -50,12 +50,12 @@ router.get('/', async (req, res) => {
       const params: any[] = [];
       
       if (searchQuery) {
-        employeeQuery += ' AND (e.name ILIKE $1 OR e.employee_number ILIKE $1 OR e.name_pinyin ILIKE $1 OR e.name_pinyin_short ILIKE $1)';
+        employeeQuery += ' AND (e.name ILIKE $1 OR e.employee_id ILIKE $1)';
         params.push(`%${searchQuery}%`);
       }
       
       if (department) {
-        employeeQuery += ' AND d.name = $4';
+        employeeQuery += ' AND d.name = $2';
         params.push(department);
       }
       
@@ -138,7 +138,7 @@ router.get('/suggestions', async (req, res) => {
 
     // 获取员工姓名建议
     const employeeNames = await dbManager.query(
-      'SELECT DISTINCT name FROM employees WHERE (name ILIKE $1 OR name_pinyin ILIKE $1 OR name_pinyin_short ILIKE $1) LIMIT 5',
+      'SELECT DISTINCT name FROM employees WHERE name ILIKE $1 LIMIT 5',
       [`%${query}%`]
     );
 

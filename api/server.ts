@@ -15,6 +15,7 @@ import { dirname, join } from 'path';
 import fs from 'fs';
 import db from './models/database.js';
 import dbManager from './config/database.js';
+import cacheService from './services/cache.js';
 import { createServer } from 'http';
 import ServerMonitorWebSocket from './websocket/server-monitor.js';
 import DatabaseSyncWebSocket from './websocket/database-sync.js';
@@ -344,6 +345,9 @@ async function startServer() {
     // 初始化数据库连接
     await dbManager.testConnection();
     
+    // 初始化Redis缓存连接
+    await cacheService.connect();
+    
     // Create HTTP server
     server = createServer(app);
 
@@ -357,6 +361,7 @@ async function startServer() {
       console.log(`🚀 服务器运行在端口 ${PORT}`);
       console.log(`📍 API地址: http://localhost:${PORT}/api`);
       console.log(`🔒 认证系统已启用`);
+      console.log(`💾 Redis缓存已启用`);
     });
   } catch (error) {
     console.error('❌ 服务器启动失败:', error);
