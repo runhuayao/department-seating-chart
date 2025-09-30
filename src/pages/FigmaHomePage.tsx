@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Building2, Users, MapPin, Settings, Search, Plus, Grid, List, ExternalLink } from 'lucide-react';
 import FigmaSeatingEditor from '../components/FigmaSeatingEditor';
 import SeatingChart from '../components/SeatingChart';
+import VacantSelectTemplate from '../components/VacantSelectTemplate';
 import WorkstationInfoManager from '../components/WorkstationInfoManager';
 import { useMockAuth } from '../components/MockAuthProvider';
 import figmaIntegrationService from '../services/figmaIntegrationService';
+import templateMappingService from '../services/templateMappingService';
 import useFigmaSync from '../hooks/useFigmaSync';
 
 interface Department {
@@ -292,46 +294,21 @@ const FigmaHomePage: React.FC<FigmaHomePageProps> = ({
     </div>
   );
 
-  // 渲染部门详情（使用SeatingChart替代DeptMap）
+  // 渲染部门详情（使用VACANT-SELECT模板风格）
   const renderDepartmentDetail = () => (
-    <div className="h-full flex flex-col">
-      {/* 部门详情头部 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={handleBackToBuilding}
-              className="text-gray-600 hover:text-gray-800"
-            >
-              ← 返回总览
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{selectedDepartment?.displayName}</h1>
-              <p className="text-gray-600">第{selectedDepartment?.floor}层 · {selectedDepartment?.workstationCount}个工位</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => handleSeatingEditor(selectedDepartment!)}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              编辑座位图
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 部门座位图显示 */}
-      <div className="flex-1 p-6">
-        <div className="bg-white rounded-xl shadow-sm h-full">
-          <SeatingChart
-            department={selectedDepartment?.name || ''}
-            width={800}
-            height={600}
-            editable={false}
-          />
-        </div>
-      </div>
+    <div className="h-full">
+      <VacantSelectTemplate
+        department={selectedDepartment?.name || ''}
+        floorName={`${selectedDepartment?.floor}階 - ${selectedDepartment?.displayName}`}
+        onSeatSearch={(seatNumber) => {
+          console.log(`🔍 搜索座位: ${seatNumber}`);
+          // 这里可以实现座位搜索功能
+        }}
+        onTeamSelect={(teamId) => {
+          console.log(`👥 选择团队: ${teamId}`);
+          // 这里可以实现团队筛选功能
+        }}
+      />
     </div>
   );
 
