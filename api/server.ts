@@ -366,7 +366,22 @@ async function startServer() {
       console.log(`📍 API地址: http://localhost:${PORT}/api`);
       console.log(`🔒 认证系统已启用`);
       console.log(`💾 Redis缓存已启用`);
+      console.log(`✅ HTTP服务器启动完成`);
     });
+
+    server.on('listening', () => {
+      const addr = server.address();
+      console.log(`✅ HTTP服务器正在监听端口: ${addr?.port || PORT}`);
+    });
+
+    server.on('error', (error: any) => {
+      console.error('❌ 服务器启动错误:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ 端口 ${PORT} 已被占用`);
+      }
+      process.exit(1);
+    });
+
   } catch (error) {
     console.error('❌ 服务器启动失败:', error);
     process.exit(1);
