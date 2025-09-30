@@ -1,15 +1,16 @@
 import React, { useState, useRef } from 'react';
-import DeptMap from './components/DeptMap';
+import FigmaHomePage from './pages/FigmaHomePage';
 import LoginForm from './components/LoginForm';
 import CoordinateHelper from './components/CoordinateHelper';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { MockAuthProvider, useMockAuth } from './components/MockAuthProvider';
 import { getAllDepartments, getHomepageOverview } from './data/departmentData';
 import { workstationAPI } from './utils/api';
 import { LogOut, User } from 'lucide-react';
 
-// 主页面组件
+// 主页面组件 - 使用全新的UI设计
 function HomePage() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated } = useMockAuth();
   const [currentDept, setCurrentDept] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddWorkstation, setShowAddWorkstation] = useState(false);
@@ -487,69 +488,11 @@ function HomePage() {
 
       {/* 主要内容区域 */}
       <main className="flex-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* 面包屑导航 */}
-          <div className="mb-4">
-            <nav className="text-sm text-gray-600">
-              {currentDept === null ? (
-                <span className="text-gray-900 font-medium">首页 - 全部门概览</span>
-              ) : (
-                <>
-                  <button 
-                    onClick={handleHomeClick}
-                    className="text-blue-600 hover:text-blue-800 cursor-pointer"
-                  >
-                    首页
-                  </button>
-                  <span className="mx-2">/</span>
-                  <span className="text-gray-900 font-medium">{currentDept}</span>
-                </>
-              )}
-            </nav>
-          </div>
-
-          {/* 地图组件 */}
-          {currentDept === null ? (
-            // 首页模式：显示所有部门的网格化布局
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {departments.map(dept => (
-                <div key={dept} className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-lg font-semibold text-gray-800">{dept}</h3>
-                    <button
-                      onClick={() => handleDepartmentChange(dept)}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >查看详情</button>
-                  </div>
-                  <div className="h-64">
-                    <DeptMap 
-                      department={dept} 
-                      searchQuery={searchQuery} 
-                      isHomepage={true}
-                      highlightDeskId={currentDept === dept ? highlightDeskId : null}
-                      onResetView={() => setHighlightDeskId(null)}
-                    />
-                  </div>
-                  <div className="mt-3 text-sm text-gray-600">
-                    <div>总工位: {homepageOverview[dept]?.totalDesks || 0}</div>
-                    <div>在线: {homepageOverview[dept]?.onlineCount || 0}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            // 部门详情模式
-            <div className="bg-white rounded-lg shadow-sm border h-[calc(100vh-200px)]">
-              <DeptMap 
-                department={currentDept} 
-                searchQuery={searchQuery} 
-                isHomepage={false}
-                highlightDeskId={highlightDeskId}
-                onResetView={() => setHighlightDeskId(null)}
-              />
-            </div>
-          )}
-        </div>
+        <FigmaHomePage
+          searchQuery={searchQuery}
+          highlightDeskId={highlightDeskId}
+          onResetView={() => setHighlightDeskId(null)}
+        />
       </main>
 
       {/* 添加工位弹窗 */}
@@ -784,9 +727,9 @@ function HomePage() {
 // 主应用组件
 function App() {
   return (
-    <AuthProvider>
+    <MockAuthProvider>
       <HomePage />
-    </AuthProvider>
+    </MockAuthProvider>
   );
 }
 

@@ -133,7 +133,6 @@ const FigmaSeatingEditor: React.FC<FigmaSeatingEditorProps> = ({
         </div>
 
         <div className="flex items-center space-x-2">
-          {/* 撤销/重做 */}
           <button
             onClick={handleUndo}
             disabled={historyIndex <= 0}
@@ -151,7 +150,6 @@ const FigmaSeatingEditor: React.FC<FigmaSeatingEditorProps> = ({
             <Redo size={16} />
           </button>
 
-          {/* 视图控制 */}
           <div className="border-l border-gray-200 pl-2 ml-2">
             <button
               onClick={() => setShowGrid(!showGrid)}
@@ -160,15 +158,8 @@ const FigmaSeatingEditor: React.FC<FigmaSeatingEditorProps> = ({
             >
               <Grid size={16} />
             </button>
-            <button
-              className="p-2 rounded hover:bg-gray-100"
-              title="预览模式"
-            >
-              <Eye size={16} />
-            </button>
           </div>
 
-          {/* 缩放控制 */}
           <div className="flex items-center space-x-2 border-l border-gray-200 pl-2 ml-2">
             <button
               onClick={() => setZoomLevel(Math.max(25, zoomLevel - 25))}
@@ -185,7 +176,6 @@ const FigmaSeatingEditor: React.FC<FigmaSeatingEditorProps> = ({
             </button>
           </div>
 
-          {/* 保存和导出 */}
           <div className="border-l border-gray-200 pl-2 ml-2 flex space-x-2">
             <button
               onClick={handleSave}
@@ -195,35 +185,9 @@ const FigmaSeatingEditor: React.FC<FigmaSeatingEditorProps> = ({
               <Save size={14} className="inline mr-1" />
               保存
             </button>
-            
-            <div className="relative group">
-              <button className="p-2 rounded hover:bg-gray-100" title="导出">
-                <Download size={16} />
-              </button>
-              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                <button
-                  onClick={() => handleExport('svg')}
-                  className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
-                >
-                  导出为 SVG
-                </button>
-                <button
-                  onClick={() => handleExport('png')}
-                  className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
-                >
-                  导出为 PNG
-                </button>
-                <button
-                  onClick={() => handleExport('pdf')}
-                  className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
-                >
-                  导出为 PDF
-                </button>
-              </div>
-            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* 主编辑区域 */}
       <div className="flex-1 relative overflow-hidden">
