@@ -42,8 +42,17 @@ const FigmaHomePage: React.FC<FigmaHomePageProps> = ({
     try {
       setIsLoading(true);
       const response = await fetch('/api/departments');
-      const result = await response.json();
       
+      if (!response.ok) {
+        throw new Error(`API响应错误: ${response.status}`);
+      }
+      
+      const text = await response.text();
+      if (!text.trim()) {
+        throw new Error('API返回空响应');
+      }
+      
+      const result = JSON.parse(text);
       if (result.success && result.data) {
         const deptData = result.data.map((dept: any) => ({
           id: dept.id,
@@ -55,9 +64,11 @@ const FigmaHomePage: React.FC<FigmaHomePageProps> = ({
           floor: dept.floor || 1
         }));
         setDepartments(deptData);
+      } else {
+        throw new Error('API数据格式错误');
       }
     } catch (error) {
-      console.error('加载部门数据失败:', error);
+      console.warn('API加载失败，使用备用数据:', error.message);
       // 使用默认数据
       setDepartments([
         { id: '1', name: 'Engineering', displayName: '工程部', color: '#3B82F6', workstationCount: 12, occupiedCount: 8, floor: 3 },

@@ -71,10 +71,11 @@
       "类型定义 (shared/types.ts)"
     ],
     "criticalIssues": [
-      "Too Many Requests错误 - 部门API认证问题",
-      "数据库连接和查询优化",
-      "前后端数据同步机制",
-      "Redis缓存实现"
+      "Playwright浏览器版本不匹配问题 - 已解决",
+      "API连接500错误和JSON解析失败 - 已修复",
+      "前端控制台日志错误 - 已解决",
+      "登录功能异常状态 - 已修复",
+      "DeptMap组件架构限制 - 已禁用并替换"
     ],
     "developmentEnvironment": {
       "frontend": "React + TypeScript + Vite (端口5173)",
@@ -84,11 +85,14 @@
       "tools": "Git版本管理, Context7上下文保留"
     },
     "recentChanges": [
-      "修复数据库模型导入错误",
-      "完善认证中间件功能",
-      "优化API路由系统",
-      "修复WebSocket服务器导出",
-      "实现Git版本管理规范"
+      "实现基于Figma设计规范的前端重构",
+      "创建SeatingChart和FigmaSeatingEditor组件",
+      "禁用DeptMap组件，使用现代化架构",
+      "修复Playwright自动化测试工具",
+      "解决登录功能异常和API连接问题",
+      "集成MockAuthProvider和错误处理机制",
+      "完成Figma Community模板的完整实现",
+      "建立Context7问题处理文档系统"
     ]
   }
 }

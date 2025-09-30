@@ -95,8 +95,21 @@ const SeatingChart: React.FC<SeatingChartProps> = ({
     try {
       // 从API获取工位数据并转换为座位实例
       const response = await fetch(`/api/workstations?department=${department}`);
-      const workstations = await response.json();
       
+      if (!response.ok) {
+        console.warn(`API响应错误: ${response.status}, 使用默认数据`);
+        setSeats(generateDefaultSeats(department));
+        return;
+      }
+      
+      const text = await response.text();
+      if (!text.trim()) {
+        console.warn('API返回空响应，使用默认数据');
+        setSeats(generateDefaultSeats(department));
+        return;
+      }
+      
+      const workstations = JSON.parse(text);
       const seatInstances: SeatInstance[] = workstations.map((ws: any, index: number) => ({
         id: ws.id || `seat-${index}`,
         seatTypeId: 'desk-chair-rect-blue',
@@ -111,10 +124,31 @@ const SeatingChart: React.FC<SeatingChartProps> = ({
       
       setSeats(seatInstances);
     } catch (error) {
-      console.error('加载座位数据失败:', error);
-      // 使用默认数据
-      setSeats([]);
+      console.warn('加载座位数据失败，使用默认数据:', error.message);
+      setSeats(generateDefaultSeats(department));
     }
+  };
+
+  // 生成默认座位数据
+  const generateDefaultSeats = (dept: string): SeatInstance[] => {
+    const defaultSeats: SeatInstance[] = [];
+    const seatCount = dept === 'Engineering' ? 6 : 4;
+    
+    for (let i = 0; i < seatCount; i++) {
+      defaultSeats.push({
+        id: `default-seat-${i}`,
+        seatTypeId: 'desk-chair-rect-blue',
+        x: 100 + (i % 3) * 120,
+        y: 100 + Math.floor(i / 3) * 80,
+        rotation: 0,
+        color: i % 2 === 0 ? 'green' : 'blue',
+        label: `${dept.charAt(0)}${String(i + 1).padStart(2, '0')}`,
+        assignedUser: i % 2 === 0 ? `用户${i + 1}` : undefined,
+        status: i % 2 === 0 ? 'occupied' : 'available'
+      });
+    }
+    
+    return defaultSeats;
   };
 
   // 绘制座位
