@@ -26,6 +26,7 @@ import searchRoutes from './routes/search.js';
 import employeesRoutes from './routes/employees.js';
 import departmentsRoutes from './routes/departments.js';
 import overviewRoutes from './routes/overview.js';
+import figmaSyncRoutes from './routes/figma-sync.js';
 
 // 扩展Error接口以支持status属性
 declare global {
@@ -113,6 +114,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/employees', employeesRoutes);
 app.use('/api/departments', departmentsRoutes);
 app.use('/api/overview', overviewRoutes);
+app.use('/api/figma', figmaSyncRoutes);
 
 // API 路由
 app.get('/api/health', (req, res) => {

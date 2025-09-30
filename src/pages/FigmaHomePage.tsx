@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Users, MapPin, Settings, Search, Plus, Grid, List } from 'lucide-react';
+import { Building2, Users, MapPin, Settings, Search, Plus, Grid, List, ExternalLink } from 'lucide-react';
 import FigmaSeatingEditor from '../components/FigmaSeatingEditor';
 import SeatingChart from '../components/SeatingChart';
+import WorkstationInfoManager from '../components/WorkstationInfoManager';
 import { useMockAuth } from '../components/MockAuthProvider';
+import figmaIntegrationService from '../services/figmaIntegrationService';
+import useFigmaSync from '../hooks/useFigmaSync';
 
 interface Department {
   id: string;
@@ -29,9 +32,12 @@ const FigmaHomePage: React.FC<FigmaHomePageProps> = ({
   const { user, isAuthenticated } = useMockAuth();
   const [currentView, setCurrentView] = useState<'building' | 'department' | 'seating-editor'>('building');
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
+  const { syncState, triggerSync } = useFigmaSync(selectedDepartment?.name);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isLoading, setIsLoading] = useState(true);
+  const [showWorkstationManager, setShowWorkstationManager] = useState(false);
+  const [editingWorkstationId, setEditingWorkstationId] = useState<string | null>(null);
 
   // 加载部门数据
   useEffect(() => {
@@ -87,10 +93,22 @@ const FigmaHomePage: React.FC<FigmaHomePageProps> = ({
     setCurrentView('department');
   };
 
-  // 处理座位图编辑
-  const handleSeatingEditor = (department: Department) => {
-    setSelectedDepartment(department);
-    setCurrentView('seating-editor');
+  // 处理Figma编辑跳转
+  const handleFigmaEdit = async (department: Department) => {
+    try {
+      const sessionId = await figmaIntegrationService.redirectToFigmaEditor(
+        department.name, 
+        user?.username || 'anonymous'
+      );
+      
+      console.log(`🎨 已跳转到Figma编辑界面 - 会话ID: ${sessionId}`);
+      
+      // 显示编辑提示
+      alert(`已跳转到Figma编辑界面！\n\n请在Figma中完成座位图编辑，\n保存后系统将自动同步更新。\n\n会话ID: ${sessionId}`);
+    } catch (error) {
+      console.error('跳转Figma编辑失败:', error);
+      alert(`跳转失败: ${error.message}`);
+    }
   };
 
   // 返回建筑总览
@@ -259,10 +277,11 @@ const FigmaHomePage: React.FC<FigmaHomePageProps> = ({
                     查看详情
                   </button>
                   <button
-                    onClick={() => handleSeatingEditor(department)}
+                    onClick={() => handleFigmaEdit(department)}
                     className="flex-1 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
                   >
-                    编辑座位图
+                    <ExternalLink size={14} className="inline mr-1" />
+                    Figma编辑
                   </button>
                 </div>
               </div>
