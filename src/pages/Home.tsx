@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import DeptMap from '../components/DeptMap';
 import BuildingOverview from '../components/BuildingOverview';
 import IndoorMapEditor from '../components/IndoorMapEditor';
+import FigmaSeatingEditor from '../components/FigmaSeatingEditor';
+import SeatingChart from '../components/SeatingChart';
 
 interface HomeProps {
   searchQuery?: string;
@@ -11,7 +13,7 @@ interface HomeProps {
 
 const Home: React.FC<HomeProps> = ({ searchQuery, highlightDeskId, onResetView }) => {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'overview' | 'department' | 'editor'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'department' | 'editor' | 'seating-chart'>('overview');
   const [isEditorMode, setIsEditorMode] = useState(false);
 
   // 处理部门选择
@@ -31,6 +33,11 @@ const Home: React.FC<HomeProps> = ({ searchQuery, highlightDeskId, onResetView }
     setViewMode('editor');
   };
 
+  // 处理Seating Chart模式切换
+  const handleSeatingChartMode = () => {
+    setViewMode('seating-chart');
+  };
+
   const handleEditorSave = (mapData: any) => {
     console.log('保存地图数据:', mapData);
     // 这里可以调用API保存地图数据
@@ -41,6 +48,11 @@ const Home: React.FC<HomeProps> = ({ searchQuery, highlightDeskId, onResetView }
   const handleEditorCancel = () => {
     setIsEditorMode(false);
     setViewMode(selectedDepartment ? 'department' : 'overview');
+  };
+
+  const handleSeatingChartSave = (layoutData: any) => {
+    console.log('保存座位布局:', layoutData);
+    // 保存座位布局数据
   };
 
   return (
@@ -89,12 +101,20 @@ const Home: React.FC<HomeProps> = ({ searchQuery, highlightDeskId, onResetView }
           {/* 操作按钮 */}
           <div className="flex items-center space-x-3">
             {viewMode === 'department' && !isEditorMode && (
-              <button
-                onClick={handleEditMode}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors"
-              >
-                编辑地图
-              </button>
+              <>
+                <button
+                  onClick={handleEditMode}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                  编辑地图
+                </button>
+                <button
+                  onClick={handleSeatingChartMode}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                  座位图编辑
+                </button>
+              </>
             )}
             
             {viewMode !== 'overview' && (
@@ -142,6 +162,16 @@ const Home: React.FC<HomeProps> = ({ searchQuery, highlightDeskId, onResetView }
             />
           </div>
         )}
+
+        {viewMode === 'seating-chart' && selectedDepartment && (
+          <div className="h-full">
+            <FigmaSeatingEditor
+              department={selectedDepartment}
+              onSave={handleSeatingChartSave}
+              onExport={(format) => console.log(`导出${format}格式`)}
+            />
+          </div>
+        )}
       </div>
 
       {/* 状态栏 */}
@@ -152,6 +182,7 @@ const Home: React.FC<HomeProps> = ({ searchQuery, highlightDeskId, onResetView }
               当前视图: {
                 viewMode === 'overview' ? '行政楼总览' :
                 viewMode === 'department' ? `${selectedDepartment} 部门地图` :
+                viewMode === 'seating-chart' ? `${selectedDepartment} 座位图编辑` :
                 '地图编辑器'
               }
             </span>

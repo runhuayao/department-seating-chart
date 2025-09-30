@@ -13,10 +13,12 @@ router.use(rateLimiter(100, 15 * 60 * 1000)); // 每15分钟最多100次搜索�
 
 // 搜索验证schema
 const searchSchema = z.object({
-  q: z.string().min(1, '搜索关键词不能为空'),
+  q: z.string().min(1, '搜索关键词不能为空').optional(),
   query: z.string().min(1, '搜索关键词不能为空').optional(),
   type: z.enum(['all', 'employee', 'workstation']).optional().default('all'),
   department: z.string().optional()
+}).refine(data => data.q || data.query, {
+  message: '必须提供搜索关键词 (q 或 query 参数)'
 });
 
 // 搜索接口

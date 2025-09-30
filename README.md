@@ -81,11 +81,70 @@
 
 ### 环境要求
 - Node.js 18.0.0 或更高版本
-- PostgreSQL 12+ (可选)
-- Redis 6+ (可选)
+- PostgreSQL 12+ (可选，系统有内存备用模式)
+- Redis 6+ (可选，系统会自动启动本地Redis)
 - Git
 
-### 安装步骤
+### ⚡ 一键启动 (推荐)
+
+**最简单的启动方式**:
+```bash
+# 自动检查服务 + 启动开发环境
+npm run dev
+```
+系统会自动：
+- ✅ 检查并启动Redis服务
+- ✅ 检查数据库连接
+- ✅ 启动前端服务 (http://localhost:5173)
+- ✅ 启动后端API (http://localhost:8080)
+
+**其他启动选项**:
+```bash
+# Windows PowerShell - 项目一键启动脚本
+.\start-project.ps1
+
+# 启动服务器管理模式 (包含M1管理界面)
+.\start-project.ps1 -ServerManagement
+# 或使用npm命令
+npm run dev:all
+
+# 生产模式预览
+.\start-project.ps1 -ProductionMode
+```
+
+### 🔧 服务管理命令
+
+**Redis服务管理**:
+```bash
+# 检查Redis状态并自动启动
+npm run redis:start
+
+# 强制重启Redis (PowerShell)
+npm run redis:start-force
+
+# 检查所有服务状态
+npm run services:check
+
+# 启动所有必需服务
+npm run services:start
+```
+
+**开发服务管理**:
+```bash
+# 仅启动前端
+npm run client:dev
+
+# 仅启动后端
+npm run server:dev
+
+# 启动前端+后端 (自动启动Redis)
+npm run dev
+
+# 启动全部服务 (前端+后端+M1管理界面)
+npm run dev:all
+```
+
+### 📋 手动启动步骤 (高级用户)
 
 1. **克隆项目**
 ```bash
@@ -100,6 +159,106 @@ npm install
 
 3. **环境配置**
 ```bash
+# 复制环境变量模板
+cp .env.example .env
+
+# 编辑环境变量 (可选)
+  # 配置数据库连接、Redis连接等
+  ```
+
+### 📊 服务状态监控
+
+**实时服务状态**:
+```bash
+# 检查所有服务运行状态
+npm run services:check
+
+# 查看Redis进程信息
+Get-Process -Name "redis-server"
+
+# 测试API健康状态
+curl http://localhost:8080/api/health
+
+# 测试数据库连接
+curl http://localhost:8080/api/database/status
+```
+
+**端口使用情况**:
+- `5173` - 前端开发服务器
+- `5174` - M1服务器管理界面 (dev:all模式)
+- `8080` - 后端API服务器
+- `3002` - M1管理界面静态服务
+- `6379` - Redis缓存服务
+- `5432` - PostgreSQL数据库 (如果使用)
+
+4. **手动启动服务** (如果自动启动失败)
+```bash
+# 启动Redis (Windows)
+.\Redis\redis-server.exe .\Redis\redis.windows.conf
+
+# 启动后端服务
+npm run server:dev
+
+# 启动前端服务
+npm run client:dev
+```
+
+### 🌐 访问地址
+
+启动成功后，您可以访问：
+- **前端应用**: http://localhost:5173
+- **后端API**: http://localhost:8080/api
+- **M1服务器管理**: http://localhost:3002 (如果启用)
+- **API健康检查**: http://localhost:8080/api/health
+
+### 🔍 Redis自动启动详细说明
+
+项目已配置完整的Redis自动启动机制：
+
+**自动启动流程**:
+1. 运行 `npm run dev` 时触发 `predev` 钩子
+2. 执行 `npm run services:start` 检查服务状态
+3. 如果Redis未运行，自动启动本地Redis实例
+4. 验证Redis连接是否成功
+5. 继续启动前端和后端服务
+
+**Redis配置文件**:
+- **配置文件**: `Redis/redis.windows.conf`
+- **默认端口**: 6379
+- **启动脚本**: `scripts/start-redis-simple.cmd` (主要)
+- **高级脚本**: `scripts/start-redis.ps1` (PowerShell版本)
+
+**故障排除**:
+```bash
+# 如果自动启动失败，手动启动Redis
+.\Redis\redis-server.exe .\Redis\redis.windows.conf
+
+# 检查Redis进程
+Get-Process -Name "redis-server"
+
+# 测试Redis连接
+npm run redis:start
+```
+
+### 🛠️ 开发模式说明
+
+**标准开发模式**:
+```bash
+npm run dev
+# 启动: 前端(5173) + 后端(8080) + 自动Redis检查
+```
+
+**完整开发模式**:
+```bash
+npm run dev:all  
+# 启动: 前端(5173) + 后端(8080) + M1管理界面(5174) + 自动Redis检查
+```
+
+**服务器管理模式**:
+```bash
+npm run server-management:dev
+# 仅启动: M1服务器管理界面(5174)
+```
 # 复制环境变量模板
 cp .env.example .env
 
@@ -127,7 +286,33 @@ npm run client:dev
 ### 访问应用
 - **前端应用**: http://localhost:5173
 - **后端API**: http://localhost:8080/api
-- **API文档**: http://localhost:8080/api/health
+- **M1服务器管理**: http://localhost:3002 (静态服务)
+- **API健康检查**: http://localhost:8080/api/health
+
+### 🔄 自动化服务管理
+
+**项目启动时的自动化流程**:
+1. **依赖检查**: 自动检查Node.js依赖包完整性
+2. **Redis启动**: 智能检测并启动Redis服务
+3. **数据库连接**: 测试PostgreSQL连接，失败时使用内存模式
+4. **服务启动**: 并发启动前端和后端服务
+5. **状态验证**: 验证所有服务正常运行
+
+**自动启动脚本**:
+- `scripts/start-redis-simple.cmd` - Redis自动启动 (批处理)
+- `scripts/start-redis.ps1` - Redis高级启动 (PowerShell)
+- `scripts/check-services.ps1` - 完整服务检查
+- `start-project.ps1` - 项目一键启动脚本
+
+**npm脚本集成**:
+```json
+{
+  "predev": "npm run services:start",
+  "redis:start": "scripts\\start-redis-simple.cmd",
+  "services:check": "scripts\\start-redis-simple.cmd",
+  "services:start": "scripts\\start-redis-simple.cmd"
+}
+```
 
 ## 📋 API 端点
 
