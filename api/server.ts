@@ -27,6 +27,7 @@ import employeesRoutes from './routes/employees.js';
 import departmentsRoutes from './routes/departments.js';
 import overviewRoutes from './routes/overview.js';
 import figmaSyncRoutes from './routes/figma-sync.js';
+import seatingChartRoutes from './routes/seating-chart.js';
 
 // 扩展Error接口以支持status属性
 declare global {
@@ -115,6 +116,7 @@ app.use('/api/employees', employeesRoutes);
 app.use('/api/departments', departmentsRoutes);
 app.use('/api/overview', overviewRoutes);
 app.use('/api/figma', figmaSyncRoutes);
+app.use('/api/seating-charts', seatingChartRoutes);
 
 // API 路由
 app.get('/api/health', (req, res) => {
@@ -334,7 +336,7 @@ app.get('*', (req, res) => {
 /**
  * start server with port
  */
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 
 // 全局server变量
 let server: any = null;
