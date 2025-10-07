@@ -109,15 +109,31 @@ const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
 };
 
 // 路由配置
-app.use('/api/auth', authRoutes);
-app.use('/api/workstations', workstationRoutes);
-app.use('/api/database', databaseRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/employees', employeesRoutes);
-app.use('/api/departments', departmentsRoutes);
-app.use('/api/overview', overviewRoutes);
-app.use('/api/figma', figmaSyncRoutes);
-app.use('/api/seating-charts', seatingChartRoutes);
+// API路由注册 - 添加错误处理
+try {
+  console.log('📋 正在注册API路由...');
+  
+  app.use('/api/auth', authRoutes);
+  app.use('/api/workstations', workstationRoutes);
+  app.use('/api/database', databaseRoutes);
+  app.use('/api/search', searchRoutes);
+  app.use('/api/employees', employeesRoutes);
+  app.use('/api/departments', departmentsRoutes);
+  app.use('/api/overview', overviewRoutes);
+  app.use('/api/figma', figmaSyncRoutes);
+  
+  // 条件性注册座位图路由
+  if (seatingChartRoutes) {
+    app.use('/api/seating-charts', seatingChartRoutes);
+    console.log('✅ 座位图路由已注册');
+  } else {
+    console.warn('⚠️ 座位图路由未找到，跳过注册');
+  }
+  
+  console.log('✅ API路由注册完成');
+} catch (error) {
+  console.error('❌ API路由注册失败:', error);
+}
 
 // API 路由
 // 健康检查路由
@@ -366,6 +382,10 @@ async function startServer() {
     console.log('🌐 正在创建HTTP服务器...');
     server = createServer(app);
 
+    // 添加服务器启动前的最终检查
+    console.log('🔍 检查Express应用配置...');
+    console.log(`📋 已注册的路由数量: ${app._router?.stack?.length || 0}`);
+
     // Initialize WebSocket for server monitoring (简化初始化)
     // serverMonitorWS = new ServerMonitorWebSocket(server, dbManager, null);
     
@@ -374,26 +394,35 @@ async function startServer() {
 
     console.log(`🚀 正在启动HTTP服务器，监听端口 ${PORT}...`);
     
-    server.listen(PORT, () => {
-      console.log(`🚀 服务器运行在端口 ${PORT}`);
-      console.log(`📍 API地址: http://localhost:${PORT}/api`);
-      console.log(`🔒 认证系统已启用`);
-      console.log(`💾 Redis缓存已启用`);
-      console.log(`✅ HTTP服务器启动完成`);
-    });
+    return new Promise((resolve, reject) => {
+      server.listen(PORT, (error: any) => {
+        if (error) {
+          console.error('❌ 服务器监听失败:', error);
+          reject(error);
+          return;
+        }
+        
+        console.log(`🚀 服务器运行在端口 ${PORT}`);
+        console.log(`📍 API地址: http://localhost:${PORT}/api`);
+        console.log(`🔒 认证系统已启用`);
+        console.log(`💾 Redis缓存已启用`);
+        console.log(`✅ HTTP服务器启动完成`);
+        resolve(server);
+      });
 
-    server.on('listening', () => {
-      const addr = server.address();
-      console.log(`✅ HTTP服务器正在监听端口: ${addr?.port || PORT}`);
-      console.log(`🎉 服务器启动流程完成！`);
-    });
+      server.on('listening', () => {
+        const addr = server.address();
+        console.log(`✅ HTTP服务器正在监听端口: ${addr?.port || PORT}`);
+        console.log(`🎉 服务器启动流程完成！`);
+      });
 
-    server.on('error', (error: any) => {
-      console.error('❌ 服务器启动错误:', error);
-      if (error.code === 'EADDRINUSE') {
-        console.error(`❌ 端口 ${PORT} 已被占用`);
-      }
-      process.exit(1);
+      server.on('error', (error: any) => {
+        console.error('❌ 服务器启动错误:', error);
+        if (error.code === 'EADDRINUSE') {
+          console.error(`❌ 端口 ${PORT} 已被占用`);
+        }
+        reject(error);
+      });
     });
 
   } catch (error) {
