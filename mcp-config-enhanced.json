@@ -1,0 +1,55 @@
+{
+  "mcpServers": {
+    "Redis-Auto": {
+      "command": "node",
+      "args": [
+        "./scripts/redis-mcp-wrapper.cjs",
+        "--redis-url", "redis://localhost:6379",
+        "--redis-path", "./Redis/redis-server.exe",
+        "--redis-config", "./redis.conf",
+        "--max-retries", "5",
+        "--retry-delay", "2000"
+      ],
+      "env": {
+        "REDIS_URL": "redis://localhost:6379",
+        "REDIS_HOST": "localhost",
+        "REDIS_PORT": "6379",
+        "NODE_ENV": "development",
+        "MCP_AUTO_START": "true"
+      }
+    },
+    "Redis-PowerShell": {
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy", "Bypass",
+        "-File", "./scripts/start-redis-mcp.ps1",
+        "-RedisUrl", "redis://localhost:6379"
+      ],
+      "env": {
+        "REDIS_URL": "redis://localhost:6379"
+      }
+    },
+    "Redis-Direct": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-redis",
+        "redis://localhost:6379"
+      ],
+      "env": {
+        "REDIS_URL": "redis://localhost:6379"
+      }
+    },
+    "Redis-Fallback-IP": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-redis",
+        "redis://127.0.0.1:6379"
+      ],
+      "env": {
+        "REDIS_URL": "redis://127.0.0.1:6379"
+      }
+    }
+  }
+}

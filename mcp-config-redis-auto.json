@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "Redis": {
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy", "Bypass",
+        "-File", "./scripts/start-redis-mcp.ps1",
+        "-RedisUrl", "redis://localhost:6379",
+        "-RedisPath", "./Redis/redis-server.exe",
+        "-RedisConfig", "./redis.conf",
+        "-MaxRetries", "5",
+        "-RetryDelay", "2"
+      ],
+      "env": {
+        "REDIS_URL": "redis://localhost:6379",
+        "REDIS_HOST": "localhost",
+        "REDIS_PORT": "6379",
+        "NODE_ENV": "development"
+      }
+    },
+    "Redis-Fallback": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-redis",
+        "redis://127.0.0.1:6379"
+      ],
+      "env": {
+        "REDIS_URL": "redis://127.0.0.1:6379"
+      }
+    }
+  }
+}
