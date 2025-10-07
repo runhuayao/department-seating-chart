@@ -28,6 +28,7 @@ import departmentsRoutes from './routes/departments.js';
 import overviewRoutes from './routes/overview.js';
 import figmaSyncRoutes from './routes/figma-sync.js';
 import seatingChartRoutes from './routes/seating-chart.js';
+import healthCheckService from './services/health-check.js';
 
 // 扩展Error接口以支持status属性
 declare global {
@@ -119,9 +120,12 @@ app.use('/api/figma', figmaSyncRoutes);
 app.use('/api/seating-charts', seatingChartRoutes);
 
 // API 路由
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// 健康检查路由
+app.get('/api/health', healthCheckService.healthHandler.bind(healthCheckService));
+app.get('/api/health/simple', healthCheckService.simpleHealthHandler.bind(healthCheckService));
+app.get('/api/health/ready', healthCheckService.readinessHandler.bind(healthCheckService));
+app.get('/api/health/live', healthCheckService.livenessHandler.bind(healthCheckService));
+app.get('/api/health/system', healthCheckService.systemInfoHandler.bind(healthCheckService));
 
 // 数据库状态
 app.get('/api/database/status', asyncHandler(async (req: any, res: any) => {
@@ -346,13 +350,20 @@ let databaseSyncWS: any = null;
 // 启动服务器
 async function startServer() {
   try {
+    console.log('🔄 开始启动服务器...');
+    
     // 初始化数据库连接
+    console.log('📊 正在连接数据库...');
     await dbManager.testConnection();
+    console.log('✅ 数据库连接成功');
     
     // 初始化Redis缓存连接
+    console.log('💾 正在连接Redis...');
     await cacheService.connect();
+    console.log('✅ Redis连接成功');
     
     // Create HTTP server
+    console.log('🌐 正在创建HTTP服务器...');
     server = createServer(app);
 
     // Initialize WebSocket for server monitoring (简化初始化)
@@ -361,6 +372,8 @@ async function startServer() {
     // Initialize WebSocket for database synchronization
     // databaseSyncWS = new DatabaseSyncWebSocket(server);
 
+    console.log(`🚀 正在启动HTTP服务器，监听端口 ${PORT}...`);
+    
     server.listen(PORT, () => {
       console.log(`🚀 服务器运行在端口 ${PORT}`);
       console.log(`📍 API地址: http://localhost:${PORT}/api`);
@@ -372,6 +385,7 @@ async function startServer() {
     server.on('listening', () => {
       const addr = server.address();
       console.log(`✅ HTTP服务器正在监听端口: ${addr?.port || PORT}`);
+      console.log(`🎉 服务器启动流程完成！`);
     });
 
     server.on('error', (error: any) => {
