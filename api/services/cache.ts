@@ -1,48 +1,68 @@
 // Redis缓存服务
 import Redis from 'ioredis';
+import redisManager from '../config/redis.js';
 
 class CacheService {
   private redis: Redis;
   private isConnected: boolean = false;
 
   constructor() {
-    this.redis = new Redis({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-      password: process.env.REDIS_PASSWORD || undefined,
-      retryDelayOnFailover: 100,
-      maxRetriesPerRequest: 3,
-      lazyConnect: true
-    });
-
-    this.redis.on('connect', () => {
-      console.log('✅ Redis连接已建立');
+    // 使用统一的Redis管理器
+    this.redis = redisManager.getClient();
+    
+    // 监听Redis管理器的连接状态
+    redisManager.on('connected', () => {
+      console.log('✅ 缓存服务Redis连接已建立');
       this.isConnected = true;
     });
 
-    this.redis.on('error', (error) => {
-      console.error('❌ Redis连接错误:', error.message);
+    redisManager.on('error', (error) => {
+      console.error('❌ 缓存服务Redis连接错误:', error.message);
       this.isConnected = false;
     });
 
-    this.redis.on('close', () => {
-      console.log('🔌 Redis连接已关闭');
+    redisManager.on('disconnected', () => {
+      console.log('🔌 缓存服务Redis连接已关闭');
       this.isConnected = false;
     });
+
+    // 初始化连接
+    this.initializeConnection();
+  }
+
+  // 初始化连接
+  private async initializeConnection(): Promise<void> {
+    try {
+      await redisManager.connect();
+    } catch (error) {
+      console.error('缓存服务Redis连接初始化失败:', error);
+    }
   }
 
   // 连接Redis
   async connect(): Promise<void> {
     try {
-      await this.redis.connect();
+      await redisManager.connect();
     } catch (error) {
       console.error('Redis连接失败:', error);
     }
   }
 
-  // 检查连接状态
+  // 检查Redis连接状态
   isRedisConnected(): boolean {
-    return this.isConnected && this.redis.status === 'ready';
+    // 优先使用Redis管理器的连接状态
+    const managerConnected = redisManager.isRedisConnected();
+    console.log(`缓存服务连接状态检查: 本地=${this.isConnected}, 管理器=${managerConnected}`);
+    return managerConnected;
+  }
+
+  // 断开连接
+  async disconnect(): Promise<void> {
+    try {
+      await redisManager.disconnect();
+    } catch (error) {
+      console.error('Redis断开连接失败:', error);
+    }
   }
 
   // 设置缓存

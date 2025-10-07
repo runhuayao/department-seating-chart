@@ -45,6 +45,14 @@
 - **ESLint** - 代码质量检查
 - **TypeScript** - 静态类型检查
 
+### 网络架构
+- **四层网络模型** - 应用层、传输层、网络层、网络接口层
+- **端口通信** - 前端(5173) ↔ 后端(8080) ↔ 数据库(5432/6379)
+- **局域网通信** - 192.168.x.x 网段内设备互联
+- **GitLab集成** - CI/CD自动化部署和版本管理
+
+📊 **详细网络架构图解**: [查看网络架构文档](./network-architecture.md)
+
 ## 📦 项目结构
 
 ```
@@ -121,6 +129,9 @@ npm run redis:start
 
 # 强制重启Redis (PowerShell)
 npm run redis:start-force
+
+# 启动Redis MCP服务器 (全局模式)
+npx -y @modelcontextprotocol/server-redis redis://127.0.0.1:6379
 
 # 检查所有服务状态
 npm run services:check
@@ -211,9 +222,37 @@ npm run client:dev
 - **M1服务器管理**: http://localhost:3002 (如果启用)
 - **API健康检查**: http://localhost:8080/api/health
 
-### 🔍 Redis自动启动详细说明
+### 🔍 Redis本地配置详细说明
 
-项目已配置完整的Redis自动启动机制：
+#### Redis安装与配置
+
+**Windows环境Redis安装**:
+1. **下载Redis for Windows**:
+   ```bash
+   # 使用PowerShell下载Redis安装包
+   Invoke-WebRequest -Uri "https://github.com/microsoftarchive/redis/releases/download/win-3.0.504/Redis-x64-3.0.504.msi" -OutFile "Redis-x64-3.0.504.msi"
+   
+   # 或者下载更新版本
+   Invoke-WebRequest -Uri "https://github.com/tporadowski/redis/releases/download/v5.0.14.1/Redis-x64-5.0.14.1.msi" -OutFile "Redis-x64-5.0.14.1.msi"
+   ```
+
+2. **安装Redis**:
+   ```bash
+   # 运行安装程序
+   Start-Process -FilePath "Redis-x64-5.0.14.1.msi" -Wait
+   ```
+
+3. **验证安装**:
+   ```bash
+   # 检查Redis服务状态
+   Get-Service -Name "Redis"
+   
+   # 测试Redis连接
+   redis-cli ping
+   # 应该返回: PONG
+   ```
+
+#### 项目Redis配置
 
 **自动启动流程**:
 1. 运行 `npm run dev` 时触发 `predev` 钩子
@@ -223,21 +262,107 @@ npm run client:dev
 5. 继续启动前端和后端服务
 
 **Redis配置文件**:
-- **配置文件**: `Redis/redis.windows.conf`
+- **主配置文件**: `Redis/redis.windows.conf`
+- **Docker配置**: `redis-docker.conf`
 - **默认端口**: 6379
 - **启动脚本**: `scripts/start-redis-simple.cmd` (主要)
 - **高级脚本**: `scripts/start-redis.ps1` (PowerShell版本)
 
-**故障排除**:
+**配置参数说明**:
+```conf
+# Redis基本配置
+port 6379                    # 监听端口
+bind 127.0.0.1              # 绑定IP地址
+timeout 0                    # 客户端空闲超时时间
+tcp-keepalive 300           # TCP keepalive时间
+databases 16                # 数据库数量
+
+# 内存管理
+maxmemory 256mb             # 最大内存使用
+maxmemory-policy allkeys-lru # 内存淘汰策略
+
+# 持久化配置
+save 900 1                  # 900秒内至少1个key变化时保存
+save 300 10                 # 300秒内至少10个key变化时保存
+save 60 10000              # 60秒内至少10000个key变化时保存
+```
+
+**应用程序Redis连接配置**:
+```typescript
+// api/config/redis.ts
+const redisConfig = {
+  host: '127.0.0.1',
+  port: 6379,
+  password: undefined,        // 本地开发无密码
+  db: 0,                     // 使用数据库0
+  connectTimeout: 10000,     // 连接超时10秒
+  lazyConnect: true,         # 延迟连接
+  retryDelayOnFailover: 100, # 故障转移重试延迟
+  maxRetriesPerRequest: 3,   # 每个请求最大重试次数
+  family: 4,                 # IPv4
+  keepAlive: 30000          # 保持连接30秒
+}
+```
+
+#### 故障排除指南
+
+**常见问题及解决方案**:
+
+1. **Redis服务未启动**:
+   ```bash
+   # 检查Redis进程
+   Get-Process -Name "redis-server" -ErrorAction SilentlyContinue
+   
+   # 手动启动Redis
+   D:\redis\redis-server.exe
+   
+   # 或使用配置文件启动
+   D:\redis\redis-server.exe D:\redis\redis.windows.conf
+   ```
+
+2. **端口占用问题**:
+   ```bash
+   # 检查6379端口占用
+   netstat -an | findstr :6379
+   
+   # 查找占用进程
+   Get-NetTCPConnection -LocalPort 6379
+   
+   # 终止占用进程
+   Stop-Process -Id <进程ID> -Force
+   ```
+
+3. **连接被拒绝**:
+   ```bash
+   # 检查防火墙设置
+   New-NetFirewallRule -DisplayName "Redis" -Direction Inbound -Protocol TCP -LocalPort 6379 -Action Allow
+   
+   # 测试本地连接
+   telnet 127.0.0.1 6379
+   ```
+
+4. **内存不足**:
+   ```bash
+   # 检查Redis内存使用
+   redis-cli info memory
+   
+   # 清理Redis缓存
+   redis-cli flushall
+   ```
+
+**Redis服务管理命令**:
 ```bash
-# 如果自动启动失败，手动启动Redis
-.\Redis\redis-server.exe .\Redis\redis.windows.conf
+# 启动Redis服务
+Start-Service Redis
 
-# 检查Redis进程
-Get-Process -Name "redis-server"
+# 停止Redis服务  
+Stop-Service Redis
 
-# 测试Redis连接
-npm run redis:start
+# 重启Redis服务
+Restart-Service Redis
+
+# 设置Redis服务自启动
+Set-Service -Name Redis -StartupType Automatic
 ```
 
 ### 🛠️ 开发模式说明
@@ -470,12 +595,15 @@ docker run -p 8080:8080 -p 5173:5173 department-map-system
 - **项目链接**: https://gitlab.com/runhuayao/department-map-system
 - **问题反馈**: https://gitlab.com/runhuayao/department-map-system/issues
 
-## 🙏 致谢
+## 📚 文档结构
 
-- React 团队提供的优秀框架
-- Node.js 社区的技术支持
-- PostgreSQL 和 Redis 的强大功能
-- Context7 的上下文保留技术
+- **README.md** - 快速入门指南 (本文档)
+- **COMPREHENSIVE_PROJECT_DOCUMENTATION.md** - 完整项目文档
+- **CHANGELOG.md** - 版本更新历史
+- **DEPLOYMENT.md** - 部署指南
+- **.trae/documents/** - 开发规范和故障排除指南
+
+详细的技术架构、功能实现和测试报告请参考 [综合项目文档](COMPREHENSIVE_PROJECT_DOCUMENTATION.md)。
 
 ---
 
