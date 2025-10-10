@@ -6,12 +6,6 @@
 
 ## 2. WebSocket通信协议标准化规范
 
-### 2.1 端到端WebSocket通信协议
-
-#### 2.1.1 协议层次结构
-
-```
- 
 ## 6. API服务器Socket实现规范
 
 ### 6.1 端口绑定机制及实时数据处理流程
@@ -159,7 +153,16 @@ interface SocketManager {
 }
 ```
 
-### 6.3 半连接队列和全连接队列实现细节
+### 6.3 半连接队列和全连接队列实现细节 ※ 不兼容（应用层不直接管理TCP队列）
+
+不兼容说明：
+- 当前项目后端使用 `Express + Socket.IO` 在应用层实现实时通信，TCP三次握手与半连接/全连接队列由操作系统内核管理；Node.js 应用无法、也不应直接操控 OS 级的 SYN/Accept 队列。
+- 项目已有的连接管理与限流在 WebSocket 层通过 `WebSocketConnectionManager`（连接数限制、IP并发限制、心跳与健康检查）实现，满足需求侧的稳定性与可观测性目标。
+
+修改建议（规范迁移到系统层）：
+- 使用系统参数控制队列与积压：`net.ipv4.tcp_max_syn_backlog`、`net.core.somaxconn`、`net.ipv4.tcp_synack_retries`。
+- 在服务运维脚本中 增加端口与队列监控与告警（参考 `scripts/check-services.cjs` 的端口检测函数，可扩展统计和报警逻辑）。
+- 在文档中将本章节定位为“系统运维规范”，应用层以 WebSocket 连接池与心跳替代。
 
 ```typescript
 // 半连接队列实现 (SYN Queue)
@@ -311,7 +314,9 @@ interface ClientConnection {
 }
 ```
 
-### 6.4 8080端口功能可视化
+### 6.4 8080端口功能可视化 △ 部分不兼容（房间管理与OS队列未在应用层实现）
+
+说明：可视化中包含“房间管理器（W4）”、“半连接/全连接队列（Q1/Q2）”，当前项目未在应用层实现房间与 OS 级队列管理。现有实现已具备连接管理、心跳、广播、数据库通知订阅与Redis缓存集成；房间分组如需启用，建议基于 Socket.IO 的 `rooms` 能力增量实现。
 
 ```mermaid
 graph TB
@@ -545,10 +550,26 @@ graph LR
     P2 --> B2
     P3 --> B3
 ```
- 
+
 ## 5. 工位数据传输规范
 
-### 5.1 fun函数传输层数据传递机制
+### 5.1 fun函数传输层数据传递机制 △ 不兼容（未对应实际项目接口）
+
+不兼容说明：文档中的 `fun.send()/fun.receive()/fun.parse()/fun.broadcast()` 为示例性伪代码，项目未提供该客户端/服务端 API。
+
+规范替换（与项目需求对齐）：
+- WebSocket端点：`ws://localhost:8080/socket.io`（默认路径，基于 Socket.IO）。
+- WebSocket消息格式：字段 `type`（字符串，见消息类型枚举）、`data`（任意负载）、`timestamp`（ISO字符串）、`messageId`（唯一ID）。
+- 示例：
+```json
+{
+  "type": "workstation_update",
+  "data": { "workstationId": "Engineering-001", "status": "occupied" },
+  "timestamp": "2025-01-01T12:00:00.000Z",
+  "messageId": "msg_123456"
+}
+```
+- REST API端点：查询工位 `GET /api/workstations`、部门工位 `GET /api/desks?dept=Engineering`、地图信息 `GET /api/map?dept=Engineering`、健康状态 `GET /api/health`、数据同步 `POST /api/database/sync`。
 
 ```mermaid
 graph TB
@@ -604,7 +625,21 @@ graph TB
     S4 -.->|广播消息| N1
 ```
 
-### 5.2 TCP协议标准化数据传输规范
+### 5.2 TCP协议标准化数据传输规范 ※ 不兼容（应用层不封装原始TCP包）
+
+不兼容说明：项目采用 HTTP/REST + WebSocket 的组合进行数据交互，应用层不进行原始 TCP 包头/载荷/校验和的自定义封装。
+
+规范替代（与项目实现一致）：统一使用 WebSocket JSON 消息格式（见 5.1），由 Socket.IO 负责可靠性与降级（轮询）。服务端事件处理基于枚举 `MessageType` 与 `WebSocketServer` 的广播接口。
+
+事件格式示例：
+```json
+{
+  "type": "heartbeat",
+  "data": { "timestamp": "2025-01-01T12:00:00.000Z" },
+  "timestamp": "2025-01-01T12:00:00.000Z",
+  "messageId": "heartbeat_1735896000000"
+}
+```
 
 #### 5.2.1 工位数据包结构定义
 
@@ -702,7 +737,15 @@ sequenceDiagram
     TCP-->>Client: fun.onReceive(data)
 ```
 
-### 5.3 PostgreSQL格式标准
+### 5.3 PostgreSQL格式标准 △ 环境要求未确认（PostGIS扩展）
+
+兼容性说明与建议：
+- 文档定义了 `coordinates GEOMETRY(POINT, 4326)`，但项目迁移脚本与数据库初始化未明确启用 PostGIS 扩展；当前代码更偏向使用数值坐标列 `x_coordinate/y_coordinate/z_coordinate`。
+- 建议在数据库层确认 PostGIS 使用策略：
+  - 方案A（启用PostGIS）：在迁移中执行 `CREATE EXTENSION IF NOT EXISTS postgis;` 并维持 GEOMETRY 字段与空间索引；
+  - 方案B（不启用PostGIS）：删除 GEOMETRY 字段，保留数值坐标列，并在文档中调整坐标规范与索引策略（如 B-Tree/复合索引）。
+
+请在选定方案后同步更新迁移脚本与本文档对应章节。
 
 #### 5.3.1 工位数据表结构规范
 
@@ -922,7 +965,7 @@ class WorkstationDataService {
 
 ### 5.4 数据传输性能优化
 
-```mermaid
+````mermaid
 graph LR
     subgraph "性能优化策略"
         P1[数据压缩<br/>gzip/brotli]
@@ -991,7 +1034,7 @@ graph TB
     A2 -->|SQL查询| D1
     A2 -->|缓存操作| D2
     D1 -.->|数据同步| D2
-```
+````
 
 #### 2.1.2 消息格式标准
 
@@ -1641,7 +1684,7 @@ graph LR
 
 ### 3.4 组件关系图(更新版)
 
-```mermaid
+````mermaid
 graph TB
     subgraph "前端层 (Frontend Layer)"
         A["Vue3应用<br/>端口: 5173<br/>WebSocket客户端"]
@@ -1729,7 +1772,7 @@ sequenceDiagram
     Note over Client,DB: 握手协议状态说明
     Note right of Server: 已实现功能：<br/>✓ JWT认证<br/>✓ 连接数限制<br/>✓ 心跳机制
     Note right of Server: 待实现功能：<br/>⚠ 连接重试机制<br/>⚠ 断线重连策略<br/>⚠ 连接池优化
-```
+````
 
 ### 4.2 WebSocket挥手协议流程图
 
@@ -2519,48 +2562,73 @@ class SystemMonitor {
 ### 7.1 性能优化策略
 
 1. **连接池优化**
-   - 根据实际负载动态调整连接池大小
-   - 使用连接预热机制减少冷启动时间
-   - 实施查询超时和重试机制
+
+   * 根据实际负载动态调整连接池大小
+
+   * 使用连接预热机制减少冷启动时间
+
+   * 实施查询超时和重试机制
 
 2. **WebSocket优化**
-   - 实现消息压缩减少网络传输
-   - 使用心跳机制维持连接活跃
-   - 实施客户端负载均衡
+
+   * 实现消息压缩减少网络传输
+
+   * 使用心跳机制维持连接活跃
+
+   * 实施客户端负载均衡
 
 3. **缓存策略**
-   - 使用Redis缓存频繁查询的数据
-   - 实施缓存预热和失效策略
-   - 使用分布式缓存提高可扩展性
+
+   * 使用Redis缓存频繁查询的数据
+
+   * 实施缓存预热和失效策略
+
+   * 使用分布式缓存提高可扩展性
 
 ### 7.2 安全考虑
 
 1. **连接安全**
-   - 实施WebSocket连接认证
-   - 使用SSL/TLS加密传输
-   - 实施连接频率限制
+
+   * 实施WebSocket连接认证
+
+   * 使用SSL/TLS加密传输
+
+   * 实施连接频率限制
 
 2. **数据安全**
-   - 使用参数化查询防止SQL注入
-   - 实施数据访问权限控制
-   - 敏感数据加密存储
+
+   * 使用参数化查询防止SQL注入
+
+   * 实施数据访问权限控制
+
+   * 敏感数据加密存储
 
 ### 7.3 监控和运维
 
 1. **关键指标监控**
-   - WebSocket连接数和消息吞吐量
-   - 数据库连接池使用率和查询性能
-   - 系统资源使用情况
+
+   * WebSocket连接数和消息吞吐量
+
+   * 数据库连接池使用率和查询性能
+
+   * 系统资源使用情况
 
 2. **日志管理**
-   - 结构化日志记录
-   - 日志聚合和分析
-   - 异常日志告警
 
----
+   * 结构化日志记录
+
+   * 日志聚合和分析
+
+   * 异常日志告警
+
+***
 
 **文档信息**
-- **版本**: v1.0.0
-- **创建**: 2024-01-25
-- **维护**: 系统架构团队
-- **关联文档**: 系统架构关联逻辑文档.md
+
+* **版本**: v1.0.0
+
+* **创建**: 2024-01-25
+
+* **维护**: 系统架构团队
+
+* **关联文档**: 系统架构关联逻辑文档.mdt
