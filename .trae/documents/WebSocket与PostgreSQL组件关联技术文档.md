@@ -156,13 +156,18 @@ interface SocketManager {
 ### 6.3 半连接队列和全连接队列实现细节 ※ 不兼容（应用层不直接管理TCP队列）
 
 不兼容说明：
-- 当前项目后端使用 `Express + Socket.IO` 在应用层实现实时通信，TCP三次握手与半连接/全连接队列由操作系统内核管理；Node.js 应用无法、也不应直接操控 OS 级的 SYN/Accept 队列。
-- 项目已有的连接管理与限流在 WebSocket 层通过 `WebSocketConnectionManager`（连接数限制、IP并发限制、心跳与健康检查）实现，满足需求侧的稳定性与可观测性目标。
+
+* 当前项目后端使用 `Express + Socket.IO` 在应用层实现实时通信，TCP三次握手与半连接/全连接队列由操作系统内核管理；Node.js 应用无法、也不应直接操控 OS 级的 SYN/Accept 队列。
+
+* 项目已有的连接管理与限流在 WebSocket 层通过 `WebSocketConnectionManager`（连接数限制、IP并发限制、心跳与健康检查）实现，满足需求侧的稳定性与可观测性目标。
 
 修改建议（规范迁移到系统层）：
-- 使用系统参数控制队列与积压：`net.ipv4.tcp_max_syn_backlog`、`net.core.somaxconn`、`net.ipv4.tcp_synack_retries`。
-- 在服务运维脚本中 增加端口与队列监控与告警（参考 `scripts/check-services.cjs` 的端口检测函数，可扩展统计和报警逻辑）。
-- 在文档中将本章节定位为“系统运维规范”，应用层以 WebSocket 连接池与心跳替代。
+
+* 使用系统参数控制队列与积压：`net.ipv4.tcp_max_syn_backlog`、`net.core.somaxconn`、`net.ipv4.tcp_synack_retries`。
+
+* 在服务运维脚本中 增加端口与队列监控与告警（参考 `scripts/check-services.cjs` 的端口检测函数，可扩展统计和报警逻辑）。
+
+* 在文档中将本章节定位为“系统运维规范”，应用层以 WebSocket 连接池与心跳替代。
 
 ```typescript
 // 半连接队列实现 (SYN Queue)
@@ -551,6 +556,127 @@ graph LR
     P3 --> B3
 ```
 
+## 7. API服务架构深度分析与优化建议
+
+### 7.1 架构总览
+
+```mermaid
+graph TD
+    Nginx[入口/网关 (Nginx/反向代理)] --> API[API 服务 (REST)]
+    Nginx --> WS[WebSocket 服务 (Socket.IO)]
+
+    API --> Auth[鉴权中间件]
+    API --> Svc[业务服务层]
+
+    Svc --> Cache[(Redis 缓存)]
+    Svc --> DB[(PostgreSQL)]
+    DB -.可选几何.- PGIS[(PostGIS)]
+
+    WS --> Auth
+    WS --> Broker[事件/广播管理]
+    Broker --> Cache
+    Broker --> Clients[订阅客户端]
+
+    API --> Metrics[监控/指标]
+    WS --> Metrics
+
+    Clients --- Browser[前端客户端]
+```
+
+- 核心要点：入口/网关分发到 `REST` 与 `WebSocket`；服务层对接 `Redis` 与 `PostgreSQL`，可选启用 `PostGIS`；统一鉴权与监控；事件管理负责广播与订阅。
+
+### 7.2 运行逻辑与协作关系
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant API as API Server (REST)
+    participant Auth as Auth Middleware
+    participant Svc as Service Layer
+    participant Cache as Redis
+    participant DB as PostgreSQL
+    participant WS as WebSocket Manager
+
+    C->>API: GET /api/workstations
+    API->>Auth: Verify JWT/Session
+    Auth-->>API: OK
+    API->>Cache: GET workstations:list
+    alt Cache hit
+        Cache-->>API: list JSON
+    else Cache miss
+        API->>Svc: queryWorkstations()
+        Svc->>DB: SELECT ... FROM workstations
+        DB-->>Svc: rows
+        Svc->>Cache: SET workstations:list (TTL)
+        Svc-->>API: list JSON
+    end
+    API-->>C: 200 OK
+
+    Note over WS,C: 当工位状态更新时触发事件
+    Svc->>WS: emit(workstation_update)
+    WS-->>C: workstation_update
+```
+
+- 模块职责：
+  - `入口/网关`：路由分发、TLS、压缩、限流与CORS策略。
+  - `API Server`：REST接口、输入校验、错误处理、鉴权中间件。
+  - `Service Layer`：业务编排、缓存读写、数据库访问、事件触发。
+  - `WebSocket Manager`：会话管理、房间/命名空间、事件广播/重试。
+  - `Redis`：热点数据缓存、发布/订阅、会话/速率限制辅助。
+  - `PostgreSQL/PostGIS`：事务与查询；空间索引/几何分析（若启用）。
+  - `监控与日志`：健康检查、指标上报、审计日志与告警。
+
+### 7.3 性能评估
+
+- 连接管理：REST走短连接，WS保持长连接；建议开启 `keep-alive` 与 `HTTP/2`。
+- 线程与事件：Node 事件驱动适合高并发 IO；CPU 密集型建议下沉到 Worker/外部服务。
+- 缓存策略：读多写少的工位查询应优先命中 `Redis`，设置合理 TTL 与失效策略。
+- 数据库：使用连接池，避免 N+1 查询；对热点列建立索引；若使用 PostGIS，合理选择 `GIST`/`SP-GiST`。
+- 广播效率：Socket.IO 广播应基于房间/命名空间，不要对所有连接全量广播。
+- 监控采样：关键接口统计 P95/P99 延迟、吞吐与错误率；队列长度与连接数实时可视化。
+
+### 7.4 可扩展性评估
+
+- 横向扩展：启用 Socket.IO Redis 适配器，实现多实例之间事件同步。
+- 无状态化：REST 层保持无状态，使用共享缓存/会话存储以支持多副本。
+- 事件标准化：统一事件命名与版本号，避免前后端耦合；新增事件向后兼容。
+- 资源隔离：WS 使用房间/命名空间隔离不同业务线或部门数据。
+- 配置化：端点、速率限制、缓存 TTL、广播策略通过配置管理统一下发。
+
+### 7.5 安全性评估
+
+- 鉴权与授权：REST 与 WS 握手阶段强制校验 `JWT/Session` 与权限；对关键操作实施细粒度授权。
+- 输入校验：统一的 DTO/Schema 校验（如 `zod/joi`），防止注入与越权参数。
+- 传输安全：启用 TLS、严格 `CORS`/`Origin` 白名单；WS 限制跨域来源。
+- 速率限制：对 IP、用户、令牌实施速率限制与防爆破策略，结合 `Redis` 计数。
+- 审计与告警：高风险操作写审计日志；异常指标告警（错误率、失败连接、CPU/内存飙升）。
+
+### 7.6 优化建议与落地任务
+
+1) 连接与广播
+   - 启用 Socket.IO Redis 适配器与房间机制，减少全量广播。
+   - WS 心跳与断线重连策略可配置化，记录会话状态与活跃度。
+
+2) 缓存与数据库
+   - 建立工位/部门查询缓存键约定，设置合理 TTL 与失效策略（写入事件触发失效）。
+   - 数据库连接池参数调优（`max`/`idleTimeout`/`statement_timeout`），为热点查询建立复合索引。
+   - 明确 PostGIS 启用/禁用选择；若禁用则移除 `GEOMETRY` 字段与相关约束。
+
+3) API 与输入校验
+   - 统一请求/响应模型与错误码；引入请求体验证中间件并输出一致错误结构。
+   - 为健康检查与指标提供 `/api/health`、`/api/metrics` 端点，便于平台接入。
+
+4) 监控与告警
+   - 对关键接口采集 P95/P99 延迟、吞吐、错误率；连接数量与队列长度实时图表化。
+   - 异常阈值分级告警（如失败率 > 2%/5%/10%），联动自愈与降级策略。
+
+5) 安全与合规
+   - 严格 CORS/Origin 白名单、TLS 强制；对管理类操作加多因子验证与审计。
+   - 引入速率限制与防重放机制；鉴权令牌轮换与过期策略。
+
+上述建议均可在不改变现有业务接口的前提下逐步落地，优先从缓存与广播策略、鉴权与校验、监控与告警三条主线推进。
+
 ## 5. 工位数据传输规范
 
 ### 5.1 fun函数传输层数据传递机制 △ 不兼容（未对应实际项目接口）
@@ -558,9 +684,13 @@ graph LR
 不兼容说明：文档中的 `fun.send()/fun.receive()/fun.parse()/fun.broadcast()` 为示例性伪代码，项目未提供该客户端/服务端 API。
 
 规范替换（与项目需求对齐）：
-- WebSocket端点：`ws://localhost:8080/socket.io`（默认路径，基于 Socket.IO）。
-- WebSocket消息格式：字段 `type`（字符串，见消息类型枚举）、`data`（任意负载）、`timestamp`（ISO字符串）、`messageId`（唯一ID）。
-- 示例：
+
+* WebSocket端点：`ws://localhost:8080/socket.io`（默认路径，基于 Socket.IO）。
+
+* WebSocket消息格式：字段 `type`（字符串，见消息类型枚举）、`data`（任意负载）、`timestamp`（ISO字符串）、`messageId`（唯一ID）。
+
+* 示例：
+
 ```json
 {
   "type": "workstation_update",
@@ -569,7 +699,8 @@ graph LR
   "messageId": "msg_123456"
 }
 ```
-- REST API端点：查询工位 `GET /api/workstations`、部门工位 `GET /api/desks?dept=Engineering`、地图信息 `GET /api/map?dept=Engineering`、健康状态 `GET /api/health`、数据同步 `POST /api/database/sync`。
+
+* REST API端点：查询工位 `GET /api/workstations`、部门工位 `GET /api/desks?dept=Engineering`、地图信息 `GET /api/map?dept=Engineering`、健康状态 `GET /api/health`、数据同步 `POST /api/database/sync`。
 
 ```mermaid
 graph TB
@@ -632,6 +763,7 @@ graph TB
 规范替代（与项目实现一致）：统一使用 WebSocket JSON 消息格式（见 5.1），由 Socket.IO 负责可靠性与降级（轮询）。服务端事件处理基于枚举 `MessageType` 与 `WebSocketServer` 的广播接口。
 
 事件格式示例：
+
 ```json
 {
   "type": "heartbeat",
@@ -740,10 +872,14 @@ sequenceDiagram
 ### 5.3 PostgreSQL格式标准 △ 环境要求未确认（PostGIS扩展）
 
 兼容性说明与建议：
-- 文档定义了 `coordinates GEOMETRY(POINT, 4326)`，但项目迁移脚本与数据库初始化未明确启用 PostGIS 扩展；当前代码更偏向使用数值坐标列 `x_coordinate/y_coordinate/z_coordinate`。
-- 建议在数据库层确认 PostGIS 使用策略：
-  - 方案A（启用PostGIS）：在迁移中执行 `CREATE EXTENSION IF NOT EXISTS postgis;` 并维持 GEOMETRY 字段与空间索引；
-  - 方案B（不启用PostGIS）：删除 GEOMETRY 字段，保留数值坐标列，并在文档中调整坐标规范与索引策略（如 B-Tree/复合索引）。
+
+* 文档定义了 `coordinates GEOMETRY(POINT, 4326)`，但项目迁移脚本与数据库初始化未明确启用 PostGIS 扩展；当前代码更偏向使用数值坐标列 `x_coordinate/y_coordinate/z_coordinate`。
+
+* 建议在数据库层确认 PostGIS 使用策略：
+
+  * 方案A（启用PostGIS）：在迁移中执行 `CREATE EXTENSION IF NOT EXISTS postgis;` 并维持 GEOMETRY 字段与空间索引；
+
+  * 方案B（不启用PostGIS）：删除 GEOMETRY 字段，保留数值坐标列，并在文档中调整坐标规范与索引策略（如 B-Tree/复合索引）。
 
 请在选定方案后同步更新迁移脚本与本文档对应章节。
 
