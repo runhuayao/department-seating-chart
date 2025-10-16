@@ -1,11 +1,6 @@
-# 部门地图管理系统 (Department Map System)
+# 部门地图 · Seating Chart
 
-[![Version](https://img.shields.io/badge/version-v3.2.0-blue.svg)](https://gitlab.com/runhuayao/department-map-system)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node.js-18+-brightgreen.svg)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/react-18+-blue.svg)](https://reactjs.org/)
-
-企业部门地图管理系统 - 基于React + TypeScript + Node.js的全栈应用，支持员工工位管理、实时数据同步、PostgreSQL数据库和Redis缓存。
+一个基于 WebSocket 和 PostgreSQL 的企业级实时座位管理系统，支持百万级座位空间索引、分布式座位锁和实时数据同步。
 
 ## 🚀 项目特性
 
