@@ -587,6 +587,45 @@ graph TD
 
 ### 7.2 运行逻辑与协作关系
 
+#### 7.2.1 Workstation 数据结构说明
+
+**Workstation（工位）** 是本系统的核心业务实体，代表办公室中的物理工作位置。在时序图中的 `workstations` 指的是工位信息的集合数据。
+
+**数据库表结构（PostgreSQL）：**
+```sql
+CREATE TABLE workstations (
+    id SERIAL PRIMARY KEY,                    -- 工位唯一标识
+    name VARCHAR(100) NOT NULL,               -- 工位名称（如"A区-001"）
+    department_id INTEGER REFERENCES departments(id), -- 所属部门
+    employee_id INTEGER REFERENCES employees(id),     -- 当前使用员工
+    x_position DECIMAL(10,2) NOT NULL,       -- X坐标（像素/米）
+    y_position DECIMAL(10,2) NOT NULL,       -- Y坐标（像素/米）
+    width DECIMAL(10,2) DEFAULT 120,         -- 工位宽度
+    height DECIMAL(10,2) DEFAULT 80,         -- 工位高度
+    status VARCHAR(20) DEFAULT 'available'   -- 状态枚举
+        CHECK (status IN ('available', 'occupied', 'maintenance', 'reserved')),
+    equipment TEXT,                          -- 设备清单（JSON字符串）
+    notes TEXT,                              -- 备注信息
+    floor_number INTEGER,                    -- 楼层号
+    building VARCHAR(50),                    -- 建筑物名称
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**API 接口定义：**
+- `GET /api/workstations` - 获取工位列表（支持分页、筛选）
+- `GET /api/workstations/:id` - 获取单个工位详情
+- `POST /api/workstations` - 创建新工位
+- `PUT /api/workstations/:id` - 更新工位信息
+- `DELETE /api/workstations/:id` - 删除工位
+- `GET /api/workstations/stats` - 获取工位统计信息
+
+**WebSocket 事件：**
+- `workstation_update` - 工位状态变更通知
+- `workstation_created` - 新工位创建通知
+- `workstation_deleted` - 工位删除通知
+
 ```mermaid
 sequenceDiagram
     autonumber
