@@ -562,25 +562,25 @@ graph LR
 
 ```mermaid
 graph TD
-    Nginx[入口/网关 (Nginx/反向代理)] --> API[API 服务 (REST)]
-    Nginx --> WS[WebSocket 服务 (Socket.IO)]
+    Nginx["入口/网关 (Nginx/反向代理)"] --> API["API 服务 (REST)"]
+    Nginx --> WS["WebSocket 服务 (Socket.IO)"]
 
-    API --> Auth[鉴权中间件]
-    API --> Svc[业务服务层]
+    API --> Auth["鉴权中间件"]
+    API --> Svc["业务服务层"]
 
-    Svc --> Cache[(Redis 缓存)]
-    Svc --> DB[(PostgreSQL)]
-    DB -. 可选几何 .-> PGIS[(PostGIS)]
+    Svc --> Cache[("Redis 缓存")]
+    Svc --> DB[("PostgreSQL")]
+    DB -. "可选几何" .-> PGIS[("PostGIS")]
 
     WS --> Auth
-    WS --> Broker[事件/广播管理]
+    WS --> Broker["事件/广播管理"]
     Broker --> Cache
-    Broker --> Clients[订阅客户端]
+    Broker --> Clients["订阅客户端"]
 
-    API --> Metrics[监控/指标]
+    API --> Metrics["监控/指标"]
     WS --> Metrics
 
-    Clients --- Browser[前端客户端]
+    Clients --- Browser["前端客户端"]
 ```
 
 * 核心要点：入口/网关分发到 `REST` 与 `WebSocket`；服务层对接 `Redis` 与 `PostgreSQL`，可选启用 `PostGIS`；统一鉴权与监控；事件管理负责广播与订阅。
@@ -591,6 +591,7 @@ graph TD
 sequenceDiagram
     autonumber
     participant C as Client
+    participant NGX as Nginx Proxy
     participant API as API Server (REST)
     participant Auth as Auth Middleware
     participant Svc as Service Layer
@@ -598,7 +599,8 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant WS as WebSocket Manager
 
-    C->>API: GET /api/workstations
+    C->>NGX: GET /api/workstations
+    NGX->>API: proxy_pass to backend
     API->>Auth: Verify JWT/Session
     Auth-->>API: OK
     API->>Cache: GET workstations:list
@@ -611,16 +613,21 @@ sequenceDiagram
         Svc->>Cache: SET workstations:list (TTL)
         Svc-->>API: list JSON
     end
-    API-->>C: 200 OK
+    API-->>NGX: 200 OK
+    NGX-->>C: 200 OK (with headers)
 
+    Note over WS,C: WebSocket连接通过Nginx代理
+    C->>NGX: WebSocket /ws/
+    NGX->>WS: Upgrade connection
     Note over WS,C: 当工位状态更新时触发事件
     Svc->>WS: emit(workstation_update)
-    WS-->>C: workstation_update
+    WS-->>NGX: workstation_update
+    NGX-->>C: workstation_update
 ```
 
 * 模块职责：
 
-  * `入口/网关`：路由分发、TLS、压缩、限流与CORS策略。
+  * `Nginx Proxy`：反向代理、负载均衡、TLS终端、静态资源缓存、WebSocket升级、错误处理（404/50x）。
 
   * `API Server`：REST接口、输入校验、错误处理、鉴权中间件。
 
@@ -2799,3 +2806,4 @@ class SystemMonitor {
 * **维护**: 系统架构团队
 
 * **关联文档**: 系统架构关联逻辑文档.mdt
+
