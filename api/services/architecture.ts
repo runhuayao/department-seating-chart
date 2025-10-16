@@ -348,10 +348,19 @@ export class ArchitectureService extends EventEmitter {
    */
   private async checkRedisHealth(): Promise<ServiceStatus> {
     try {
-      const redis = this.wsManager.getRealtimeService();
-      // 通过实时服务检查Redis连接
-      return ServiceStatus.HEALTHY;
+      // 导入Redis管理器
+      const redisManager = (await import('../config/redis.js')).default;
+      
+      // 检查Redis连接状态
+      if (!redisManager.isRedisConnected()) {
+        return ServiceStatus.UNHEALTHY;
+      }
+      
+      // 测试Redis连接
+      const isHealthy = await redisManager.testConnection();
+      return isHealthy ? ServiceStatus.HEALTHY : ServiceStatus.UNHEALTHY;
     } catch (error) {
+      console.error('Redis健康检查失败:', error);
       return ServiceStatus.UNHEALTHY;
     }
   }

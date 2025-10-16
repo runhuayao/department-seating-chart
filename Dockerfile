@@ -69,7 +69,7 @@ EXPOSE 3000 8080
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+  CMD curl -f http://localhost:8080/api/health/simple || exit 1
 
 # 启动应用
 ENTRYPOINT ["./docker-entrypoint.sh"]

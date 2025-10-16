@@ -394,8 +394,8 @@ async function startServer() {
 
     console.log(`🚀 正在启动HTTP服务器，监听端口 ${PORT}...`);
     
-    return new Promise((resolve, reject) => {
-      server.listen(PORT, (error: any) => {
+    await new Promise<void>((resolve, reject) => {
+      server.listen(PORT, '127.0.0.1', (error: any) => {
         if (error) {
           console.error('❌ 服务器监听失败:', error);
           reject(error);
@@ -407,13 +407,14 @@ async function startServer() {
         console.log(`🔒 认证系统已启用`);
         console.log(`💾 Redis缓存已启用`);
         console.log(`✅ HTTP服务器启动完成`);
-        resolve(server);
+        resolve();
       });
 
       server.on('listening', () => {
         const addr = server.address();
         console.log(`✅ HTTP服务器正在监听端口: ${addr?.port || PORT}`);
         console.log(`🎉 服务器启动流程完成！`);
+        isServerStarted = true;
       });
 
       server.on('error', (error: any) => {
@@ -433,11 +434,15 @@ async function startServer() {
 
 startServer();
 
-/**
- * close server
- */
+let isServerStarted = false;
+
 // 优雅关闭处理
 const gracefulShutdown = async (signal: string) => {
+  if (!isServerStarted) {
+    console.log(`⚠️ 忽略${signal}信号：服务器尚未完成启动`);
+    return;
+  }
+  
   console.log(`🔄 收到${signal}信号，正在关闭服务器...`);
   
   if (server) {

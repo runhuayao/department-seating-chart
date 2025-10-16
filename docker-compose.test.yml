@@ -1,0 +1,228 @@
+# Docker测试环境配置
+# 用于测试API服务和Redis服务的独立部署和容器间通信
+
+version: '3.8'
+
+services:
+  # API服务测试容器
+  api-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: department-map-api-test
+    restart: unless-stopped
+    ports:
+      - "8081:8080"  # 测试端口
+    environment:
+      # 数据库配置
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: department_map_test
+      DB_USER: postgres
+      DB_PASSWORD: test_password
+      
+      # Redis配置 - 使用容器网络名称
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: test_redis_password
+      REDIS_DB: 0
+      
+      # 应用配置
+      NODE_ENV: test
+      PORT: 8080
+      JWT_SECRET: test_jwt_secret_key_for_testing
+      
+      # 连接池配置
+      DB_POOL_MAX: 10
+      DB_POOL_MIN: 2
+      
+      # Redis连接优化
+      REDIS_CONNECT_TIMEOUT: 10000
+      REDIS_COMMAND_TIMEOUT: 5000
+      REDIS_MAX_RETRIES: 3
+      
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis测试服务
+  redis-test:
+    image: redis:7-alpine
+    container_name: department-map-redis-test
+    restart: unless-stopped
+    ports:
+      - "6380:6379"  # 测试端口
+    environment:
+      REDIS_PASSWORD: test_redis_password
+    volumes:
+      - redis-test-data:/data
+      - ./redis-docker.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - test-network
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass test_redis_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "test_redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # PostgreSQL测试数据库
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: department-map-postgres-test
+    restart: unless-stopped
+    ports:
+      - "5433:5432"  # 测试端口
+    environment:
+      POSTGRES_DB: department_map_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      
+      # 性能优化参数
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+      POSTGRES_MAINTENANCE_WORK_MEM: 64MB
+      POSTGRES_CHECKPOINT_COMPLETION_TARGET: 0.9
+      POSTGRES_WAL_BUFFERS: 16MB
+      POSTGRES_DEFAULT_STATISTICS_TARGET: 100
+      
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d department_map_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 容器监控服务
+  container-monitor:
+    image: prom/prometheus:latest
+    container_name: department-map-monitor-test
+    restart: unless-stopped
+    ports:
+      - "9091:9090"  # 测试端口
+    volumes:
+      - ./monitoring/prometheus-test.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-test-data:/prometheus
+    networks:
+      - test-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # 网络测试工具
+  network-test:
+    image: nicolaka/netshoot
+    container_name: department-map-network-test
+    restart: "no"
+    networks:
+      - test-network
+    command: sleep infinity
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+# 数据卷定义
+volumes:
+  postgres-test-data:
+    driver: local
+    name: department_map_postgres_test_data
+  redis-test-data:
+    driver: local
+    name: department_map_redis_test_data
+  prometheus-test-data:
+    driver: local
+    name: department_map_prometheus_test_data
+
+# 专用测试网络
+networks:
+  test-network:
+    driver: bridge
+    name: department_map_test_network
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.name: br-dept-test
+      com.docker.network.driver.mtu: 1500

@@ -8,6 +8,7 @@
     "**/*.test.ts",
     "**/*.spec.ts"
   ],
+  "exec": "tsx api/server.ts",
   "delay": 3000,
   "verbose": false,
   "restartable": "rs",

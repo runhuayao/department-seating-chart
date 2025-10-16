@@ -35,9 +35,51 @@
     "*.ps1",
     "package-lock.json"
   ],
-  "rules": [
-    "使用TypeScript进行类型安全的开发",
-    "遵循React Hooks最佳实践",
+  "apiServerStatus": {
+    "lastCheck": "2024-12-29T06:26:43.000Z",
+    "diagnosis": {
+      "frontendService": {
+        "port": 5173,
+        "status": "running",
+        "response": "normal"
+      },
+      "backendService": {
+        "port": 8080,
+        "status": "starting_issue",
+        "problem": "server.listen not completing",
+        "fixes_applied": [
+          "Added host binding to 127.0.0.1",
+          "Added server startup state guard",
+          "Fixed async/await in startServer function"
+        ]
+      },
+      "database": {
+        "postgresql": "connected",
+        "connectionTime": "< 100ms",
+        "status": "healthy"
+      },
+      "cache": {
+        "redis": "connected",
+        "port": 6379,
+        "status": "healthy"
+      }
+    },
+    "apiContract": {
+      "httpMethods": "GET, POST, PUT, DELETE",
+      "statusCodes": "2xx, 4xx, 5xx standardized",
+      "responseFormat": "JSON with success/error structure",
+      "authentication": "JWT Bearer token",
+      "errorHandling": "Structured error responses"
+    },
+    "testResults": {
+      "functionalTests": "pending_backend_fix",
+      "compatibilityTests": "pending_backend_fix",
+      "dockerTests": "not_started"
+    }
+  },
+   "rules": [
+     "使用TypeScript进行类型安全的开发",
+     "遵循React Hooks最佳实践",
     "使用PostgreSQL作为主数据库，内存数据库作为备用",
     "实现Redis缓存机制提升性能",
     "采用Express.js构建RESTful API",

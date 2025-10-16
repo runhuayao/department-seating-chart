@@ -6,9 +6,9 @@
 
 ## 2. WebSocket通信协议标准化规范
 
-## 6. API服务器Socket实现规范
+## 3. API服务器Socket实现规范
 
-### 6.1 端口绑定机制及实时数据处理流程
+### 3.1 端口绑定机制及实时数据处理流程
 
 ```mermaid
 graph TB
@@ -63,7 +63,7 @@ graph TB
     R4 -.->|状态更新| S3
 ```
 
-### 6.2 监听状态的对象定义及接口规范
+### 3.2 监听状态的对象定义及接口规范
 
 ```typescript
 // Socket监听状态枚举
@@ -556,9 +556,9 @@ graph LR
     P3 --> B3
 ```
 
-## 7. API服务架构深度分析与优化建议
+## 5. API服务架构深度分析与优化建议
 
-### 7.1 架构总览
+### 5.1 架构总览
 
 ```mermaid
 graph TD
@@ -585,9 +585,9 @@ graph TD
 
 * 核心要点：入口/网关分发到 `REST` 与 `WebSocket`；服务层对接 `Redis` 与 `PostgreSQL`，可选启用 `PostGIS`；统一鉴权与监控；事件管理负责广播与订阅。
 
-### 7.2 运行逻辑与协作关系
+### 5.2 运行逻辑与协作关系
 
-#### 7.2.1 Workstation 数据结构说明
+#### 5.2.1 Workstation 数据结构说明
 
 **Workstation（工位）** 是本系统的核心业务实体，代表办公室中的物理工作位置。在时序图中的 `workstations` 指的是工位信息的集合数据。
 
@@ -680,21 +680,62 @@ sequenceDiagram
 
   * `监控与日志`：健康检查、指标上报、审计日志与告警。
 
-### 7.3 性能评估
+### 5.3 性能评估
 
-* 连接管理：REST走短连接，WS保持长连接；建议开启 `keep-alive` 与 `HTTP/2`。
+#### 5.3.1 Connection: keep-alive 配置优化
 
-* 线程与事件：Node 事件驱动适合高并发 IO；CPU 密集型建议下沉到 Worker/外部服务。
+**推荐使用 Connection: keep-alive 配置**，这是提升系统性能的关键配置：
 
-* 缓存策略：读多写少的工位查询应优先命中 `Redis`，设置合理 TTL 与失效策略。
+1. **避免响应时延问题**
+   ```nginx
+   # Nginx 推荐配置
+   upstream backend {
+       server 127.0.0.1:3000;
+       keepalive 32;           # 保持32个长连接到后端
+       keepalive_requests 100; # 每个连接最多处理100个请求
+       keepalive_timeout 60s;  # 连接空闲60秒后关闭
+   }
+   
+   location /api/ {
+       proxy_pass http://backend;
+       proxy_http_version 1.1;
+       proxy_set_header Connection "";  # 清除Connection头，启用keep-alive
+       proxy_read_timeout 60s;
+       proxy_send_timeout 60s;
+       proxy_connect_timeout 10s;
+   }
+   ```
 
-* 数据库：使用连接池，避免 N+1 查询；对热点列建立索引；若使用 PostGIS，合理选择 `GIST`/`SP-GiST`。
+2. **性能提升效果**
+   - **减少TCP握手开销**：避免每次请求都建立新连接
+   - **降低响应时延**：复用连接可减少20-50ms的连接建立时间
+   - **提高并发处理能力**：减少TIME_WAIT状态的连接数量
+   - **降低服务器负载**：减少文件描述符消耗和内存占用
 
-* 广播效率：Socket.IO 广播应基于房间/命名空间，不要对所有连接全量广播。
+3. **Node.js 后端配置**
+   ```javascript
+   // server.js 配置示例
+   const server = app.listen(3000, () => {
+     server.keepAliveTimeout = 65000; // 65秒，比Nginx稍长
+     server.headersTimeout = 66000;   // 66秒，防止请求头超时
+   });
+   ```
 
-* 监控采样：关键接口统计 P95/P99 延迟、吞吐与错误率；队列长度与连接数实时可视化。
+#### 5.3.2 系统性能指标
 
-### 7.4 可扩展性评估
+* **连接管理**：REST走短连接，WS保持长连接；建议开启 `keep-alive` 与 `HTTP/2`。
+
+* **线程与事件**：Node 事件驱动适合高并发 IO；CPU 密集型建议下沉到 Worker/外部服务。
+
+* **缓存策略**：读多写少的工位查询应优先命中 `Redis`，设置合理 TTL 与失效策略。
+
+* **数据库**：使用连接池，避免 N+1 查询；对热点列建立索引；若使用 PostGIS，合理选择 `GIST`/`SP-GiST`。
+
+* **广播效率**：Socket.IO 广播应基于房间/命名空间，不要对所有连接全量广播。
+
+* **监控采样**：关键接口统计 P95/P99 延迟、吞吐与错误率；队列长度与连接数实时可视化。
+
+### 5.4 可扩展性评估
 
 * 横向扩展：启用 Socket.IO Redis 适配器，实现多实例之间事件同步。
 
@@ -706,7 +747,7 @@ sequenceDiagram
 
 * 配置化：端点、速率限制、缓存 TTL、广播策略通过配置管理统一下发。
 
-### 7.5 安全性评估
+### 5.5 安全性评估
 
 * 鉴权与授权：REST 与 WS 握手阶段强制校验 `JWT/Session` 与权限；对关键操作实施细粒度授权。
 
@@ -746,7 +787,7 @@ sequenceDiagram
 
    * 异常阈值分级告警（如失败率 > 2%/5%/10%），联动自愈与降级策略。
 
-5. 安全与合规
+6. 安全与合规
 
    * 严格 CORS/Origin 白名单、TLS 强制；对管理类操作加多因子验证与审计。
 
@@ -754,9 +795,798 @@ sequenceDiagram
 
 上述建议均可在不改变现有业务接口的前提下逐步落地，优先从缓存与广播策略、鉴权与校验、监控与告警三条主线推进。
 
-## 5. 工位数据传输规范
+## 5. 实时消息推送方案分析与优化
 
-### 5.1 fun函数传输层数据传递机制 △ 不兼容（未对应实际项目接口）
+### 5.1 当前推送机制评估
+
+#### 5.1.1 架构分析结果
+
+基于代码分析，当前项目采用的是**真正的服务端推送机制**，而非伪服务端推送：
+
+```mermaid
+graph TB
+    subgraph "真实服务端推送架构"
+        A[客户端WebSocket连接] --> B[WebSocket Manager]
+        B --> C[实时数据同步服务]
+        C --> D[PostgreSQL数据库触发器]
+        C --> E[Redis消息队列]
+        
+        D --> F[数据变更事件]
+        E --> G[消息广播]
+        F --> C
+        G --> B
+        B --> A
+    end
+    
+    subgraph "数据流向"
+        H[数据库变更] --> I[触发器激活]
+        I --> J[Redis发布消息]
+        J --> K[WebSocket推送]
+        K --> L[客户端实时更新]
+    end
+```
+
+#### 5.1.2 核心推送组件
+
+**1. WebSocket连接管理 (`api/websocket/manager.ts`)**
+- 维护用户连接映射：`Map<string, UserConnection>`
+- 支持频道订阅机制：`Map<string, SubscriptionChannel>`
+- 30秒心跳检测：`HEARTBEAT_INTERVAL = 30000`
+- 60秒连接超时：`CONNECTION_TIMEOUT = 60000`
+
+**2. 实时数据同步服务 (`api/services/realtime.ts`)**
+- 基于EventEmitter的事件驱动架构
+- 支持9种同步事件类型：用户、部门、会话、系统配置变更
+- Redis订阅模式实现跨进程消息传递
+- 权限控制的订阅过滤机制
+
+**3. 数据库同步服务 (`api/services/database-sync.ts`)**
+- 主从数据库架构支持
+- 定时同步处理器：`setInterval(processSyncQueue, 1000)`
+- 失败重试机制和操作队列管理
+
+#### 5.1.3 推送触发机制
+
+```typescript
+// 数据变更触发推送的完整流程
+export enum SyncEventType {
+  USER_CREATED = 'user_created',
+  USER_UPDATED = 'user_updated',
+  DEPARTMENT_UPDATED = 'department_updated',
+  SESSION_CREATED = 'session_created',
+  SYSTEM_CONFIG_UPDATED = 'system_config_updated'
+}
+
+// 推送数据结构
+interface SyncData {
+  type: SyncEventType;
+  data: any;
+  userId?: number;
+  departmentId?: number;
+  timestamp: Date;
+  source: string;
+}
+```
+
+### 5.2 推送性能优化建议
+
+#### 5.2.1 当前架构优势
+
+✅ **真正的服务端推送**：基于WebSocket的双向通信
+✅ **事件驱动架构**：数据库触发器 + Redis消息队列
+✅ **连接管理完善**：心跳检测、自动重连、连接恢复
+✅ **权限控制**：基于用户角色的订阅过滤
+✅ **可扩展性**：支持多进程部署和负载均衡
+
+#### 5.2.2 优化建议
+
+**1. 消息批处理优化**
+```mermaid
+sequenceDiagram
+    participant DB as 数据库
+    participant Redis as Redis队列
+    participant WS as WebSocket服务
+    participant Client as 客户端
+    
+    Note over DB,Client: 当前：单条消息推送
+    DB->>Redis: 单条数据变更
+    Redis->>WS: 立即推送
+    WS->>Client: 实时消息
+    
+    Note over DB,Client: 优化：批量消息推送
+    DB->>Redis: 批量数据变更
+    Redis->>WS: 100ms内聚合
+    WS->>Client: 批量消息包
+```
+
+**2. 连接池优化配置**
+```typescript
+// 建议的连接池配置
+const optimizedConfig = {
+  // WebSocket连接
+  HEARTBEAT_INTERVAL: 30000,        // 保持30秒心跳
+  CONNECTION_TIMEOUT: 90000,        // 延长至90秒超时
+  MAX_CONNECTIONS_PER_USER: 3,      // 限制单用户连接数
+  
+  // 消息队列
+  BATCH_SIZE: 50,                   // 批量处理50条消息
+  BATCH_TIMEOUT: 100,               // 100ms批处理超时
+  
+  // Redis配置
+  REDIS_POOL_SIZE: 20,              // Redis连接池大小
+  MESSAGE_TTL: 300                  // 消息5分钟TTL
+};
+```
+
+**3. 长轮询降级机制**
+```mermaid
+flowchart TD
+    A[客户端连接] --> B{WebSocket可用?}
+    B -->|是| C[建立WebSocket连接]
+    B -->|否| D[启用长轮询模式]
+    
+    C --> E[实时推送模式]
+    D --> F[HTTP长轮询]
+    
+    E --> G{连接异常?}
+    G -->|是| H[重连3次]
+    G -->|否| I[正常推送]
+    
+    H --> J{重连成功?}
+    J -->|否| D
+    J -->|是| E
+    
+    F --> K[30秒超时请求]
+    K --> L{有新数据?}
+    L -->|是| M[立即响应]
+    L -->|否| N[超时后重新请求]
+    M --> F
+    N --> F
+```
+
+### 5.3 方案匹配度评估
+
+#### 5.3.1 项目需求匹配分析
+
+| 需求项 | 当前实现 | 匹配度 | 优化建议 |
+|--------|----------|--------|----------|
+| 实时工位状态更新 | WebSocket推送 | ✅ 95% | 增加批量更新 |
+| 多用户协同 | 频道订阅机制 | ✅ 90% | 优化权限控制 |
+| 离线重连 | 自动重连+恢复 | ✅ 85% | 增加离线消息队列 |
+| 性能要求 | 30秒心跳检测 | ✅ 80% | 优化批处理机制 |
+| 可扩展性 | Redis集群支持 | ✅ 90% | 完善负载均衡 |
+
+#### 5.3.2 技术架构评分
+
+- **实时性**: 9/10 (WebSocket双向通信)
+- **可靠性**: 8/10 (重连机制+消息确认)
+- **可扩展性**: 8/10 (Redis集群+多进程)
+- **性能**: 7/10 (需要批处理优化)
+- **维护性**: 9/10 (模块化设计+完善日志)
+
+**综合评分: 8.2/10**
+
+#### 5.3.3 最终建议
+
+当前架构已经是**真正的服务端推送**，无需改为长轮询。建议的优化方向：
+
+1. **保持WebSocket为主**：继续使用当前的WebSocket推送架构
+2. **增加长轮询降级**：作为WebSocket连接失败时的备选方案
+3. **优化批处理机制**：减少频繁的小消息推送
+4. **完善监控告警**：增加推送延迟和失败率监控
+
+### 3.5 WebSocket业务逻辑层文档
+
+#### 3.5.1 业务交互架构概述
+
+WebSocket业务逻辑层负责处理客户端与服务端之间的实时业务交互，包括工位状态同步、用户在线状态管理、实时消息推送等核心功能。
+
+```mermaid
+sequenceDiagram
+    participant C as 客户端(Vue3)
+    participant WS as WebSocket服务器
+    participant DB as PostgreSQL
+    participant R as Redis缓存
+    participant B as 业务逻辑层
+
+    Note over C,B: 工位状态实时同步流程
+    
+    C->>WS: 连接建立 (socket.connect)
+    WS->>B: 用户认证验证
+    B->>R: 检查用户权限缓存
+    R-->>B: 返回权限信息
+    B->>WS: 认证成功，加入房间
+    WS->>C: 连接确认 (authenticated)
+    
+    Note over C,B: 工位查询与订阅
+    C->>WS: 订阅工位状态 (subscribe_workstations)
+    WS->>B: 处理订阅请求
+    B->>DB: 查询当前工位状态
+    DB-->>B: 返回工位数据
+    B->>R: 缓存工位状态
+    B->>WS: 返回初始状态
+    WS->>C: 推送工位状态 (workstation_status)
+    
+    Note over C,B: 工位状态变更
+    C->>WS: 工位状态变更 (update_workstation)
+    WS->>B: 验证变更权限
+    B->>DB: 更新数据库状态
+    DB-->>B: 确认更新成功
+    B->>R: 更新缓存状态
+    B->>WS: 广播状态变更
+    WS->>C: 推送变更通知 (workstation_changed)
+    
+    Note over C,B: 心跳与连接维护
+    loop 每30秒
+        C->>WS: 心跳包 (ping)
+        WS->>C: 心跳响应 (pong)
+    end
+```
+
+#### 3.5.2 核心业务事件定义
+
+**1. 连接管理事件**
+
+```typescript
+// 客户端连接事件
+interface ConnectionEvents {
+  // 连接建立
+  'connection': (socket: Socket) => void;
+  
+  // 用户认证
+  'authenticate': (data: {
+    token: string;
+    userId: string;
+  }) => Promise<AuthResult>;
+  
+  // 连接断开
+  'disconnect': (reason: string) => void;
+  
+  // 心跳检测
+  'ping': () => void;
+  'pong': () => void;
+}
+```
+
+**2. 工位业务事件**
+
+```typescript
+// 工位相关业务事件
+interface WorkstationEvents {
+  // 订阅工位状态
+  'subscribe_workstations': (data: {
+    floorId?: string;
+    departmentId?: string;
+  }) => Promise<WorkstationStatus[]>;
+  
+  // 取消订阅
+  'unsubscribe_workstations': (data: {
+    subscriptionId: string;
+  }) => void;
+  
+  // 工位状态变更
+  'update_workstation': (data: {
+    workstationId: string;
+    status: 'occupied' | 'available' | 'reserved';
+    userId?: string;
+    timestamp: Date;
+  }) => Promise<UpdateResult>;
+  
+  // 批量工位查询
+  'query_workstations': (data: {
+    filters: WorkstationFilters;
+    pagination: PaginationOptions;
+  }) => Promise<WorkstationQueryResult>;
+}
+```
+
+**3. 实时推送事件**
+
+```typescript
+// 服务端推送事件
+interface ServerPushEvents {
+  // 工位状态变更通知
+  'workstation_changed': (data: {
+    workstationId: string;
+    oldStatus: WorkstationStatus;
+    newStatus: WorkstationStatus;
+    changedBy: string;
+    timestamp: Date;
+  }) => void;
+  
+  // 用户在线状态变更
+  'user_presence_changed': (data: {
+    userId: string;
+    isOnline: boolean;
+    lastSeen: Date;
+  }) => void;
+  
+  // 系统通知
+  'system_notification': (data: {
+    type: 'info' | 'warning' | 'error';
+    message: string;
+    targetUsers?: string[];
+  }) => void;
+}
+```
+
+#### 3.5.3 业务逻辑处理流程
+
+**1. 工位状态同步机制**
+
+```typescript
+class WorkstationBusinessLogic {
+  private io: SocketIOServer;
+  private redis: Redis;
+  private db: PostgreSQLClient;
+  
+  // 处理工位状态变更
+  async handleWorkstationUpdate(
+    socket: Socket, 
+    data: WorkstationUpdateData
+  ): Promise<void> {
+    try {
+      // 1. 权限验证
+      const hasPermission = await this.verifyUpdatePermission(
+        socket.userId, 
+        data.workstationId
+      );
+      
+      if (!hasPermission) {
+        socket.emit('error', { 
+          code: 'PERMISSION_DENIED',
+          message: '无权限修改此工位状态' 
+        });
+        return;
+      }
+      
+      // 2. 数据库事务更新
+      await this.db.transaction(async (trx) => {
+        // 更新工位状态
+        await trx('workstations')
+          .where('id', data.workstationId)
+          .update({
+            status: data.status,
+            occupied_by: data.userId,
+            updated_at: new Date(),
+            updated_by: socket.userId
+          });
+        
+        // 记录状态变更日志
+        await trx('workstation_logs').insert({
+          workstation_id: data.workstationId,
+          action: 'status_change',
+          old_status: data.oldStatus,
+          new_status: data.status,
+          user_id: socket.userId,
+          timestamp: new Date()
+        });
+      });
+      
+      // 3. 更新Redis缓存
+      await this.redis.hset(
+        `workstation:${data.workstationId}`,
+        'status', data.status,
+        'occupied_by', data.userId || '',
+        'updated_at', Date.now()
+      );
+      
+      // 4. 广播状态变更
+      this.io.to(`floor:${data.floorId}`).emit('workstation_changed', {
+        workstationId: data.workstationId,
+        oldStatus: data.oldStatus,
+        newStatus: data.status,
+        changedBy: socket.userId,
+        timestamp: new Date()
+      });
+      
+      // 5. 确认更新成功
+      socket.emit('workstation_updated', {
+        success: true,
+        workstationId: data.workstationId,
+        newStatus: data.status
+      });
+      
+    } catch (error) {
+      console.error('工位状态更新失败:', error);
+      socket.emit('error', {
+        code: 'UPDATE_FAILED',
+        message: '工位状态更新失败，请重试'
+      });
+    }
+  }
+  
+  // 处理工位订阅
+  async handleWorkstationSubscription(
+    socket: Socket,
+    data: SubscriptionData
+  ): Promise<void> {
+    try {
+      // 1. 加入相应的房间
+      if (data.floorId) {
+        await socket.join(`floor:${data.floorId}`);
+      }
+      
+      if (data.departmentId) {
+        await socket.join(`department:${data.departmentId}`);
+      }
+      
+      // 2. 查询当前工位状态
+      const workstations = await this.getWorkstationStatus(data);
+      
+      // 3. 推送初始状态
+      socket.emit('workstation_status', {
+        subscriptionId: generateSubscriptionId(),
+        workstations: workstations,
+        timestamp: new Date()
+      });
+      
+    } catch (error) {
+      console.error('工位订阅失败:', error);
+      socket.emit('error', {
+        code: 'SUBSCRIPTION_FAILED',
+        message: '工位订阅失败，请重试'
+      });
+    }
+  }
+}
+```
+
+**2. 连接生命周期管理**
+
+```typescript
+class ConnectionLifecycleManager {
+  private connections = new Map<string, SocketConnection>();
+  
+  // 连接建立处理
+  async handleConnection(socket: Socket): Promise<void> {
+    console.log(`新的WebSocket连接: ${socket.id}`);
+    
+    // 记录连接信息
+    this.connections.set(socket.id, {
+      socketId: socket.id,
+      userId: null,
+      connectedAt: new Date(),
+      lastActivity: new Date(),
+      isAuthenticated: false
+    });
+    
+    // 设置连接超时
+    const authTimeout = setTimeout(() => {
+      if (!this.connections.get(socket.id)?.isAuthenticated) {
+        socket.emit('error', {
+          code: 'AUTH_TIMEOUT',
+          message: '认证超时，连接将被关闭'
+        });
+        socket.disconnect();
+      }
+    }, 30000); // 30秒认证超时
+    
+    // 监听认证事件
+    socket.on('authenticate', async (data) => {
+      clearTimeout(authTimeout);
+      await this.handleAuthentication(socket, data);
+    });
+    
+    // 监听断开事件
+    socket.on('disconnect', (reason) => {
+      this.handleDisconnection(socket, reason);
+    });
+  }
+  
+  // 认证处理
+  async handleAuthentication(
+    socket: Socket, 
+    data: AuthData
+  ): Promise<void> {
+    try {
+      // 验证JWT令牌
+      const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
+      const userId = decoded.userId;
+      
+      // 更新连接信息
+      const connection = this.connections.get(socket.id);
+      if (connection) {
+        connection.userId = userId;
+        connection.isAuthenticated = true;
+        connection.lastActivity = new Date();
+      }
+      
+      // 加入用户房间
+      await socket.join(`user:${userId}`);
+      
+      // 更新用户在线状态
+      await this.updateUserPresence(userId, true);
+      
+      // 发送认证成功响应
+      socket.emit('authenticated', {
+        success: true,
+        userId: userId,
+        timestamp: new Date()
+      });
+      
+    } catch (error) {
+      socket.emit('error', {
+        code: 'AUTH_FAILED',
+        message: '认证失败，请重新登录'
+      });
+      socket.disconnect();
+    }
+  }
+  
+  // 断开连接处理
+  async handleDisconnection(socket: Socket, reason: string): Promise<void> {
+    const connection = this.connections.get(socket.id);
+    
+    if (connection && connection.userId) {
+      // 更新用户离线状态
+      await this.updateUserPresence(connection.userId, false);
+      
+      // 广播用户离线通知
+      this.io.emit('user_presence_changed', {
+        userId: connection.userId,
+        isOnline: false,
+        lastSeen: new Date()
+      });
+    }
+    
+    // 清理连接记录
+    this.connections.delete(socket.id);
+    
+    console.log(`WebSocket连接断开: ${socket.id}, 原因: ${reason}`);
+  }
+}
+```
+
+#### 3.5.4 错误处理与重连机制
+
+**1. 客户端重连策略**
+
+```typescript
+class WebSocketClient {
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000; // 初始重连延迟1秒
+  
+  connect(): void {
+    this.socket = io('ws://localhost:8080', {
+      transports: ['websocket'],
+      timeout: 10000,
+      forceNew: true
+    });
+    
+    this.socket.on('connect', () => {
+      console.log('WebSocket连接成功');
+      this.reconnectAttempts = 0;
+      this.reconnectDelay = 1000;
+      
+      // 重新认证
+      this.authenticate();
+    });
+    
+    this.socket.on('disconnect', (reason) => {
+      console.log('WebSocket连接断开:', reason);
+      
+      if (reason === 'io server disconnect') {
+        // 服务器主动断开，不自动重连
+        return;
+      }
+      
+      // 自动重连
+      this.scheduleReconnect();
+    });
+    
+    this.socket.on('connect_error', (error) => {
+      console.error('WebSocket连接错误:', error);
+      this.scheduleReconnect();
+    });
+  }
+  
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error('达到最大重连次数，停止重连');
+      return;
+    }
+    
+    this.reconnectAttempts++;
+    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    
+    console.log(`${delay}ms后尝试第${this.reconnectAttempts}次重连`);
+    
+    setTimeout(() => {
+      this.connect();
+    }, delay);
+  }
+}
+```
+
+**2. 服务端异常处理**
+
+```typescript
+class ErrorHandler {
+  static handleSocketError(socket: Socket, error: Error, context: string): void {
+    console.error(`WebSocket错误 [${context}]:`, error);
+    
+    // 根据错误类型发送不同的错误响应
+    if (error instanceof ValidationError) {
+      socket.emit('error', {
+        code: 'VALIDATION_ERROR',
+        message: error.message,
+        field: error.field
+      });
+    } else if (error instanceof PermissionError) {
+      socket.emit('error', {
+        code: 'PERMISSION_DENIED',
+        message: '权限不足'
+      });
+    } else if (error instanceof DatabaseError) {
+      socket.emit('error', {
+        code: 'DATABASE_ERROR',
+        message: '数据库操作失败，请稍后重试'
+      });
+    } else {
+      socket.emit('error', {
+        code: 'INTERNAL_ERROR',
+        message: '服务器内部错误'
+      });
+    }
+    
+    // 记录错误日志
+    this.logError(socket.id, error, context);
+  }
+  
+  private static logError(socketId: string, error: Error, context: string): void {
+    // 发送到日志系统或监控系统
+    console.error({
+      timestamp: new Date().toISOString(),
+      socketId,
+      context,
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      }
+    });
+  }
+}
+```
+
+## 4. 工位数据传输规范
+
+### 4.1 WebSocket+REST混合架构说明
+
+当前项目采用 **WebSocket+REST 混合架构**，充分发挥两种协议的优势：
+
+- **REST API**：用于工位数据的CRUD操作、批量查询、统计信息获取
+- **WebSocket**：用于实时状态推送、工位变更通知、在线状态同步
+
+#### 4.1.1 架构优势
+
+1. **职责分离**：REST负责数据操作，WebSocket负责实时通信
+2. **性能优化**：避免频繁HTTP请求，减少服务器负载
+3. **兼容性好**：支持不同客户端的接入方式
+4. **扩展性强**：可独立优化各协议的性能
+
+#### 4.1.2 Nginx网关架构
+
+```mermaid
+graph TB
+    subgraph "客户端层 (Client Layer)"
+        C1[Web浏览器]
+        C2[移动端App]
+        C3[桌面应用]
+    end
+    
+    subgraph "网关层 (Gateway Layer)"
+        N1[Nginx反向代理<br/>TCP传输层协议]
+        N2[负载均衡器]
+        N3[SSL终端]
+    end
+    
+    subgraph "应用层 (Application Layer)"
+        A1[REST API服务器<br/>:3000]
+        A2[WebSocket服务器<br/>:8080]
+        A3[静态资源服务器<br/>:80]
+    end
+    
+    subgraph "数据层 (Data Layer)"
+        D1[PostgreSQL<br/>工位数据存储]
+        D2[Redis<br/>会话缓存]
+    end
+    
+    C1 -->|HTTP/HTTPS| N1
+    C2 -->|HTTP/HTTPS| N1
+    C3 -->|HTTP/HTTPS| N1
+    
+    N1 -->|代理转发| N2
+    N2 -->|SSL卸载| N3
+    
+    N3 -->|REST请求| A1
+    N3 -->|WebSocket升级| A2
+    N3 -->|静态资源| A3
+    
+    A1 -->|SQL查询| D1
+    A2 -->|缓存读写| D2
+    A1 -->|缓存读写| D2
+    
+    note1[客户端→Nginx→服务端<br/>连接路径]
+    note2[采用TCP传输层协议<br/>保证可靠传输]
+```
+
+#### 4.1.3 Nginx RST报文场景分析
+
+**RST报文产生的常见场景：**
+
+1. **服务端超时设置过短**
+   ```nginx
+   # nginx.conf 配置示例
+   upstream backend {
+       server 127.0.0.1:3000;
+       keepalive_timeout 65s;  # 过短会导致连接频繁重建
+   }
+   
+   location /api/ {
+       proxy_pass http://backend;
+       proxy_read_timeout 30s;  # 过短会导致RST
+       proxy_send_timeout 30s;
+   }
+   ```
+
+2. **502状态码产生原因**
+   - 后端服务器不可达或响应超时
+   - 连接池耗尽，无法建立新连接
+   - 后端服务器主动关闭连接（发送RST）
+   - DNS解析失败或网络分区
+
+3. **Connection: keep-alive 优化配置**
+   ```nginx
+   # 推荐配置
+   upstream backend {
+       server 127.0.0.1:3000;
+       keepalive 32;           # 保持32个长连接
+       keepalive_requests 100; # 每个连接最多处理100个请求
+       keepalive_timeout 60s;  # 连接空闲60秒后关闭
+   }
+   
+   location /api/ {
+       proxy_pass http://backend;
+       proxy_http_version 1.1;
+       proxy_set_header Connection "";  # 清除Connection头
+       proxy_read_timeout 60s;
+       proxy_send_timeout 60s;
+   }
+   ```
+
+#### 4.1.4 WebSocket连接建立详细流程
+
+```mermaid
+sequenceDiagram
+    participant C as 客户端
+    participant N as Nginx网关
+    participant S as WebSocket服务器
+    
+    Note over C,S: HTTP Upgrade握手过程
+    
+    C->>N: HTTP GET /socket.io/<br/>Upgrade: websocket<br/>Connection: Upgrade<br/>Sec-WebSocket-Key: xxx
+    
+    N->>S: 转发Upgrade请求<br/>添加X-Real-IP等头部
+    
+    S->>S: 验证Upgrade请求<br/>生成Sec-WebSocket-Accept
+    
+    S->>N: HTTP 101 Switching Protocols<br/>Upgrade: websocket<br/>Connection: Upgrade<br/>Sec-WebSocket-Accept: yyy
+    
+    N->>C: 转发101响应<br/>建立WebSocket隧道
+    
+    Note over C,S: WebSocket连接建立完成
+    
+    C->>S: WebSocket Frame<br/>{"type":"join_room","data":{"room":"floor_1"}}
+    
+    S->>C: WebSocket Frame<br/>{"type":"room_joined","data":{"room":"floor_1","users":5}}
+    
+    Note over C,S: 业务数据交换
+```
+
+### 4.2 fun函数传输层数据传递机制 △ 不兼容（未对应实际项目接口）
 
 不兼容说明：文档中的 `fun.send()/fun.receive()/fun.parse()/fun.broadcast()` 为示例性伪代码，项目未提供该客户端/服务端 API。
 

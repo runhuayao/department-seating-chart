@@ -1,11 +1,15 @@
 {
   "mcpServers": {
     "Redis": {
-      "command": "npx",
+      "command": "powershell",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-redis",
-        "redis://localhost:6379"
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "scripts/ensure-redis-and-start-mcp.ps1",
+        "-RedisUrl",
+        "redis://127.0.0.1:6379"
       ],
       "env": {}
     },
@@ -45,7 +49,7 @@
     "requirements": [
       "需要 Node.js 和 npm/npx",
       "需要网络连接下载包",
-      "Redis 服务器必须运行在 localhost:6379",
+      "Redis 服务器必须运行在 localhost:6379（本配置已支持自动检测并启动本地Redis）",
       "PostgreSQL 服务器必须运行在 localhost:5432",
       "确保数据库用户有足够权限"
     ],
