@@ -31,11 +31,11 @@
       "command": "py",
       "args": [
         "-m",
-        "mcp_server_time"
+        "mcp_server_time",
+        "--local-timezone",
+        "Asia/Shanghai"
       ],
-      "env": {
-        "TZ": "Asia/Shanghai"
-      }
+      "env": {}
     }
   },
   "_comments": {

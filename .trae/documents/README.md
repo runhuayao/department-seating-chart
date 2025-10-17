@@ -168,6 +168,7 @@ npm run dev:all
 ### 📋 部署前准备
 
 在开始部署本地数据库之前，请确保：
+
 1. 已安装 Node.js 18+ 环境
 2. 具备管理员权限（Windows）或 sudo 权限（Linux）
 3. 网络连接正常，可访问软件下载源
@@ -177,6 +178,7 @@ npm run dev:all
 #### Windows 环境
 
 **方法一：使用项目内置脚本（推荐）**
+
 ```powershell
 # 1. 使用项目自带的Redis启动脚本
 npm run redis:start
@@ -189,6 +191,7 @@ Get-Process -Name "redis-server" -ErrorAction SilentlyContinue
 ```
 
 **方法二：手动安装Redis**
+
 ```powershell
 # 1. 下载Redis for Windows
 Invoke-WebRequest -Uri "https://github.com/tporadowski/redis/releases/download/v5.0.14.1/Redis-x64-5.0.14.1.msi" -OutFile "Redis-x64-5.0.14.1.msi"
@@ -207,6 +210,7 @@ redis-cli ping
 ```
 
 **方法三：使用MCP工具安装**
+
 ```powershell
 # 1. 安装Redis MCP服务器
 npx -y @modelcontextprotocol/server-redis redis://127.0.0.1:6379
@@ -218,6 +222,7 @@ npx -y @modelcontextprotocol/server-redis redis://127.0.0.1:6379
 #### Linux 环境
 
 **Ubuntu/Debian:**
+
 ```bash
 # 1. 更新包管理器
 sudo apt update
@@ -234,6 +239,7 @@ redis-cli ping
 ```
 
 **CentOS/RHEL:**
+
 ```bash
 # 1. 安装EPEL仓库
 sudo yum install epel-release -y
@@ -250,6 +256,7 @@ redis-cli ping
 ```
 
 **使用Docker（跨平台）:**
+
 ```bash
 # 1. 拉取Redis镜像
 docker pull redis:7-alpine
@@ -269,6 +276,7 @@ docker exec -it department-map-redis redis-cli ping
 #### Windows 环境
 
 **方法一：官方安装包**
+
 ```powershell
 # 1. 下载PostgreSQL 15
 Invoke-WebRequest -Uri "https://get.enterprisedb.com/postgresql/postgresql-15.8-1-windows-x64.exe" -OutFile "postgresql-15.8-1-windows-x64.exe"
@@ -285,6 +293,7 @@ psql --version
 ```
 
 **方法二：使用MCP工具**
+
 ```powershell
 # 1. 安装PostgreSQL MCP服务器
 npx -y @modelcontextprotocol/server-postgres
@@ -296,6 +305,7 @@ $env:POSTGRES_CONNECTION_STRING = "postgresql://postgres:113464@localhost:5432/d
 #### Linux 环境
 
 **Ubuntu/Debian:**
+
 ```bash
 # 1. 安装PostgreSQL
 sudo apt update
@@ -313,6 +323,7 @@ sudo -u postgres createdb department_map
 ```
 
 **CentOS/RHEL:**
+
 ```bash
 # 1. 安装PostgreSQL仓库
 sudo yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
@@ -333,6 +344,7 @@ sudo -u postgres createdb department_map
 ```
 
 **使用Docker（跨平台）:**
+
 ```bash
 # 1. 启动PostgreSQL容器
 docker run -d --name department-map-postgres \
@@ -476,6 +488,7 @@ curl http://localhost:8080/api/health
 #### Redis 常见问题
 
 **问题1: Redis服务无法启动**
+
 ```bash
 # Windows解决方案
 # 1. 检查端口占用
@@ -496,6 +509,7 @@ sudo systemctl restart redis
 ```
 
 **问题2: Redis连接被拒绝**
+
 ```bash
 # 1. 检查Redis配置文件
 # Windows: Redis\redis.windows.conf
@@ -513,6 +527,7 @@ sudo ufw allow 6379
 ```
 
 **问题3: Redis内存不足**
+
 ```bash
 # 1. 检查内存使用
 redis-cli info memory
@@ -528,6 +543,7 @@ redis-cli config set maxmemory-policy allkeys-lru
 #### PostgreSQL 常见问题
 
 **问题1: PostgreSQL服务无法启动**
+
 ```bash
 # Windows解决方案
 # 1. 重启PostgreSQL服务
@@ -548,6 +564,7 @@ sudo systemctl restart postgresql
 ```
 
 **问题2: 连接认证失败**
+
 ```bash
 # 1. 修复认证配置
 node fix-postgresql-auth.cjs
@@ -564,6 +581,7 @@ node fix-postgresql-auth.cjs
 ```
 
 **问题3: 数据库不存在**
+
 ```bash
 # 1. 创建数据库
 createdb -U postgres department_map
@@ -576,6 +594,7 @@ psql -U postgres -l | grep department_map
 ```
 
 **问题4: 端口冲突**
+
 ```bash
 # 1. 检查端口占用
 # Windows
@@ -644,13 +663,19 @@ npm run dev:all
 
 #### 验证清单
 
-- [ ] Redis服务正常运行 (`redis-cli ping` 返回 PONG)
-- [ ] PostgreSQL服务正常运行 (`psql -U postgres -l` 显示数据库列表)
-- [ ] 项目数据库已创建 (`department_map` 数据库存在)
-- [ ] 数据库表结构已初始化 (`\dt` 显示表列表)
-- [ ] 后端API服务启动成功 (端口8080)
-- [ ] 前端服务启动成功 (端口5173和3001)
-- [ ] WebSocket连接正常 (实时数据同步)
+* [ ] Redis服务正常运行 (`redis-cli ping` 返回 PONG)
+
+* [ ] PostgreSQL服务正常运行 (`psql -U postgres -l` 显示数据库列表)
+
+* [ ] 项目数据库已创建 (`department_map` 数据库存在)
+
+* [ ] 数据库表结构已初始化 (`\dt` 显示表列表)
+
+* [ ] 后端API服务启动成功 (端口8080)
+
+* [ ] 前端服务启动成功 (端口5173和3001)
+
+* [ ] WebSocket连接正常 (实时数据同步)
 
 #### 性能监控
 
