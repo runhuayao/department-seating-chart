@@ -28,12 +28,14 @@
       }
     },
     "Time": {
-      "command": "npx",
+      "command": "py",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-time"
+        "-m",
+        "mcp_server_time"
       ],
-      "env": {}
+      "env": {
+        "TZ": "Asia/Shanghai"
+      }
     }
   },
   "_comments": {
