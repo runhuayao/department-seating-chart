@@ -26,6 +26,14 @@
         "PGDATABASE": "department_map",
         "PGUSER": "postgres"
       }
+    },
+    "Time": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-time"
+      ],
+      "env": {}
     }
   },
   "_comments": {
@@ -44,7 +52,8 @@
       "自动使用最新版本",
       "配置简单，即用即下载",
       "适合快速测试和开发",
-      "支持多种数据库类型"
+      "支持多种数据库类型",
+      "Time MCP 提供时间和时区转换功能"
     ],
     "requirements": [
       "需要 Node.js 和 npm/npx",

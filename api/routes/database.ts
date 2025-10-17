@@ -1,6 +1,7 @@
 import express from 'express';
 import { authenticateToken, requireUserOrAdmin } from '../middleware/auth.js';
 import db from '../models/database.js';
+import { TimeService } from '../services/timeService';
 
 const router = express.Router();
 
@@ -66,21 +67,28 @@ router.get('/health', authenticateToken, async (req, res) => {
       freeConnections: 9
     };
     
-    res.json({
+    // 使用 TimeService 更新时间戳
+    const healthData = {
       status: 'healthy',
       responseTime: `${responseTime}ms`,
       pool: poolStatus,
       database: status,
       timestamp: new Date().toISOString()
-    });
+    };
+    
+    const updatedData = TimeService.updateTimestamp(healthData);
+    res.json(updatedData);
     
   } catch (error) {
     console.error('数据库健康检查失败:', error);
-    res.status(500).json({
+    const errorData = {
       status: 'unhealthy',
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
-    });
+    };
+    
+    const updatedErrorData = TimeService.updateTimestamp(errorData);
+    res.status(500).json(updatedErrorData);
   }
 });
 
