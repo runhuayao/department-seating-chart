@@ -1,0 +1,42 @@
+{
+  "5173-main": {
+    "url": "http://localhost:5173/",
+    "currentUrl": "http://localhost:5173/",
+    "title": "My React App",
+    "bodyText": "部门地图系统\n首页\n选择部门\n技术部 (0/0)\n产品部 (0/0)\n运营部 (0/0)\n人事部 (0/0)\n工程部 (0/0)\n市场部 (0/0)\n销售部 (0/0)\n人事部 (0/0)\n添加工位\n登录\n部门地图管理系统\n\n基于 Figma 设计规范的现代化座位管理平台\n\n总部门数\n\n8\n\n总工位数\n\n0\n\n已占用\n\n0\n\n使用率\n\nNaN%\n\n部门列表\n技术部\n第3层\n总工位:\n0\n已占用:\n0\n可用:\n0\n查看详情\nFigma编辑\n产品部\n第2层\n总工位:\n0\n已占用:\n0\n可用:\n0\n查看详情\nFigma编辑\n运营部\n第2层\n总工位:\n0\n已占用:\n0\n可用:\n0\n查看详情\nFigma编辑\n人事部\n第1层\n总工位:\n0\n已占用:\n0\n可用:\n0\n查看详情\nFigma编辑\n工程部\n第2层\n总工位:\n0\n已占用:\n0\n可用:\n0\n查看详情\nFigma编辑\n市场部\n第3层\n总工位:\n0\n已占用:\n0\n可用:\n0\n查看详情\nFigma编辑\n销售部\n第4层\n总工位:\n0\n已占用:\n0\n可用:\n0\n查看详情\nFigma编辑\n人事部\n第5层\n总工位:\n0\n已占用:\n0\n可用:\n0\n查看详情\n",
+    "hasVueApp": false,
+    "screenshotPath": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\screenshot-5173-main.png",
+    "contentLength": 165249,
+    "timestamp": "2025-10-17T02:22:22.554Z"
+  },
+  "5173-server-management": {
+    "url": "http://localhost:5173/server-management",
+    "currentUrl": "http://localhost:5173/server-management",
+    "title": "M1服务器管理系统",
+    "bodyText": "M1服务器管理平台\n\n专业级服务器监控与管理\n\nM1服务器离线\n云数据库\n|\n5张表\n1247条记录\n同步: 14:35:20\n未登录\n实时监控\n服务器详情\n云数据库\n工位管理\n进程管理\n系统日志\n用户管理\n安全设置\n性能分析\n系统设置\n实时监控\n\n实时监控服务器CPU、内存、磁盘等关键指标\n\nM1服务器监控中心\n\n实时监控服务器性能指标和运行状态\n\n已连接\n1小时\n6小时\n24小时\n7天\nCPU使用率\n\n26%\n\n内存使用率\n\n65%\n\n磁盘使用率\n\n48%\n\n网络流量\n\n44%\n\n实时性能趋势\n折线图\n系统信息\n操作系统\nWindows Server 2022\n运行时间\n15天 8小时 32分钟\n处理器\nIntel Xeon E5-2686 v4\n总内存\n32 GB\n服务状态\nWeb服务\n运行中\n数据库服务\n运行中\nAPI服务\n运行中\n监控服务\n警告",
+    "hasVueApp": false,
+    "screenshotPath": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\screenshot-5173-server-management.png",
+    "contentLength": 135961,
+    "timestamp": "2025-10-17T02:22:25.986Z"
+  },
+  "3001-main": {
+    "url": "http://localhost:3001/",
+    "currentUrl": "http://localhost:3001/",
+    "title": "My React App",
+    "bodyText": "部门地图系统\n首页\n选择部门\nEngineering\nMarketing\nSales\nHR\n添加工位\n登录\n部门地图管理系统\n\n基于 Figma 设计规范的现代化座位管理平台\n\n总部门数\n\n4\n\n总工位数\n\n36\n\n已占用\n\n25\n\n使用率\n\n69%\n\n部门列表\n工程部\n第3层\n总工位:\n12\n已占用:\n8\n可用:\n4\n查看详情\nFigma编辑\n市场部\n第2层\n总工位:\n8\n已占用:\n6\n可用:\n2\n查看详情\nFigma编辑\n销售部\n第2层\n总工位:\n10\n已占用:\n7\n可用:\n3\n查看详情\nFigma编辑\n人力资源部\n第1层\n总工位:\n6\n已占用:\n4\n可用:\n2\n查看详情\nFigma编辑\n当前部门: 全部门概览\n•\n最后更新: 10:22:26\n版本 v1.2.0",
+    "hasVueApp": false,
+    "screenshotPath": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\screenshot-3001-main.png",
+    "contentLength": 66795,
+    "timestamp": "2025-10-17T02:22:29.109Z"
+  },
+  "8080-main": {
+    "url": "http://localhost:8080/",
+    "currentUrl": "http://localhost:8080/",
+    "title": "Error",
+    "bodyText": "Cannot GET /",
+    "hasVueApp": false,
+    "screenshotPath": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\screenshot-8080-main.png",
+    "contentLength": 137,
+    "timestamp": "2025-10-17T02:22:32.213Z"
+  }
+}

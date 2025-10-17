@@ -1,0 +1,166 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <!-- 行政楼整体平面图 -->
+  <defs>
+    <style>
+      .building-outline { fill: #f8fafc; stroke: #374151; stroke-width: 3; }
+      .room { fill: #e5e7eb; stroke: #6b7280; stroke-width: 1; }
+      .department { fill: #dbeafe; stroke: #3b82f6; stroke-width: 2; cursor: pointer; }
+      .department:hover { fill: #bfdbfe; }
+      .corridor { fill: #f3f4f6; stroke: #9ca3af; stroke-width: 1; }
+      .text-label { font-family: Arial, sans-serif; font-size: 14px; fill: #1f2937; text-anchor: middle; }
+      .dept-label { font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; fill: #1e40af; text-anchor: middle; }
+      .floor-label { font-family: Arial, sans-serif; font-size: 12px; fill: #6b7280; text-anchor: middle; }
+    </style>
+  </defs>
+  
+  <!-- 建筑外轮廓 -->
+  <rect x="50" y="50" width="1100" height="700" class="building-outline" rx="20"/>
+  
+  <!-- 中央庭院 -->
+  <rect x="450" y="300" width="300" height="200" class="corridor" rx="10"/>
+  <text x="600" y="405" class="text-label">中央庭院</text>
+  
+  <!-- 主要走廊 -->
+  <rect x="100" y="350" width="300" height="100" class="corridor"/>
+  <rect x="800" y="350" width="300" height="100" class="corridor"/>
+  <rect x="450" y="150" width="300" height="100" class="corridor"/>
+  <rect x="450" y="550" width="300" height="100" class="corridor"/>
+  
+  <!-- 工程部 (左上区域) -->
+  <g id="engineering-dept" class="department" data-department="Engineering">
+    <rect x="100" y="100" width="300" height="200" class="department"/>
+    <text x="250" y="190" class="dept-label">工程部</text>
+    <text x="250" y="210" class="floor-label">Engineering</text>
+    <!-- 工位示意 -->
+    <g class="workstations">
+      <rect x="120" y="120" width="15" height="10" fill="#10b981"/>
+      <rect x="140" y="120" width="15" height="10" fill="#10b981"/>
+      <rect x="160" y="120" width="15" height="10" fill="#f59e0b"/>
+      <rect x="180" y="120" width="15" height="10" fill="#10b981"/>
+      <rect x="200" y="120" width="15" height="10" fill="#ef4444"/>
+      <rect x="220" y="120" width="15" height="10" fill="#10b981"/>
+      
+      <rect x="120" y="140" width="15" height="10" fill="#10b981"/>
+      <rect x="140" y="140" width="15" height="10" fill="#f59e0b"/>
+      <rect x="160" y="140" width="15" height="10" fill="#10b981"/>
+      <rect x="180" y="140" width="15" height="10" fill="#10b981"/>
+      <rect x="200" y="140" width="15" height="10" fill="#10b981"/>
+      <rect x="220" y="140" width="15" height="10" fill="#ef4444"/>
+    </g>
+  </g>
+  
+  <!-- 市场部 (右上区域) -->
+  <g id="marketing-dept" class="department" data-department="Marketing">
+    <rect x="800" y="100" width="300" height="200" class="department"/>
+    <text x="950" y="190" class="dept-label">市场部</text>
+    <text x="950" y="210" class="floor-label">Marketing</text>
+    <!-- 工位示意 -->
+    <g class="workstations">
+      <rect x="820" y="120" width="15" height="10" fill="#10b981"/>
+      <rect x="840" y="120" width="15" height="10" fill="#10b981"/>
+      <rect x="860" y="120" width="15" height="10" fill="#f59e0b"/>
+      <rect x="880" y="120" width="15" height="10" fill="#10b981"/>
+      
+      <rect x="820" y="140" width="15" height="10" fill="#10b981"/>
+      <rect x="840" y="140" width="15" height="10" fill="#ef4444"/>
+      <rect x="860" y="140" width="15" height="10" fill="#10b981"/>
+      <rect x="880" y="140" width="15" height="10" fill="#10b981"/>
+    </g>
+  </g>
+  
+  <!-- 销售部 (左下区域) -->
+  <g id="sales-dept" class="department" data-department="Sales">
+    <rect x="100" y="500" width="300" height="200" class="department"/>
+    <text x="250" y="590" class="dept-label">销售部</text>
+    <text x="250" y="610" class="floor-label">Sales</text>
+    <!-- 工位示意 -->
+    <g class="workstations">
+      <rect x="120" y="520" width="15" height="10" fill="#10b981"/>
+      <rect x="140" y="520" width="15" height="10" fill="#10b981"/>
+      <rect x="160" y="520" width="15" height="10" fill="#f59e0b"/>
+      
+      <rect x="120" y="540" width="15" height="10" fill="#10b981"/>
+      <rect x="140" y="540" width="15" height="10" fill="#ef4444"/>
+      <rect x="160" y="540" width="15" height="10" fill="#10b981"/>
+    </g>
+  </g>
+  
+  <!-- 人事部 (右下区域) -->
+  <g id="hr-dept" class="department" data-department="HR">
+    <rect x="800" y="500" width="300" height="200" class="department"/>
+    <text x="950" y="590" class="dept-label">人事部</text>
+    <text x="950" y="610" class="floor-label">HR</text>
+    <!-- 工位示意 -->
+    <g class="workstations">
+      <rect x="820" y="520" width="15" height="10" fill="#10b981"/>
+      <rect x="840" y="520" width="15" height="10" fill="#10b981"/>
+      
+      <rect x="820" y="540" width="15" height="10" fill="#f59e0b"/>
+      <rect x="840" y="540" width="15" height="10" fill="#10b981"/>
+    </g>
+  </g>
+  
+  <!-- 会议室区域 -->
+  <g class="meeting-rooms">
+    <rect x="480" y="120" width="80" height="60" class="room"/>
+    <text x="520" y="155" class="text-label">会议室A</text>
+    
+    <rect x="580" y="120" width="80" height="60" class="room"/>
+    <text x="620" y="155" class="text-label">会议室B</text>
+    
+    <rect x="480" y="620" width="80" height="60" class="room"/>
+    <text x="520" y="655" class="text-label">培训室</text>
+    
+    <rect x="580" y="620" width="80" height="60" class="room"/>
+    <text x="620" y="655" class="text-label">多功能厅</text>
+  </g>
+  
+  <!-- 公共设施 -->
+  <g class="facilities">
+    <!-- 电梯 -->
+    <rect x="420" y="380" width="30" height="40" fill="#9ca3af"/>
+    <text x="435" y="405" class="text-label" font-size="10">电梯</text>
+    
+    <!-- 楼梯 -->
+    <rect x="750" y="380" width="30" height="40" fill="#9ca3af"/>
+    <text x="765" y="405" class="text-label" font-size="10">楼梯</text>
+    
+    <!-- 洗手间 -->
+    <rect x="420" y="320" width="25" height="25" fill="#6b7280"/>
+    <text x="432" y="337" class="text-label" font-size="8">WC</text>
+  </g>
+  
+  <!-- 图例 -->
+  <g class="legend" transform="translate(50, 720)">
+    <rect x="0" y="0" width="200" height="60" fill="white" stroke="#d1d5db" stroke-width="1" rx="5"/>
+    <text x="10" y="15" class="text-label" font-size="12" font-weight="bold">图例</text>
+    
+    <rect x="10" y="20" width="12" height="8" fill="#10b981"/>
+    <text x="25" y="28" class="text-label" font-size="10">空闲工位</text>
+    
+    <rect x="10" y="35" width="12" height="8" fill="#f59e0b"/>
+    <text x="25" y="43" class="text-label" font-size="10">忙碌工位</text>
+    
+    <rect x="10" y="50" width="12" height="8" fill="#ef4444"/>
+    <text x="25" y="58" class="text-label" font-size="10">离线工位</text>
+    
+    <rect x="100" y="20" width="12" height="8" fill="#dbeafe" stroke="#3b82f6"/>
+    <text x="115" y="28" class="text-label" font-size="10">部门区域</text>
+    
+    <rect x="100" y="35" width="12" height="8" fill="#f3f4f6" stroke="#9ca3af"/>
+    <text x="115" y="43" class="text-label" font-size="10">走廊通道</text>
+    
+    <rect x="100" y="50" width="12" height="8" fill="#e5e7eb" stroke="#6b7280"/>
+    <text x="115" y="58" class="text-label" font-size="10">公共区域</text>
+  </g>
+  
+  <!-- 标题 -->
+  <text x="600" y="30" class="text-label" font-size="20" font-weight="bold">行政楼平面图</text>
+  
+  <!-- 指北针 -->
+  <g class="compass" transform="translate(1050, 100)">
+    <circle cx="0" cy="0" r="25" fill="white" stroke="#374151" stroke-width="2"/>
+    <polygon points="0,-20 -5,10 0,5 5,10" fill="#ef4444"/>
+    <text x="0" y="-30" class="text-label" font-size="10">N</text>
+  </g>
+</svg>

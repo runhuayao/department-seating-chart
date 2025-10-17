@@ -1,0 +1,25 @@
+* {
+  box-sizing: border-box;
+}
+
+.frame1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 10px;
+  border-radius: 6px;
+  background: #ededed;
+  padding: 7px 22px;
+  width: 78px;
+  height: 38px;
+
+  .a98 {
+    flex-shrink: 0;
+    line-height: 24px;
+    letter-spacing: 0;
+    color: #002e3f96;
+    font-family: Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+    font-size: 20px;
+    font-weight: 300;
+  }
+}

@@ -1,0 +1,22 @@
+* {
+  box-sizing: border-box;
+}
+
+.rectangle5 {
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+  background: #ededed;
+  padding: 8px 25px 7px 12px;
+  width: 221px;
+  height: 39px;
+
+  .teams {
+    width: 184px;
+    letter-spacing: 0;
+    color: #002e3f96;
+    font-family: Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+    font-size: 20px;
+    font-weight: 300;
+  }
+}

@@ -1,0 +1,58 @@
+* {
+  box-sizing: border-box;
+}
+
+.group22 {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 334px;
+  height: 149px;
+
+  .searchBySeat {
+    line-height: 31px;
+    letter-spacing: 0;
+    color: #002e3f;
+    font-family: Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+    font-size: 26px;
+    font-weight: 600;
+  }
+
+  .rectangle4 {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    margin-top: 22px;
+    border-radius: 6px;
+    background: #ededed;
+    padding: 8px 101px 7px 12px;
+
+    .enterSeatNumber {
+      width: 221px;
+      letter-spacing: 0;
+      color: #002e3f96;
+      font-family: Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+      font-size: 20px;
+      font-weight: 300;
+    }
+  }
+
+  .rectangle42 {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    margin-top: 18px;
+    border-radius: 6px;
+    background: #002e3f;
+    padding: 8px 132px 7px 135px;
+
+    .search {
+      line-height: 24px;
+      letter-spacing: 0;
+      color: #ffffff;
+      font-family: Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimHei, Arial, Helvetica, sans-serif;
+      font-size: 20px;
+      font-weight: 500;
+    }
+  }
+}

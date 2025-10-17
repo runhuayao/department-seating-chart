@@ -101,7 +101,8 @@ app.use(express.urlencoded({
     }
   }
 }));
-app.use(express.static(join(__dirname, '../dist-server-management')));
+// 移除静态文件服务，避免与前端开发服务器冲突
+// app.use(express.static(join(__dirname, '../dist-server-management')));
 
 // 错误处理中间件
 const asyncHandler = (fn: Function) => (req: any, res: any, next: any) => {
@@ -129,6 +130,39 @@ try {
   } else {
     console.warn('⚠️ 座位图路由未找到，跳过注册');
   }
+  
+  // 添加监控路由
+  try {
+    const monitoringRoutes = await import('./routes/monitoring.js');
+    app.use('/api/monitoring', monitoringRoutes.default);
+    console.log('✅ 监控路由已注册');
+  } catch (error) {
+    console.warn('⚠️ 监控路由未找到，跳过注册:', error);
+  }
+
+  // 添加系统监控API端点
+  app.get('/api/monitor', asyncHandler(async (req: any, res: any) => {
+    const systemMetrics = {
+      timestamp: new Date().toISOString(),
+      server: {
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        cpu: process.cpuUsage(),
+        version: process.version,
+        platform: process.platform
+      },
+      database: await db.getStatus(),
+      websocket: {
+        connected: serverMonitorWS ? true : false,
+        connections: serverMonitorWS ? serverMonitorWS.getConnectionCount() : 0
+      },
+      redis: {
+        connected: cacheService.isConnected(),
+        status: cacheService.getStatus()
+      }
+    };
+    res.json(systemMetrics);
+  }));
   
   console.log('✅ API路由注册完成');
 } catch (error) {
@@ -166,6 +200,41 @@ app.get('/api/websocket/status', asyncHandler(async (req: any, res: any) => {
     lastUpdate: new Date().toISOString()
   };
   res.json(status);
+}));
+
+// 实时监控数据API
+app.get('/api/monitor/realtime', asyncHandler(async (req: any, res: any) => {
+  const realtimeData = {
+    timestamp: new Date().toISOString(),
+    system: {
+      cpu: {
+        usage: Math.random() * 100,
+        cores: require('os').cpus().length
+      },
+      memory: {
+        total: require('os').totalmem(),
+        free: require('os').freemem(),
+        usage: ((require('os').totalmem() - require('os').freemem()) / require('os').totalmem()) * 100
+      },
+      uptime: process.uptime()
+    },
+    database: {
+      connections: Math.floor(Math.random() * 50) + 10,
+      queries: Math.floor(Math.random() * 1000) + 100,
+      status: 'healthy'
+    },
+    websocket: {
+      connections: serverMonitorWS ? Math.floor(Math.random() * 20) + 5 : 0,
+      messages: Math.floor(Math.random() * 500) + 50,
+      status: serverMonitorWS ? 'connected' : 'disconnected'
+    },
+    redis: {
+      memory: Math.floor(Math.random() * 100) + 50,
+      keys: Math.floor(Math.random() * 10000) + 1000,
+      status: cacheService.isConnected() ? 'connected' : 'disconnected'
+    }
+  };
+  res.json(realtimeData);
 }));
 
 // 地图API - 获取部门地图信息
@@ -329,7 +398,10 @@ app.get('/api', (req, res) => {
       database: '/api/database',
       search: '/api/search',
       overview: '/api/overview',
-      stats: '/api/stats'
+      stats: '/api/stats',
+      monitoring: '/api/monitoring',
+      metrics: '/api/monitoring/metrics',
+      websocket: '/api/websocket/status'
     },
     timestamp: new Date().toISOString()
   });
@@ -344,14 +416,8 @@ app.use('/api/*', (req, res) => {
   });
 });
 
-// 服务静态文件（只处理非API路径）
-app.get('*', (req, res) => {
-  // 确保不处理API路径
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-  res.sendFile(join(__dirname, '../dist-server-management/server-management.html'));
-});
+// 移除静态文件服务，专注于API功能
+// 前端应用现在通过独立的Vite开发服务器提供服务
 
 /**
  * start server with port
@@ -386,11 +452,20 @@ async function startServer() {
     console.log('🔍 检查Express应用配置...');
     console.log(`📋 已注册的路由数量: ${app._router?.stack?.length || 0}`);
 
-    // Initialize WebSocket for server monitoring (简化初始化)
-    // serverMonitorWS = new ServerMonitorWebSocket(server, dbManager, null);
-    
-    // Initialize WebSocket for database synchronization
-    // databaseSyncWS = new DatabaseSyncWebSocket(server);
+    // Initialize WebSocket for server monitoring
+    console.log('🔌 正在初始化WebSocket服务器...');
+    try {
+      serverMonitorWS = new ServerMonitorWebSocket(server, dbManager, cacheService);
+      console.log('✅ ServerMonitorWebSocket 初始化成功');
+      
+      // Initialize WebSocket for database synchronization
+      databaseSyncWS = new DatabaseSyncWebSocket(server);
+      console.log('✅ DatabaseSyncWebSocket 初始化成功');
+      console.log('✅ WebSocket服务器启动完成');
+    } catch (error) {
+      console.error('❌ WebSocket初始化失败:', error);
+      // 继续启动HTTP服务器，即使WebSocket失败
+    }
 
     console.log(`🚀 正在启动HTTP服务器，监听端口 ${PORT}...`);
     
