@@ -5,7 +5,35 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-**文档最后更新**: 2025-10-17 16:40:25 CST
+**文档最后更新**: 2025-01-22 19:44:00 CST
+
+## [v3.2.3] - 2025-01-22 19:44:00 CST
+
+### 修复 (Fixed)
+- 🔧 **工位管理模块** - 修复工位查看/编辑功能和数据刷新逻辑
+  - 修复 WorkstationModal 组件数据初始化问题，添加 useEffect 钩子确保 workstation prop 变化时 formData 正确更新
+  - 修复查看工位功能显示空白界面的问题
+  - 修复编辑工位功能数据预填充问题
+  - 优化 handleRefreshWorkstations 函数，正确清除 localStorage 缓存
+  - 添加刷新成功/失败的用户反馈提示信息
+  - 增强错误处理和控制台日志记录
+
+## [v3.2.2] - 2025-10-17 16:56:40 CST
+
+### 新增
+- 创建时间工具函数 timeUtils.ts 获取中国标准时间（CST）
+- 实现动态时间显示，替换所有硬编码的2024年时间数据
+
+### 修复
+- 修复M1服务器管理平台时间显示问题
+- 修复系统日志中的错误信息，改为正常运行状态
+- 替换所有模拟时间数据为真实动态时间
+
+### 优化
+- 使用 getCurrentCSTTime() 获取当前准确时间
+- 使用 getRandomPastTime() 生成合理的过去时间戳
+- 使用 getFutureTime() 生成未来同步时间
+- 确保所有时间显示格式统一为 YYYY-MM-DD HH:MM:SS
 
 ## [v3.2.1_time-mcp-integration] - 2025-10-17
 
