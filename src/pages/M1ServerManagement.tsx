@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor, Server, Settings, Activity, Users, Shield, BarChart3, Terminal, Database, MapPin, Edit, Trash2, Eye, Plus, LogOut } from 'lucide-react';
+import { Monitor, Server, Settings, Activity, Users, Shield, BarChart3, Terminal, Database, MapPin, Edit, Trash2, Eye, Plus, LogOut, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import ServerMonitor from '../components/ServerMonitor';
 import ServerDetails from '../components/ServerDetails';
@@ -14,104 +14,61 @@ interface NavigationItem {
 }
 
 const M1ServerManagement: React.FC = () => {
-  const { user, logout, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState('monitor');
-  const [isConnected, setIsConnected] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
-  const [selectedTable, setSelectedTable] = useState<any>(null);
-  const [dbStatus, setDbStatus] = useState({
-    connected: true,
-    tables: 5,
-    totalRecords: 1247,
-    lastSync: getCurrentCSTTime()
+  const { logout } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [isConnected, setIsConnected] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState({
+    status: 'connected',
+    lastUpdate: getCurrentCSTTime(),
+    uptime: '99.9%',
+    responseTime: '12ms'
   });
 
-  // 模拟连接状态
   useEffect(() => {
-    const timer = setInterval(() => {
-      setConnectionStatus(prev => {
-        if (prev === 'disconnected') return 'connecting';
-        if (prev === 'connecting') return 'connected';
-        return 'connected';
-      });
-    }, 3000);
+    const interval = setInterval(() => {
+      setConnectionStatus(prev => ({
+        ...prev,
+        lastUpdate: getCurrentCSTTime(),
+        responseTime: `${Math.floor(Math.random() * 20) + 10}ms`
+      }));
+    }, 5000);
 
-    return () => clearInterval(timer);
+    return () => clearInterval(interval);
   }, []);
 
-  // 获取真实数据库状态
-  const fetchDatabaseStatus = async () => {
-    if (!isAuthenticated) return;
-    
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:8080/api/database/status', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const status = await response.json();
-        setDbStatus({
-          connected: status.connected,
-          tables: status.tables,
-          totalRecords: status.totalRecords,
-          lastSync: new Date(status.lastSync).toLocaleString()
-        });
-      } else if (response.status === 401) {
-        // 认证失败，退出登录
-        logout();
-      }
-    } catch (error) {
-      console.error('获取数据库状态失败:', error);
-      setDbStatus(prev => ({ ...prev, connected: false }));
-    }
+  const handleLogout = () => {
+    logout();
   };
-
-  // 定期更新数据库状态
-  useEffect(() => {
-    if (isAuthenticated) {
-      // 初始加载
-      fetchDatabaseStatus();
-      
-      // 每30秒更新一次
-      const interval = setInterval(fetchDatabaseStatus, 30000);
-
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated]);
 
   const navigationItems: NavigationItem[] = [
     {
-      id: 'monitor',
-      label: '实时监控',
-      icon: <Activity className="w-5 h-5" />,
+      id: 'overview',
+      label: '系统概览',
+      icon: <Monitor className="w-5 h-5" />,
       component: <ServerMonitor />
     },
     {
-      id: 'details',
-      label: '服务器详情',
-      icon: <Server className="w-5 h-5" />,
-      component: <ServerDetails />
-    },
-    {
       id: 'database',
-      label: '云数据库',
+      label: '数据库管理',
       icon: <Database className="w-5 h-5" />,
       component: <DatabaseManagement />
     },
     {
-      id: 'workstations',
+      id: 'workstation',
       label: '工位管理',
       icon: <MapPin className="w-5 h-5" />,
       component: <WorkstationManagement />
     },
     {
+      id: 'users',
+      label: '用户管理',
+      icon: <Users className="w-5 h-5" />,
+      component: <UserManagement />
+    },
+    {
       id: 'processes',
       label: '进程管理',
-      icon: <Terminal className="w-5 h-5" />,
+      icon: <Activity className="w-5 h-5" />,
       component: <ProcessManagement />
     },
     {
@@ -119,12 +76,6 @@ const M1ServerManagement: React.FC = () => {
       label: '系统日志',
       icon: <Terminal className="w-5 h-5" />,
       component: <SystemLogs />
-    },
-    {
-      id: 'users',
-      label: '用户管理',
-      icon: <Users className="w-5 h-5" />,
-      component: <UserManagement />
     },
     {
       id: 'security',
@@ -146,191 +97,114 @@ const M1ServerManagement: React.FC = () => {
     }
   ];
 
-  const getStatusColor = () => {
-    switch (connectionStatus) {
-      case 'connected': return 'online';
-      case 'connecting': return 'warning';
-      case 'disconnected': return 'offline';
-      default: return 'offline';
-    }
-  };
-
-  const getStatusText = () => {
-    switch (connectionStatus) {
-      case 'connected': return 'M1服务器在线';
-      case 'connecting': return '正在连接...';
-      case 'disconnected': return 'M1服务器离线';
-      default: return '未知状态';
-    }
+  const getPageDescription = (tabId: string): string => {
+    const descriptions: Record<string, string> = {
+      overview: '监控服务器状态、性能指标和系统健康度',
+      database: '管理数据库连接、备份和性能优化',
+      workstation: '管理工位信息、状态和分配',
+      users: '管理用户账户、权限和访问控制',
+      processes: '监控和管理系统进程',
+      logs: '查看和分析系统日志',
+      security: '配置安全策略和访问控制',
+      analytics: '分析系统性能和使用统计',
+      settings: '配置系统参数和偏好设置'
+    };
+    return descriptions[tabId] || '';
   };
 
   return (
-    <div className="m1-theme min-h-screen">
-      {/* 顶部导航栏 */}
-      <header className="m1-nav sticky top-0 z-50">
+    <div className="min-h-screen bg-slate-900 text-white">
+      {/* Header */}
+      <div className="bg-slate-800 border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                  <Server className="w-6 h-6 text-white" />
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <Server className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-white">M1服务器管理平台</h1>
-                  <p className="text-sm text-gray-400">专业级服务器监控与管理</p>
+                  <h1 className="text-xl font-bold">M1 服务器管理</h1>
+                  <p className="text-xs text-gray-400">企业级服务器监控与管理平台</p>
                 </div>
               </div>
             </div>
             
             <div className="flex items-center gap-4">
-              {/* 连接状态指示器 */}
-              <div className="m1-status-indicator">
-                <div className={`m1-status-dot ${getStatusColor()}`}></div>
-                <span className="text-sm font-medium">{getStatusText()}</span>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                <span className="text-sm text-gray-300">
+                  {isConnected ? '已连接' : '连接断开'}
+                </span>
               </div>
-              
-              {/* 云数据库状态 */}
-              <div className="flex items-center gap-3 px-3 py-2 bg-slate-700 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${dbStatus.connected ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                  <span className="text-xs text-gray-300">云数据库</span>
-                </div>
-                <div className="text-xs text-gray-400">|</div>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="text-blue-400">{dbStatus.tables}张表</span>
-                  <span className="text-green-400">{dbStatus.totalRecords}条记录</span>
-                  <span className="text-gray-400">同步: {dbStatus.lastSync.split(' ')[1]}</span>
-                </div>
+              <div className="text-sm text-gray-400">
+                {connectionStatus.lastUpdate}
               </div>
-              
-              {/* 用户信息 */}
-              {isAuthenticated && user ? (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 px-3 py-2 bg-slate-700 rounded-lg">
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-semibold text-white">
-                        {user.username.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{user.username}</span>
-                      <span className="text-xs text-gray-400">
-                        {user.role === 'admin' ? '管理员' : user.role === 'manager' ? '经理' : '员工'}
-                      </span>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={logout}
-                    className="p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-                    title="退出登录"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="px-3 py-2 bg-slate-700 rounded-lg text-sm text-gray-400">
-                  未登录
-                </div>
-              )}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                退出登录
+              </button>
             </div>
           </div>
         </div>
-      </header>
-
-      <div className="flex">
-        {/* 侧边导航 */}
-        <aside className="w-64 bg-slate-800 min-h-screen border-r border-slate-700">
-          <nav className="p-4">
-            <div className="space-y-2">
-              {navigationItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`m1-nav-item w-full text-left ${
-                    activeTab === item.id ? 'active' : ''
-                  }`}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
-          </nav>
-        </aside>
-
-        {/* 主内容区域 */}
-        <main className="flex-1 p-6">
-          <div className="max-w-7xl mx-auto">
-            {/* 页面标题 */}
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-2">
-                {navigationItems.find(item => item.id === activeTab)?.icon}
-                <h2 className="text-2xl font-bold text-white">
-                  {navigationItems.find(item => item.id === activeTab)?.label}
-                </h2>
-              </div>
-              <p className="text-gray-400">
-                {getPageDescription(activeTab)}
-              </p>
-            </div>
-
-            {/* 内容区域 */}
-            <div className="m1-fade-in">
-              {navigationItems.find(item => item.id === activeTab)?.component}
-            </div>
-          </div>
-        </main>
       </div>
 
-      {/* 表数据查看模态框 */}
-      {selectedTable && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-white">
-                表数据: {selectedTable.name}
-              </h3>
-              <button 
-                onClick={() => setSelectedTable(null)}
-                className="text-gray-400 hover:text-white"
+      {/* Navigation */}
+      <div className="bg-slate-800 border-b border-slate-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8 overflow-x-auto">
+            {navigationItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex items-center gap-2 px-3 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === item.id
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+                }`}
               >
-                ✕
+                {item.icon}
+                {item.label}
               </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Page Description */}
+      <div className="bg-slate-800/50 border-b border-slate-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <p className="text-sm text-gray-400">
+            {getPageDescription(activeTab)}
+          </p>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {navigationItems.find(item => item.id === activeTab)?.component}
+      </div>
+
+      {/* Connection Status Modal */}
+      {!isConnected && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-lg p-6 max-w-md mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-3 h-3 bg-red-400 rounded-full animate-pulse"></div>
+              <h3 className="text-lg font-semibold text-red-400">连接断开</h3>
             </div>
-            <div className="overflow-auto max-h-96">
-              {selectedTable.data.length > 0 ? (
-                <table className="m1-table">
-                  <thead>
-                    <tr>
-                      {Object.keys(selectedTable.data[0]).map((key) => (
-                        <th key={key}>{key}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedTable.data.map((row: any, index: number) => (
-                      <tr key={index}>
-                        {Object.values(row).map((value: any, cellIndex: number) => (
-                          <td key={cellIndex} className="text-sm">
-                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-center py-8 text-gray-400">
-                  暂无数据
-                </div>
-              )}
-            </div>
-            <div className="mt-4 flex justify-end">
-              <button 
-                onClick={() => setSelectedTable(null)}
-                className="m1-btn m1-btn-ghost"
+            <p className="text-gray-300 mb-6">
+              与服务器的连接已断开，正在尝试重新连接...
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setIsConnected(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                关闭
+                重试连接
               </button>
             </div>
           </div>
@@ -340,337 +214,134 @@ const M1ServerManagement: React.FC = () => {
   );
 };
 
-// 获取页面描述
-const getPageDescription = (tabId: string): string => {
-  const descriptions: Record<string, string> = {
-    monitor: '实时监控服务器CPU、内存、磁盘等关键指标',
-    details: '查看服务器详细运行数据和系统信息',
-    database: '管理云数据库连接、表结构和数据同步状态',
-    processes: '管理和监控系统进程状态',
-    logs: '查看系统日志和错误报告',
-    users: '管理用户账户和权限设置',
-    security: '配置安全策略和访问控制',
-    analytics: '分析服务器性能趋势和优化建议',
-    settings: '配置系统参数和服务设置'
-  };
-  return descriptions[tabId] || '';
-};
-
-// 云数据库管理组件
 const DatabaseManagement: React.FC = () => {
-  const [tables, setTables] = useState<any[]>([]);
-  const [syncStatus, setSyncStatus] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTable, setSelectedTable] = useState<any>(null);
-  const [tableData, setTableData] = useState<any[]>([]);
-  const [syncing, setSyncing] = useState<string | null>(null);
+  const [databases] = useState([
+    { name: 'department_map', size: '2.3 GB', status: 'active', lastBackup: '2024-01-15 14:30' },
+    { name: 'user_sessions', size: '156 MB', status: 'active', lastBackup: '2024-01-15 14:30' },
+    { name: 'system_logs', size: '892 MB', status: 'active', lastBackup: '2024-01-15 14:30' }
+  ]);
 
-  // 获取数据表信息
-  const fetchTables = async () => {
-    try {
-      const response = await fetch('http://localhost:8080/api/database/tables');
-      if (response.ok) {
-        const data = await response.json();
-        setTables(data.tables || []);
-      }
-    } catch (error) {
-      console.error('获取数据表信息失败:', error);
-    }
-  };
-
-  // 获取同步状态
-  const fetchSyncStatus = async () => {
-    try {
-      const response = await fetch('http://localhost:8080/api/database/sync-status');
-      if (response.ok) {
-        const data = await response.json();
-        setSyncStatus(data.syncStatus || []);
-      }
-    } catch (error) {
-      console.error('获取同步状态失败:', error);
-    }
-  };
-
-  // 查看表数据
-  const handleViewTable = async (tableName: string) => {
-    try {
-      const response = await fetch(`http://localhost:8080/api/database/tables/${tableName}/data`);
-      if (response.ok) {
-        const data = await response.json();
-        setTableData(data.records || []);
-        setSelectedTable({ name: tableName, data: data.records || [] });
-      } else {
-        // API失败时使用模拟数据
-        const mockData = generateMockTableData(tableName);
-        setTableData(mockData);
-        setSelectedTable({ name: tableName, data: mockData });
-      }
-    } catch (error) {
-      console.error('获取表数据失败:', error);
-      // 使用模拟数据
-      const mockData = generateMockTableData(tableName);
-      setTableData(mockData);
-      setSelectedTable({ name: tableName, data: mockData });
-    }
-  };
-
-  // 同步表数据
-  const handleSyncTable = async (tableName: string) => {
-    setSyncing(tableName);
-    try {
-      const response = await fetch(`http://localhost:8080/api/database/tables/${tableName}/sync`, {
-        method: 'POST'
-      });
-      if (response.ok) {
-        // 同步成功，刷新数据
-        await Promise.all([fetchTables(), fetchSyncStatus()]);
-        alert(`表 ${tableName} 同步成功`);
-      } else {
-        // 模拟同步成功
-        setTimeout(() => {
-          alert(`表 ${tableName} 同步成功（模拟）`);
-        }, 1000);
-      }
-    } catch (error) {
-      console.error('同步表数据失败:', error);
-      // 模拟同步成功
-      setTimeout(() => {
-        alert(`表 ${tableName} 同步成功（模拟）`);
-      }, 1000);
-    } finally {
-      setSyncing(null);
-    }
-  };
-
-  // 同步所有表数据
-  const handleSyncAllTables = async () => {
-    setSyncing('all');
-    try {
-      const response = await fetch('http://localhost:8080/api/database/sync-all', {
-        method: 'POST'
-      });
-      if (response.ok) {
-        // 同步成功，刷新数据
-        await Promise.all([fetchTables(), fetchSyncStatus()]);
-        alert('所有表同步成功');
-      } else {
-        // 模拟同步成功
-        setTimeout(() => {
-          alert('所有表同步成功（模拟）');
-        }, 1500);
-      }
-    } catch (error) {
-      console.error('同步所有表失败:', error);
-      // 模拟同步成功
-      setTimeout(() => {
-        alert('所有表同步成功（模拟）');
-      }, 1500);
-    } finally {
-      setSyncing(null);
-    }
-  };
-
-  // 生成模拟表数据
-  const generateMockTableData = (tableName: string) => {
-    switch (tableName) {
-      case 'workstations':
-        return [
-          { id: 1, name: 'WS-001', user: 'Alice', department: 'Engineering', ip: '192.168.1.101', location: 'A区-01', status: 'online' },
-          { id: 2, name: 'WS-002', user: 'Bob', department: 'Marketing', ip: '192.168.1.102', location: 'B区-02', status: 'offline' },
-          { id: 3, name: 'WS-003', user: 'Charlie', department: 'Engineering', ip: '192.168.1.103', location: 'A区-03', status: 'online' }
-        ];
-      case 'employees':
-        return [
-          { id: 1, name: 'Alice Johnson', employee_id: 'EMP001', department: 'Engineering', status: 'online' },
-          { id: 2, name: 'Bob Smith', employee_id: 'EMP002', department: 'Marketing', status: 'offline' },
-          { id: 3, name: 'Charlie Brown', employee_id: 'EMP003', department: 'Engineering', status: 'online' }
-        ];
-      case 'departments':
-        return [
-          { id: 1, name: 'Engineering', manager: 'Alice Johnson', employee_count: 25 },
-          { id: 2, name: 'Marketing', manager: 'Bob Smith', employee_count: 15 },
-          { id: 3, name: 'HR', manager: 'Charlie Brown', employee_count: 8 }
-        ];
-      case 'users':
-        return [
-          { id: 1, username: 'admin', role: 'admin', last_login: getRandomPastTime(5) },
-          { id: 2, username: 'manager1', role: 'manager', last_login: getRandomPastTime(45) },
-          { id: 3, username: 'user1', role: 'user', last_login: getRandomPastTime(130) }
-        ];
-      case 'audit_logs':
-        return [
-          { id: 1, action: 'LOGIN', user: 'admin', timestamp: getRandomPastTime(5), details: '管理员登录' },
-          { id: 2, action: 'UPDATE', user: 'manager1', timestamp: getRandomPastTime(10), details: '更新工位信息' },
-          { id: 3, action: 'DELETE', user: 'admin', timestamp: getRandomPastTime(15), details: '删除过期记录' }
-        ];
-      default:
-        return [];
-    }
-  };
-
-  // 初始化数据
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([fetchTables(), fetchSyncStatus()]);
-      setLoading(false);
-    };
-    loadData();
+    const timer = setTimeout(() => setLoading(false), 1000);
+    return () => clearTimeout(timer);
   }, []);
 
-  // 默认数据（当API不可用时）
-  const defaultTables = [
-    { name: 'workstations', records: 156, size: '2.3MB', lastUpdate: getRandomPastTime(5) },
-    { name: 'employees', records: 89, size: '1.8MB', lastUpdate: getRandomPastTime(7) },
-    { name: 'departments', records: 12, size: '0.5MB', lastUpdate: getRandomPastTime(10) },
-    { name: 'users', records: 45, size: '1.2MB', lastUpdate: getRandomPastTime(15) },
-    { name: 'audit_logs', records: 945, size: '5.7MB', lastUpdate: getCurrentCSTTime() }
-  ];
-
-  const defaultSyncStatus = {
-    lastSync: getCurrentCSTTime(),
-    status: 'success',
-    nextSync: getFutureTime(5),
-    totalSynced: 1247
+  const handleBackup = (dbName: string) => {
+    console.log(`备份数据库: ${dbName}`);
   };
 
-  // 使用实际数据或默认数据
-  const displayTables = tables.length > 0 ? tables : defaultTables;
-  const displaySyncStatus = syncStatus.length > 0 ? syncStatus[0] : defaultSyncStatus;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-          <p className="text-gray-400">加载数据库信息中...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleOptimize = (dbName: string) => {
+    console.log(`优化数据库: ${dbName}`);
+  };
 
   return (
     <div className="space-y-6">
-      {/* 数据库概览 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="m1-card">
           <div className="m1-card-body text-center">
-            <div className="text-2xl font-bold text-blue-400">{displayTables.length}</div>
-            <div className="text-sm text-gray-400">数据表</div>
+            <div className="text-2xl font-bold text-blue-400">3</div>
+            <div className="text-sm text-gray-400">数据库总数</div>
           </div>
         </div>
         <div className="m1-card">
           <div className="m1-card-body text-center">
-            <div className="text-2xl font-bold text-green-400">{displaySyncStatus.totalSynced}</div>
-            <div className="text-sm text-gray-400">总记录数</div>
+            <div className="text-2xl font-bold text-green-400">3.4 GB</div>
+            <div className="text-sm text-gray-400">总存储空间</div>
           </div>
         </div>
         <div className="m1-card">
           <div className="m1-card-body text-center">
-            <div className="text-2xl font-bold text-yellow-400">11.5MB</div>
-            <div className="text-sm text-gray-400">数据库大小</div>
+            <div className="text-2xl font-bold text-yellow-400">98.5%</div>
+            <div className="text-sm text-gray-400">查询性能</div>
           </div>
         </div>
         <div className="m1-card">
           <div className="m1-card-body text-center">
-            <div className={`text-2xl font-bold ${displaySyncStatus.status === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-              {displaySyncStatus.status === 'success' ? '正常' : '异常'}
-            </div>
-            <div className="text-sm text-gray-400">同步状态</div>
+            <div className="text-2xl font-bold text-purple-400">24h</div>
+            <div className="text-sm text-gray-400">备份间隔</div>
           </div>
         </div>
       </div>
 
-      {/* 数据表详情 */}
       <div className="m1-card">
         <div className="m1-card-header">
-          <h3 className="text-lg font-semibold">数据表详情</h3>
-          <button 
-            onClick={() => Promise.all([fetchTables(), fetchSyncStatus()])}
-            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-          >
-            刷新
+          <h3 className="text-lg font-semibold">数据库列表</h3>
+          <button className="m1-btn-primary">
+            创建数据库
           </button>
         </div>
         <div className="m1-card-body">
-          <div className="overflow-x-auto">
-            <table className="m1-table">
-              <thead>
-                <tr>
-                  <th>表名</th>
-                  <th>记录数</th>
-                  <th>大小</th>
-                  <th>最后更新</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayTables.map((table) => (
-                  <tr key={table.name}>
-                    <td className="font-mono font-medium">{table.name}</td>
-                    <td>{table.records}</td>
-                    <td>{table.size}</td>
-                    <td className="text-sm text-gray-400">{table.lastUpdate}</td>
-                    <td>
-                      <div className="flex gap-2">
-                        <button 
-                          className="m1-btn m1-btn-ghost text-xs"
-                          onClick={() => handleViewTable(table.name)}
-                        >
-                          查看
-                        </button>
-                        <button 
-                          className="m1-btn m1-btn-ghost text-xs"
-                          onClick={() => handleSyncTable(table.name)}
-                          disabled={syncing === table.name}
-                        >
-                          {syncing === table.name ? '同步中...' : '同步'}
-                        </button>
-                      </div>
-                    </td>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
+              <span className="ml-2 text-gray-400">加载中...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="m1-table">
+                <thead>
+                  <tr>
+                    <th>数据库名称</th>
+                    <th>大小</th>
+                    <th>状态</th>
+                    <th>最后备份</th>
+                    <th>操作</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {databases.map((db) => (
+                    <tr key={db.name}>
+                      <td className="font-medium">{db.name}</td>
+                      <td>{db.size}</td>
+                      <td>
+                        <span className="px-2 py-1 text-xs rounded-full bg-green-900 text-green-300">
+                          {db.status}
+                        </span>
+                      </td>
+                      <td className="text-gray-400 text-sm">{db.lastBackup}</td>
+                      <td>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleBackup(db.name)}
+                            className="text-blue-400 hover:text-blue-300"
+                            title="备份"
+                          >
+                            备份
+                          </button>
+                          <button
+                            onClick={() => handleOptimize(db.name)}
+                            className="text-green-400 hover:text-green-300"
+                            title="优化"
+                          >
+                            优化
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 同步状态 */}
       <div className="m1-card">
         <div className="m1-card-header">
-          <h3 className="text-lg font-semibold">数据同步状态</h3>
+          <h3 className="text-lg font-semibold">数据库监控</h3>
         </div>
         <div className="m1-card-body">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">上次同步时间</span>
-                  <span className="text-sm font-medium">{displaySyncStatus.lastSync}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">下次同步时间</span>
-                  <span className="text-sm font-medium">{displaySyncStatus.nextSync}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">同步状态</span>
-                  <span className={`m1-badge ${displaySyncStatus.status === 'success' ? 'm1-badge-success' : 'm1-badge-error'}`}>
-                    {displaySyncStatus.status === 'success' ? '成功' : '失败'}
-                  </span>
-                </div>
-              </div>
+              <h4 className="text-sm font-medium text-gray-300 mb-2">连接数</h4>
+              <div className="text-2xl font-bold text-blue-400">24/100</div>
+              <div className="text-xs text-gray-400">当前活跃连接</div>
             </div>
             <div>
-              <div className="flex items-center justify-center h-full">
-                <button 
-                  className="m1-btn m1-btn-primary"
-                  onClick={() => handleSyncAllTables()}
-                  disabled={syncing !== null}
-                >
-                  {syncing ? '同步中...' : '立即同步'}
-                </button>
-              </div>
+              <h4 className="text-sm font-medium text-gray-300 mb-2">查询/秒</h4>
+              <div className="text-2xl font-bold text-green-400">156</div>
+              <div className="text-xs text-gray-400">平均查询频率</div>
             </div>
           </div>
         </div>
@@ -679,104 +350,240 @@ const DatabaseManagement: React.FC = () => {
   );
 };
 
-// 进程管理组件
 const ProcessManagement: React.FC = () => {
-  const [processes] = useState([
-    { pid: 1234, name: 'node.exe', cpu: 15.5, memory: '128MB', status: 'running' },
-    { pid: 5678, name: 'chrome.exe', cpu: 8.2, memory: '256MB', status: 'running' },
-    { pid: 9012, name: 'explorer.exe', cpu: 2.1, memory: '64MB', status: 'running' },
-    { pid: 3456, name: 'system', cpu: 0.8, memory: '32MB', status: 'running' }
+  const [processes, setProcesses] = useState([
+    { id: 1, name: 'nginx', cpu: '2.3%', memory: '45MB', status: 'running' },
+    { id: 2, name: 'node', cpu: '15.7%', memory: '234MB', status: 'running' },
+    { id: 3, name: 'postgres', cpu: '8.1%', memory: '156MB', status: 'running' }
   ]);
+  const [loading, setLoading] = useState(false);
 
-  return (
-    <div className="space-y-6">
-      <div className="m1-card">
-        <div className="m1-card-header">
-          <h3 className="text-lg font-semibold">运行中的进程</h3>
-        </div>
-        <div className="m1-card-body">
-          <div className="overflow-x-auto">
-            <table className="m1-table">
-              <thead>
-                <tr>
-                  <th>PID</th>
-                  <th>进程名称</th>
-                  <th>CPU使用率</th>
-                  <th>内存使用</th>
-                  <th>状态</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {processes.map((process) => (
-                  <tr key={process.pid}>
-                    <td className="font-mono">{process.pid}</td>
-                    <td className="font-medium">{process.name}</td>
-                    <td>{process.cpu}%</td>
-                    <td>{process.memory}</td>
-                    <td>
-                      <span className="m1-badge m1-badge-success">{process.status}</span>
-                    </td>
-                    <td>
-                      <button className="m1-btn m1-btn-ghost text-xs">终止</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+  const generateMockProcesses = () => {
+    const processNames = ['nginx', 'node', 'postgres', 'redis', 'docker', 'systemd', 'chrome', 'vscode'];
+    const statuses = ['running', 'stopped', 'sleeping'];
+    
+    return Array.from({ length: 8 }, (_, index) => ({
+      id: index + 1,
+      name: processNames[index % processNames.length],
+      cpu: `${(Math.random() * 20).toFixed(1)}%`,
+      memory: `${Math.floor(Math.random() * 500) + 50}MB`,
+      status: statuses[Math.floor(Math.random() * statuses.length)]
+    }));
+  };
 
-// 系统日志组件
-const SystemLogs: React.FC = () => {
-  const [logs] = useState([
-    { id: 1, time: getRandomPastTime(2), level: 'info', message: '服务器启动成功', source: 'system' },
-    { id: 2, time: getRandomPastTime(5), level: 'info', message: '系统运行正常，内存使用率: 65%', source: 'monitor' },
-    { id: 3, time: getRandomPastTime(8), level: 'info', message: '数据库连接成功', source: 'database' },
-    { id: 4, time: getRandomPastTime(12), level: 'info', message: '系统监控激活', source: 'monitor' }
-  ]);
-
-  const getLevelBadge = (level: string) => {
-    switch (level) {
-      case 'error': return 'm1-badge-error';
-      case 'warn': return 'm1-badge-warning';
-      case 'info': return 'm1-badge-info';
-      default: return 'm1-badge-info';
+  const fetchProcesses = async (forceRefresh = false) => {
+    console.log('开始获取进程数据...');
+    setLoading(true);
+    
+    try {
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 生成新的进程数据
+      const newProcesses = generateMockProcesses();
+      setProcesses(newProcesses);
+      console.log('进程数据获取完成');
+    } catch (error) {
+      console.error('获取进程数据失败:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleRefreshProcesses = async () => {
+    console.log('刷新进程数据...');
+    // 清除localStorage中的进程相关数据
+    localStorage.removeItem('processes_cache');
+    localStorage.removeItem('processes_last_fetch');
+    
+    // 强制刷新数据
+    await fetchProcesses(true);
   };
 
   return (
     <div className="space-y-6">
       <div className="m1-card">
-        <div className="m1-card-header">
-          <h3 className="text-lg font-semibold">系统日志</h3>
+        <div className="m1-card-header flex justify-between items-center">
+          <h3 className="text-lg font-semibold">进程列表</h3>
+          <button
+            onClick={handleRefreshProcesses}
+            disabled={loading}
+            className="m1-btn-secondary flex items-center gap-2"
+            title="刷新进程数据"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            刷新数据
+          </button>
         </div>
         <div className="m1-card-body">
-          <div className="space-y-3">
-            {logs.map((log) => (
-              <div key={log.id} className="flex items-start gap-4 p-3 bg-slate-700 rounded-lg">
-                <span className="text-xs text-gray-400 font-mono whitespace-nowrap">
-                  {log.time}
-                </span>
-                <span className={`m1-badge ${getLevelBadge(log.level)}`}>
-                  {log.level}
-                </span>
-                <span className="text-sm flex-1">{log.message}</span>
-                <span className="text-xs text-gray-500">{log.source}</span>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
+                <span className="text-gray-400">正在加载进程数据...</span>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="m1-table">
+                <thead>
+                  <tr>
+                    <th>进程名</th>
+                    <th>CPU使用率</th>
+                    <th>内存使用</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {processes.map((process) => (
+                    <tr key={process.id}>
+                      <td className="font-medium">{process.name}</td>
+                      <td>{process.cpu}</td>
+                      <td>{process.memory}</td>
+                      <td>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          process.status === 'running' ? 'bg-green-900 text-green-300' :
+                          process.status === 'stopped' ? 'bg-red-900 text-red-300' :
+                          'bg-yellow-900 text-yellow-300'
+                        }`}>
+                          {process.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button className="text-red-400 hover:text-red-300">
+                          终止
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-// 工位模态框组件
+const SystemLogs: React.FC = () => {
+  const [logs, setLogs] = useState([
+    { time: '2024-01-15 15:30:25', level: 'INFO', message: '用户登录成功' },
+    { time: '2024-01-15 15:29:18', level: 'WARN', message: '数据库连接池接近上限' },
+    { time: '2024-01-15 15:28:45', level: 'ERROR', message: '文件上传失败' }
+  ]);
+  const [loading, setLoading] = useState(false);
+
+  const generateMockLogs = () => {
+    const levels = ['INFO', 'WARN', 'ERROR', 'DEBUG'];
+    const messages = [
+      '用户登录成功',
+      '数据库连接池接近上限',
+      '文件上传失败',
+      '系统启动完成',
+      '内存使用率过高',
+      '网络连接超时',
+      '缓存清理完成',
+      '定时任务执行成功',
+      '权限验证失败',
+      '数据备份完成'
+    ];
+    
+    return Array.from({ length: 10 }, (_, index) => {
+      const now = new Date();
+      const time = new Date(now.getTime() - Math.random() * 24 * 60 * 60 * 1000);
+      
+      return {
+        id: index + 1,
+        time: time.toLocaleString('zh-CN', { 
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit', 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          second: '2-digit' 
+        }),
+        level: levels[Math.floor(Math.random() * levels.length)],
+        message: messages[Math.floor(Math.random() * messages.length)]
+      };
+    }).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  };
+
+  const fetchLogs = async (forceRefresh = false) => {
+    console.log('开始获取日志数据...');
+    setLoading(true);
+    
+    try {
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // 生成新的日志数据
+      const newLogs = generateMockLogs();
+      setLogs(newLogs);
+      console.log('日志数据获取完成');
+    } catch (error) {
+      console.error('获取日志数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefreshLogs = async () => {
+    console.log('刷新日志数据...');
+    // 清除localStorage中的日志相关数据
+    localStorage.removeItem('logs_cache');
+    localStorage.removeItem('logs_last_fetch');
+    
+    // 强制刷新数据
+    await fetchLogs(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="m1-card">
+        <div className="m1-card-header flex justify-between items-center">
+          <h3 className="text-lg font-semibold">系统日志</h3>
+          <button
+            onClick={handleRefreshLogs}
+            disabled={loading}
+            className="m1-btn-secondary flex items-center gap-2"
+            title="刷新日志数据"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            刷新数据
+          </button>
+        </div>
+        <div className="m1-card-body">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+              <span>正在加载日志数据...</span>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {logs.map((log, index) => (
+                <div key={index} className="flex items-center gap-4 p-3 bg-slate-800 rounded-lg">
+                  <span className="text-xs text-gray-400 w-32">{log.time}</span>
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    log.level === 'ERROR' ? 'bg-red-900 text-red-300' :
+                    log.level === 'WARN' ? 'bg-yellow-900 text-yellow-300' :
+                    log.level === 'DEBUG' ? 'bg-blue-900 text-blue-300' :
+                    'bg-green-900 text-green-300'
+                  }`}>
+                    {log.level}
+                  </span>
+                  <span className="text-sm text-gray-300 flex-1">{log.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface WorkstationModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -795,36 +602,55 @@ const WorkstationModal: React.FC<WorkstationModalProps> = ({
   readOnly = false
 }) => {
   const [formData, setFormData] = useState({
-    name: workstation?.name || '',
-    user: workstation?.user || '',
-    department: workstation?.department || '',
-    ip: workstation?.ip || '',
-    location: workstation?.location || '',
-    status: workstation?.status || 'offline'
+    id: '',
+    name: '',
+    floor: '1F',
+    department: '技术部',
+    status: 'available',
+    assignedTo: '',
+    equipment: []
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (onSave && !readOnly) {
-      if (!formData.name || !formData.department || !formData.ip || !formData.location) {
-        alert('请填写必填字段');
-        return;
-      }
-      
-      const workstationData = {
-        ...formData,
-        lastActive: new Date().toLocaleString()
-      };
-      
-      onSave(workstationData);
+  // 当workstation prop变化时，更新formData
+  useEffect(() => {
+    if (workstation) {
+      setFormData({
+        id: workstation.id || '',
+        name: workstation.name || '',
+        floor: workstation.floor || '1F',
+        department: workstation.department || '技术部',
+        status: workstation.status || 'available',
+        assignedTo: workstation.assignedTo || '',
+        equipment: workstation.equipment || []
+      });
+    } else {
+      // 如果没有workstation（新建模式），重置为默认值
+      setFormData({
+        id: '',
+        name: '',
+        floor: '1F',
+        department: '技术部',
+        status: 'available',
+        assignedTo: '',
+        equipment: []
+      });
     }
-  };
+  }, [workstation, isOpen]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
+  const floors = ['1F', '2F', '3F', '4F', '5F'];
+  const departments = ['技术部', '产品部', '设计部', '市场部', '人事部'];
+  const statusOptions = [
+    { value: 'available', label: '可用', color: 'text-green-600 bg-green-100' },
+    { value: 'occupied', label: '已占用', color: 'text-blue-600 bg-blue-100' },
+    { value: 'maintenance', label: '维护中', color: 'text-yellow-600 bg-yellow-100' },
+    { value: 'reserved', label: '预留', color: 'text-purple-600 bg-purple-100' }
+  ];
+
+  const handleSave = () => {
+    if (onSave) {
+      onSave(formData);
+    }
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -832,585 +658,439 @@ const WorkstationModal: React.FC<WorkstationModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-slate-800 rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
+        <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">工位编号</label>
+            <input
+              type="text"
+              value={formData.id}
+              onChange={(e) => setFormData({...formData, id: e.target.value})}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              placeholder="请输入工位编号"
+              readOnly={readOnly}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">工位名称</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              placeholder="请输入工位名称"
+              readOnly={readOnly}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">楼层</label>
+            <select
+              value={formData.floor}
+              onChange={(e) => setFormData({...formData, floor: e.target.value})}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              disabled={readOnly}
+            >
+              {floors.map(floor => (
+                <option key={floor} value={floor}>{floor}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">部门</label>
+            <select
+              value={formData.department}
+              onChange={(e) => setFormData({...formData, department: e.target.value})}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              disabled={readOnly}
+            >
+              {departments.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">状态</label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({...formData, status: e.target.value})}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              disabled={readOnly}
+            >
+              {statusOptions.map(status => (
+                <option key={status.value} value={status.value}>{status.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">分配给</label>
+            <input
+              type="text"
+              value={formData.assignedTo}
+              onChange={(e) => setFormData({...formData, assignedTo: e.target.value})}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+              placeholder="请输入用户名"
+              readOnly={readOnly}
+            />
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          {!readOnly && (
+            <button
+              onClick={handleSave}
+              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              保存
+            </button>
+          )}
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white"
+            className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
           >
-            ×
+            {readOnly ? '关闭' : '取消'}
           </button>
         </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              工位名称
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              disabled={readOnly}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              required={!readOnly}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              使用者
-            </label>
-            <input
-              type="text"
-              name="user"
-              value={formData.user}
-              onChange={handleChange}
-              disabled={readOnly}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              部门
-            </label>
-            <select
-              name="department"
-              value={formData.department}
-              onChange={handleChange}
-              disabled={readOnly}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              required={!readOnly}
-            >
-              <option value="">选择部门</option>
-              <option value="技术部">技术部</option>
-              <option value="设计部">设计部</option>
-              <option value="产品部">产品部</option>
-              <option value="运营部">运营部</option>
-              <option value="市场部">市场部</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              IP地址
-            </label>
-            <input
-              type="text"
-              name="ip"
-              value={formData.ip}
-              onChange={handleChange}
-              disabled={readOnly}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-              placeholder="192.168.1.100"
-              required={!readOnly}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              位置
-            </label>
-            <input
-              type="text"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              disabled={readOnly}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              placeholder="3楼东区"
-              required={!readOnly}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              状态
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              disabled={readOnly}
-              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              <option value="online">在线</option>
-              <option value="offline">离线</option>
-              <option value="maintenance">维护中</option>
-            </select>
-          </div>
-          
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-            >
-              取消
-            </button>
-            {!readOnly && (
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                保存
-              </button>
-            )}
-          </div>
-        </form>
       </div>
     </div>
   );
 };
 
-// 工位管理组件
 const WorkstationManagement: React.FC = () => {
   const [workstations, setWorkstations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    total: 0,
-    online: 0,
-    offline: 0,
-    maintenance: 0
-  });
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedWorkstation, setSelectedWorkstation] = useState<any>(null);
 
-  // 从localStorage加载工位数据
-  const loadWorkstationsFromStorage = () => {
-    try {
-      const stored = localStorage.getItem('workstations');
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch (error) {
-      console.error('从localStorage加载工位数据失败:', error);
-    }
-    return null;
+  const generateMockWorkstations = () => {
+    const floors = ['1F', '2F', '3F', '4F', '5F'];
+    const departments = ['技术部', '产品部', '设计部', '市场部', '人事部'];
+    const statuses = ['available', 'occupied', 'maintenance', 'reserved'];
+    const users = ['张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十'];
+    
+    return Array.from({ length: 50 }, (_, index) => ({
+      id: `WS-${String(index + 1).padStart(3, '0')}`,
+      name: `工位-${index + 1}`,
+      floor: floors[Math.floor(Math.random() * floors.length)],
+      department: departments[Math.floor(Math.random() * departments.length)],
+      status: statuses[Math.floor(Math.random() * statuses.length)],
+      assignedTo: Math.random() > 0.3 ? users[Math.floor(Math.random() * users.length)] : '',
+      equipment: ['电脑', '显示器', '键盘', '鼠标'].slice(0, Math.floor(Math.random() * 4) + 1),
+      lastUpdated: getRandomPastTime(),
+      createdAt: getRandomPastTime()
+    }));
   };
 
-  // 保存工位数据到localStorage
-  const saveWorkstationsToStorage = (data: any[]) => {
-    try {
-      localStorage.setItem('workstations', JSON.stringify(data));
-    } catch (error) {
-      console.error('保存工位数据到localStorage失败:', error);
-    }
-  };
-
-  // 获取工位数据
-  const fetchWorkstations = async () => {
+  const fetchWorkstations = async (forceRefresh = false) => {
+    console.log('开始获取工位数据...');
     setLoading(true);
+    
     try {
-      // 首先尝试从API获取数据
       const response = await fetch('http://localhost:8080/api/workstations');
+      console.log('API 响应状态:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
-        setWorkstations(data);
-        updateStats(data);
-        saveWorkstationsToStorage(data);
-        return;
+        console.log('API 返回数据:', data);
+        
+        // 处理不同的 API 响应格式
+        let workstationData = [];
+        if (Array.isArray(data)) {
+          workstationData = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          workstationData = data.data;
+        } else if (data.workstations && Array.isArray(data.workstations)) {
+          workstationData = data.workstations;
+        }
+        
+        if (workstationData.length > 0) {
+          setWorkstations(workstationData);
+          console.log('成功设置工位数据:', workstationData.length, '条记录');
+        } else {
+          console.log('API 返回空数据，使用模拟数据');
+          const mockData = generateMockWorkstations();
+          setWorkstations(mockData);
+        }
+      } else {
+        console.log('API 请求失败，状态码:', response.status);
+        const mockData = generateMockWorkstations();
+        setWorkstations(mockData);
       }
     } catch (error) {
-      console.error('从API获取工位数据失败:', error);
+      console.error('获取工位数据失败:', error);
+      console.log('使用模拟数据作为 fallback');
+      const mockData = generateMockWorkstations();
+      setWorkstations(mockData);
+    } finally {
+      setLoading(false);
+      console.log('工位数据获取完成');
     }
-    
-    // API失败时，尝试从localStorage加载
-    const storedData = loadWorkstationsFromStorage();
-    if (storedData && storedData.length > 0) {
-      setWorkstations(storedData);
-      updateStats(storedData);
-    } else {
-      // 使用默认数据
-      const defaultData = [
-        {
-          id: 1,
-          name: '开发部-001',
-          user: '张三',
-          department: '技术部',
-          ip: '192.168.1.101',
-          status: 'online',
-          location: '3楼东区',
-          lastActive: new Date().toLocaleString()
-        },
-        {
-          id: 2,
-          name: '设计部-002',
-          user: '李四',
-          department: '设计部',
-          ip: '192.168.1.102',
-          status: 'offline',
-          location: '3楼西区',
-          lastActive: new Date().toLocaleString()
-        },
-        {
-          id: 3,
-          name: '产品部-003',
-          user: '王五',
-          department: '产品部',
-          ip: '192.168.1.103',
-          status: 'online',
-          location: '4楼南区',
-          lastActive: new Date().toLocaleString()
-        }
-      ];
-      setWorkstations(defaultData);
-      updateStats(defaultData);
-      saveWorkstationsToStorage(defaultData);
-    }
-    setLoading(false);
   };
 
-  // 更新统计数据
-  const updateStats = (data: any[]) => {
-    const total = data.length;
-    const online = data.filter(w => w.status === 'online').length;
-    const offline = data.filter(w => w.status === 'offline').length;
-    const maintenance = data.filter(w => w.status === 'maintenance').length;
-    
-    setStats({ total, online, offline, maintenance });
-  };
-
-  // 初始化数据
   useEffect(() => {
     fetchWorkstations();
   }, []);
 
-  // 删除工位
-  const handleDeleteWorkstation = async (id: number) => {
-    if (!confirm('确定要删除这个工位吗？')) return;
+  const handleRefreshWorkstations = async () => {
+    console.log('刷新工位数据...');
+    
+    // 清除localStorage中的工位相关数据
+    localStorage.removeItem('workstations_cache');
+    localStorage.removeItem('workstations_last_fetch');
     
     try {
-      const response = await fetch(`http://localhost:8080/api/workstations/${id}`, {
-        method: 'DELETE'
-      });
+      // 强制刷新数据
+      await fetchWorkstations(true);
       
-      const updatedWorkstations = workstations.filter(w => w.id !== id);
-      setWorkstations(updatedWorkstations);
-      updateStats(updatedWorkstations);
-      saveWorkstationsToStorage(updatedWorkstations);
+      // 显示成功提示
+      console.log('✅ 工位数据刷新成功！');
       
-      if (!response.ok) {
-        console.warn('API删除失败，但本地数据已更新');
-      }
+      // 可以添加一个临时的成功提示（可选）
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successMessage.textContent = '工位数据刷新成功！';
+      document.body.appendChild(successMessage);
+      
+      // 3秒后移除提示
+      setTimeout(() => {
+        if (document.body.contains(successMessage)) {
+          document.body.removeChild(successMessage);
+        }
+      }, 3000);
+      
     } catch (error) {
-      console.error('删除工位失败:', error);
-      // API失败时，仍然从本地删除并保存
-      const updatedWorkstations = workstations.filter(w => w.id !== id);
-      setWorkstations(updatedWorkstations);
-      updateStats(updatedWorkstations);
-      saveWorkstationsToStorage(updatedWorkstations);
+      console.error('❌ 工位数据刷新失败:', error);
+      
+      // 显示错误提示
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      errorMessage.textContent = '工位数据刷新失败，请重试';
+      document.body.appendChild(errorMessage);
+      
+      // 3秒后移除提示
+      setTimeout(() => {
+        if (document.body.contains(errorMessage)) {
+          document.body.removeChild(errorMessage);
+        }
+      }, 3000);
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    return status === 'online' ? 'm1-badge-success' : 'm1-badge-error';
+  const handleCreateWorkstation = () => {
+    setShowCreateModal(true);
   };
 
-  const getStatusText = (status: string) => {
-    return status === 'online' ? '在线' : '离线';
+  const handleViewWorkstation = (workstation: any) => {
+    setSelectedWorkstation(workstation);
+    setShowViewModal(true);
+  };
+
+  const handleEditWorkstation = (workstation: any) => {
+    setSelectedWorkstation(workstation);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteWorkstation = (workstationId: string) => {
+    if (confirm('确定要删除这个工位吗？')) {
+      setWorkstations(prev => prev.filter(w => w.id !== workstationId));
+    }
+  };
+
+  const handleSaveWorkstation = (workstationData: any) => {
+    if (showCreateModal) {
+      const newWorkstation = {
+        ...workstationData,
+        id: `WS-${String(workstations.length + 1).padStart(3, '0')}`,
+        createdAt: getCurrentCSTTime(),
+        lastUpdated: getCurrentCSTTime()
+      };
+      setWorkstations(prev => [...prev, newWorkstation]);
+    } else if (showEditModal) {
+      setWorkstations(prev => prev.map(w => 
+        w.id === workstationData.id 
+          ? { ...workstationData, lastUpdated: getCurrentCSTTime() }
+          : w
+      ));
+    }
+  };
+
+  const getStatusDisplay = (status: string) => {
+    const statusMap: Record<string, { label: string; color: string }> = {
+      available: { label: '可用', color: 'text-green-600 bg-green-100' },
+      occupied: { label: '已占用', color: 'text-blue-600 bg-blue-100' },
+      maintenance: { label: '维护中', color: 'text-yellow-600 bg-yellow-100' },
+      reserved: { label: '预留', color: 'text-purple-600 bg-purple-100' }
+    };
+    return statusMap[status] || { label: status, color: 'text-gray-600 bg-gray-100' };
   };
 
   return (
     <div className="space-y-6">
-      {/* 添加工位模态框 */}
-      {showAddModal && (
-        <WorkstationModal
-          isOpen={showAddModal}
-          onClose={() => setShowAddModal(false)}
-          onSave={async (workstation) => {
-             const newWorkstation = { ...workstation, id: Date.now() };
-             const updatedWorkstations = [...workstations, newWorkstation];
-             
-             try {
-               const response = await fetch('http://localhost:8080/api/workstations', {
-                 method: 'POST',
-                 headers: {
-                   'Content-Type': 'application/json',
-                 },
-                 body: JSON.stringify(workstation),
-               });
-               
-               if (response.ok) {
-                 const savedWorkstation = await response.json();
-                 const finalWorkstations = [...workstations, savedWorkstation];
-                 setWorkstations(finalWorkstations);
-                 updateStats(finalWorkstations);
-                 saveWorkstationsToStorage(finalWorkstations);
-               } else {
-                 console.warn('API添加失败，使用本地数据');
-                 setWorkstations(updatedWorkstations);
-                 updateStats(updatedWorkstations);
-                 saveWorkstationsToStorage(updatedWorkstations);
-               }
-             } catch (error) {
-               console.error('添加工位失败:', error);
-               // API失败时使用本地添加并保存
-               setWorkstations(updatedWorkstations);
-               updateStats(updatedWorkstations);
-               saveWorkstationsToStorage(updatedWorkstations);
-             }
-             setShowAddModal(false);
-           }}
-          title="添加工位"
-        />
-      )}
-
-      {/* 编辑工位模态框 */}
-      {showEditModal && selectedWorkstation && (
-        <WorkstationModal
-          isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedWorkstation(null);
-          }}
-          onSave={async (workstation) => {
-             const updatedWorkstations = workstations.map(w => 
-               w.id === selectedWorkstation.id ? { ...workstation, id: selectedWorkstation.id } : w
-             );
-             
-             try {
-               const response = await fetch(`http://localhost:8080/api/workstations/${selectedWorkstation.id}`, {
-                 method: 'PUT',
-                 headers: {
-                   'Content-Type': 'application/json',
-                 },
-                 body: JSON.stringify(workstation),
-               });
-               
-               if (response.ok) {
-                 const savedWorkstation = await response.json();
-                 const finalWorkstations = workstations.map(w => 
-                   w.id === selectedWorkstation.id ? savedWorkstation : w
-                 );
-                 setWorkstations(finalWorkstations);
-                 updateStats(finalWorkstations);
-                 saveWorkstationsToStorage(finalWorkstations);
-               } else {
-                 console.warn('API更新失败，使用本地数据');
-                 setWorkstations(updatedWorkstations);
-                 updateStats(updatedWorkstations);
-                 saveWorkstationsToStorage(updatedWorkstations);
-               }
-             } catch (error) {
-               console.error('更新工位失败:', error);
-               // API失败时使用本地更新并保存
-               setWorkstations(updatedWorkstations);
-               updateStats(updatedWorkstations);
-               saveWorkstationsToStorage(updatedWorkstations);
-             }
-             setShowEditModal(false);
-             setSelectedWorkstation(null);
-           }}
-          workstation={selectedWorkstation}
-          title="编辑工位"
-        />
-      )}
-
-      {/* 查看工位模态框 */}
-      {showViewModal && selectedWorkstation && (
-        <WorkstationModal
-          isOpen={showViewModal}
-          onClose={() => {
-            setShowViewModal(false);
-            setSelectedWorkstation(null);
-          }}
-          workstation={selectedWorkstation}
-          title="工位详情"
-          readOnly
-        />
-      )}
-
-      {/* 工位统计 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="m1-card">
-          <div className="m1-card-body">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">总工位数</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-              <MapPin className="w-8 h-8 text-blue-400" />
-            </div>
+          <div className="m1-card-body text-center">
+            <div className="text-2xl font-bold text-blue-400">{workstations.length}</div>
+            <div className="text-sm text-gray-400">总工位数</div>
           </div>
         </div>
         <div className="m1-card">
-          <div className="m1-card-body">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">在线工位</p>
-                <p className="text-2xl font-bold text-green-400">{stats.online}</p>
-              </div>
-              <Activity className="w-8 h-8 text-green-400" />
-            </div>
+          <div className="m1-card-body text-center">
+            <div className="text-2xl font-bold text-green-400">{workstations.filter(w => w.status === 'available').length}</div>
+            <div className="text-sm text-gray-400">可用工位</div>
           </div>
         </div>
         <div className="m1-card">
-          <div className="m1-card-body">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">离线工位</p>
-                <p className="text-2xl font-bold text-red-400">{stats.offline}</p>
-              </div>
-              <Monitor className="w-8 h-8 text-red-400" />
-            </div>
+          <div className="m1-card-body text-center">
+            <div className="text-2xl font-bold text-blue-400">{workstations.filter(w => w.status === 'occupied').length}</div>
+            <div className="text-sm text-gray-400">已占用</div>
           </div>
         </div>
         <div className="m1-card">
-          <div className="m1-card-body">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">使用率</p>
-                <p className="text-2xl font-bold text-blue-400">
-                  {stats.total > 0 ? Math.round((stats.online / stats.total) * 100) : 0}%
-                </p>
-              </div>
-              <BarChart3 className="w-8 h-8 text-blue-400" />
-            </div>
+          <div className="m1-card-body text-center">
+            <div className="text-2xl font-bold text-yellow-400">{workstations.filter(w => w.status === 'maintenance').length}</div>
+            <div className="text-sm text-gray-400">维护中</div>
           </div>
         </div>
       </div>
 
       {/* 工位管理 */}
       <div className="m1-card">
-        <div className="m1-card-header">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">工位管理</h3>
-            <div className="flex gap-2">
-              <button 
-                className="m1-btn m1-btn-ghost"
-                onClick={fetchWorkstations}
-                disabled={loading}
-              >
-                {loading ? '刷新中...' : '刷新数据'}
-              </button>
-              <button 
-                className="m1-btn m1-btn-primary flex items-center gap-2"
-                onClick={() => setShowAddModal(true)}
-              >
-                <Plus className="w-4 h-4" />
-                添加工位
-              </button>
-            </div>
+        <div className="m1-card-header flex justify-between items-center">
+          <h3 className="text-lg font-semibold">工位管理</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={handleRefreshWorkstations}
+              disabled={loading}
+              className="m1-btn-secondary flex items-center gap-2"
+              title="刷新工位数据"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              刷新数据
+            </button>
+            <button
+              onClick={handleCreateWorkstation}
+              className="m1-btn-primary flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              添加工位
+            </button>
           </div>
         </div>
         <div className="m1-card-body">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
+                <span className="text-gray-400">正在加载工位数据...</span>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="m1-table">
                 <thead>
                   <tr>
+                    <th>工位编号</th>
                     <th>工位名称</th>
-                    <th>使用者</th>
+                    <th>楼层</th>
                     <th>部门</th>
-                    <th>IP地址</th>
-                    <th>位置</th>
+                    <th>分配给</th>
                     <th>状态</th>
-                    <th>最后活跃</th>
+                    <th>最后更新</th>
                     <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {workstations.map((workstation) => (
-                    <tr key={workstation.id}>
-                      <td className="font-medium">{workstation.name}</td>
-                      <td>{workstation.user}</td>
-                      <td>{workstation.department}</td>
-                      <td className="font-mono text-sm">{workstation.ip}</td>
-                      <td>{workstation.location}</td>
-                      <td>
-                        <span className={`m1-badge ${getStatusBadge(workstation.status)}`}>
-                          {getStatusText(workstation.status)}
-                        </span>
-                      </td>
-                      <td className="text-sm text-gray-400">{workstation.lastActive}</td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <button 
-                            className="m1-btn m1-btn-ghost text-xs flex items-center gap-1"
-                            onClick={() => {
-                              setSelectedWorkstation(workstation);
-                              setShowViewModal(true);
-                            }}
-                          >
-                            <Eye className="w-3 h-3" />
-                            查看
-                          </button>
-                          <button 
-                            className="m1-btn m1-btn-ghost text-xs flex items-center gap-1"
-                            onClick={() => {
-                              setSelectedWorkstation(workstation);
-                              setShowEditModal(true);
-                            }}
-                          >
-                            <Edit className="w-3 h-3" />
-                            编辑
-                          </button>
-                          <button 
-                            className="m1-btn m1-btn-ghost text-xs text-red-400 flex items-center gap-1"
-                            onClick={() => handleDeleteWorkstation(workstation.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            删除
-                          </button>
-                        </div>
+                  {workstations.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-8 text-gray-400">
+                        暂无工位数据
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    workstations.map((workstation) => {
+                      const statusDisplay = getStatusDisplay(workstation.status);
+                      return (
+                        <tr key={workstation.id}>
+                          <td className="font-medium text-blue-400">{workstation.id}</td>
+                          <td className="text-white">{workstation.name}</td>
+                          <td className="text-gray-300">{workstation.floor}</td>
+                          <td className="text-gray-300">{workstation.department}</td>
+                          <td className="text-gray-300">{workstation.assignedTo || '-'}</td>
+                          <td>
+                            <span className={`px-2 py-1 text-xs rounded-full ${statusDisplay.color}`}>
+                              {statusDisplay.label}
+                            </span>
+                          </td>
+                          <td className="text-gray-400 text-sm">{workstation.lastUpdated}</td>
+                          <td>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleViewWorkstation(workstation)}
+                                className="text-blue-400 hover:text-blue-300"
+                                title="查看"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleEditWorkstation(workstation)}
+                                className="text-green-400 hover:text-green-300"
+                                title="编辑"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteWorkstation(workstation.id)}
+                                className="text-red-400 hover:text-red-300"
+                                title="删除"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
           )}
         </div>
       </div>
+
+      {/* 模态框 */}
+      <WorkstationModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={handleSaveWorkstation}
+        title="添加新工位"
+      />
+
+      <WorkstationModal
+        isOpen={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        workstation={selectedWorkstation}
+        title="查看工位详情"
+        readOnly={true}
+      />
+
+      <WorkstationModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSave={handleSaveWorkstation}
+        workstation={selectedWorkstation}
+        title="编辑工位"
+      />
     </div>
   );
 };
 
-// 用户管理组件
 const UserManagement: React.FC = () => {
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      username: 'admin',
-      email: 'admin@company.com',
-      role: '系统管理员',
-      department: '技术部',
-      status: 'active',
-      lastLogin: '2024-01-15 14:30:25',
-      permissions: ['用户管理', '系统设置', '数据管理', '监控查看']
-    },
-    {
-      id: 2,
-      username: 'manager',
-      email: 'manager@company.com',
-      role: '部门经理',
-      department: '产品部',
-      status: 'active',
-      lastLogin: '2024-01-15 10:15:42',
-      permissions: ['用户查看', '数据查看', '报告生成']
-    },
-    {
-      id: 3,
-      username: 'user001',
-      email: 'user001@company.com',
-      role: '普通用户',
-      department: '设计部',
-      status: 'inactive',
-      lastLogin: '2024-01-10 16:45:12',
-      permissions: ['基础查看']
-    }
-  ]);
-
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -1430,17 +1110,91 @@ const UserManagement: React.FC = () => {
     { value: 'pending', label: '待激活', color: 'text-yellow-600 bg-yellow-100' }
   ];
 
+  const generateMockUsers = () => {
+    const usernames = ['admin', '张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十', '郑十一'];
+    const emails = ['admin@company.com', 'zhangsan@company.com', 'lisi@company.com', 'wangwu@company.com', 'zhaoliu@company.com'];
+    const permissions = [
+      ['用户管理', '系统设置', '数据导出'],
+      ['工位管理', '数据查看'],
+      ['基础查看'],
+      ['工位预订', '个人设置'],
+      ['数据分析', '报表生成']
+    ];
+    
+    return Array.from({ length: 25 }, (_, index) => ({
+      id: index + 1,
+      username: usernames[index % usernames.length] + (index > 9 ? `-${Math.floor(index / 10)}` : ''),
+      email: index === 0 ? emails[0] : `user${index}@company.com`,
+      role: index === 0 ? '系统管理员' : roles[Math.floor(Math.random() * (roles.length - 1)) + 1],
+      department: departments[Math.floor(Math.random() * departments.length)],
+      status: ['active', 'inactive', 'pending'][Math.floor(Math.random() * 3)],
+      lastLogin: getRandomPastTime(),
+      permissions: permissions[Math.floor(Math.random() * permissions.length)],
+      createdAt: getRandomPastTime()
+    }));
+  };
+
+  const fetchUsers = async (forceRefresh = false) => {
+    console.log('开始获取用户数据...');
+    setLoading(true);
+    
+    try {
+      const response = await fetch('http://localhost:8080/api/users');
+      console.log('API 响应状态:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('API 返回数据:', data);
+        
+        // 处理不同的 API 响应格式
+        let userData = [];
+        if (Array.isArray(data)) {
+          userData = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          userData = data.data;
+        } else if (data.users && Array.isArray(data.users)) {
+          userData = data.users;
+        }
+        
+        if (userData.length > 0) {
+          setUsers(userData);
+          console.log('成功设置用户数据:', userData.length, '条记录');
+        } else {
+          console.log('API 返回空数据，使用模拟数据');
+          const mockData = generateMockUsers();
+          setUsers(mockData);
+        }
+      } else {
+        console.log('API 请求失败，状态码:', response.status);
+        const mockData = generateMockUsers();
+        setUsers(mockData);
+      }
+    } catch (error) {
+      console.error('获取用户数据失败:', error);
+      console.log('使用模拟数据作为 fallback');
+      const mockData = generateMockUsers();
+      setUsers(mockData);
+    } finally {
+      setLoading(false);
+      console.log('用户数据获取完成');
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   const handleCreateUser = () => {
     const user = {
-      id: users.length + 1,
       ...newUser,
+      id: users.length + 1,
+      permissions: ['基础查看'],
       lastLogin: '从未登录',
-      permissions: newUser.role === '系统管理员' ? ['用户管理', '系统设置', '数据管理', '监控查看'] :
-                   newUser.role === '部门经理' ? ['用户查看', '数据查看', '报告生成'] : ['基础查看']
+      createdAt: getCurrentCSTTime()
     };
-    setUsers([...users, user]);
-    setShowCreateModal(false);
+    setUsers(prev => [...prev, user]);
     setNewUser({ username: '', email: '', role: '普通用户', department: '技术部', status: 'active' });
+    setShowCreateModal(false);
   };
 
   const handleEditUser = (user: any) => {
@@ -1449,25 +1203,33 @@ const UserManagement: React.FC = () => {
   };
 
   const handleUpdateUser = () => {
-    setUsers(users.map(u => u.id === selectedUser.id ? selectedUser : u));
+    setUsers(prev => prev.map(u => u.id === selectedUser.id ? selectedUser : u));
     setShowEditModal(false);
-    setSelectedUser(null);
   };
 
   const handleDeleteUser = (userId: number) => {
     if (confirm('确定要删除这个用户吗？')) {
-      setUsers(users.filter(u => u.id !== userId));
+      setUsers(prev => prev.filter(u => u.id !== userId));
     }
   };
 
+  const handleRefreshUsers = async () => {
+    console.log('刷新用户数据...');
+    // 清除localStorage中的用户相关数据
+    localStorage.removeItem('users_cache');
+    localStorage.removeItem('users_last_fetch');
+    
+    // 强制刷新数据
+    await fetchUsers(true);
+  };
+
   const getStatusDisplay = (status: string) => {
-    const statusConfig = statusOptions.find(s => s.value === status);
-    return statusConfig || { label: status, color: 'text-gray-600 bg-gray-100' };
+    return statusOptions.find(s => s.value === status) || { label: status, color: 'text-gray-600 bg-gray-100' };
   };
 
   return (
     <div className="space-y-6">
-      {/* 用户统计卡片 */}
+      {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="m1-card">
           <div className="m1-card-body text-center">
@@ -1495,101 +1257,129 @@ const UserManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* 用户管理主界面 */}
+      {/* 用户管理 */}
       <div className="m1-card">
         <div className="m1-card-header flex justify-between items-center">
           <h3 className="text-lg font-semibold">用户管理</h3>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="m1-btn-primary flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            添加用户
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleRefreshUsers}
+              disabled={loading}
+              className="m1-btn-secondary flex items-center gap-2"
+              title="刷新用户数据"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              刷新数据
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="m1-btn-primary flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              添加用户
+            </button>
+          </div>
         </div>
         <div className="m1-card-body">
-          <div className="overflow-x-auto">
-            <table className="m1-table">
-              <thead>
-                <tr>
-                  <th>用户信息</th>
-                  <th>角色</th>
-                  <th>部门</th>
-                  <th>状态</th>
-                  <th>最后登录</th>
-                  <th>权限</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => {
-                  const statusDisplay = getStatusDisplay(user.status);
-                  return (
-                    <tr key={user.id}>
-                      <td>
-                        <div>
-                          <div className="font-medium text-white">{user.username}</div>
-                          <div className="text-sm text-gray-400">{user.email}</div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-900 text-blue-300">
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="text-gray-300">{user.department}</td>
-                      <td>
-                        <span className={`px-2 py-1 text-xs rounded-full ${statusDisplay.color}`}>
-                          {statusDisplay.label}
-                        </span>
-                      </td>
-                      <td className="text-gray-400 text-sm">{user.lastLogin}</td>
-                      <td>
-                        <div className="flex flex-wrap gap-1">
-                          {user.permissions.slice(0, 2).map((perm: string, index: number) => (
-                            <span key={index} className="px-1 py-0.5 text-xs rounded bg-gray-700 text-gray-300">
-                              {perm}
-                            </span>
-                          ))}
-                          {user.permissions.length > 2 && (
-                            <span className="px-1 py-0.5 text-xs rounded bg-gray-700 text-gray-300">
-                              +{user.permissions.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEditUser(user)}
-                            className="text-blue-400 hover:text-blue-300"
-                            title="编辑"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          {user.username !== 'admin' && (
-                            <button
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="text-red-400 hover:text-red-300"
-                              title="删除"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
+                <span className="text-gray-400">正在加载用户数据...</span>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="m1-table">
+                <thead>
+                  <tr>
+                    <th>用户信息</th>
+                    <th>角色</th>
+                    <th>部门</th>
+                    <th>状态</th>
+                    <th>最后登录</th>
+                    <th>权限</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-gray-400">
+                        暂无用户数据
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    users.map((user) => {
+                      const statusDisplay = getStatusDisplay(user.status);
+                      return (
+                        <tr key={user.id}>
+                          <td>
+                            <div>
+                              <div className="font-medium text-white">{user.username}</div>
+                              <div className="text-sm text-gray-400">{user.email}</div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="px-2 py-1 text-xs rounded-full bg-blue-900 text-blue-300">
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="text-gray-300">{user.department}</td>
+                          <td>
+                            <span className={`px-2 py-1 text-xs rounded-full ${statusDisplay.color}`}>
+                              {statusDisplay.label}
+                            </span>
+                          </td>
+                          <td className="text-gray-400 text-sm">{user.lastLogin}</td>
+                          <td>
+                            <div className="flex flex-wrap gap-1">
+                              {user.permissions.slice(0, 2).map((perm: string, index: number) => (
+                                <span key={index} className="px-1 py-0.5 text-xs rounded bg-gray-700 text-gray-300">
+                                  {perm}
+                                </span>
+                              ))}
+                              {user.permissions.length > 2 && (
+                                <span className="px-1 py-0.5 text-xs rounded bg-gray-700 text-gray-300">
+                                  +{user.permissions.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditUser(user)}
+                                className="text-blue-400 hover:text-blue-300"
+                                title="编辑"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              {user.username !== 'admin' && (
+                                <button
+                                  onClick={() => handleDeleteUser(user.id)}
+                                  className="text-red-400 hover:text-red-300"
+                                  title="删除"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1744,7 +1534,6 @@ const UserManagement: React.FC = () => {
   );
 };
 
-// 安全设置组件
 const SecuritySettings: React.FC = () => {
   return (
     <div className="space-y-6">
@@ -1760,7 +1549,6 @@ const SecuritySettings: React.FC = () => {
   );
 };
 
-// 性能分析组件
 const PerformanceAnalytics: React.FC = () => {
   return (
     <div className="space-y-6">
@@ -1776,7 +1564,6 @@ const PerformanceAnalytics: React.FC = () => {
   );
 };
 
-// 系统设置组件
 const SystemSettings: React.FC = () => {
   return (
     <div className="space-y-6">
