@@ -7,7 +7,7 @@
     "hasVueApp": false,
     "screenshotPath": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\screenshot-5173-main.png",
     "contentLength": 165249,
-    "timestamp": "2025-10-17T02:22:22.554Z"
+    "timestamp": "2025-10-17T08:40:25.000Z"
   },
   "5173-server-management": {
     "url": "http://localhost:5173/server-management",
@@ -17,7 +17,7 @@
     "hasVueApp": false,
     "screenshotPath": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\screenshot-5173-server-management.png",
     "contentLength": 135961,
-    "timestamp": "2025-10-17T02:22:25.986Z"
+    "timestamp": "2025-10-17T08:40:25.000Z"
   },
   "3001-main": {
     "url": "http://localhost:3001/",
@@ -27,7 +27,7 @@
     "hasVueApp": false,
     "screenshotPath": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\screenshot-3001-main.png",
     "contentLength": 66795,
-    "timestamp": "2025-10-17T02:22:29.109Z"
+    "timestamp": "2025-10-17T08:40:25.000Z"
   },
   "8080-main": {
     "url": "http://localhost:8080/",
@@ -37,6 +37,6 @@
     "hasVueApp": false,
     "screenshotPath": "D:\\HuaweiMoveData\\Users\\11346\\Desktop\\部门地图\\screenshot-8080-main.png",
     "contentLength": 137,
-    "timestamp": "2025-10-17T02:22:32.213Z"
+    "timestamp": "2025-10-17T08:40:25.000Z"
   }
 }

@@ -710,10 +710,10 @@ function HomePage() {
             <div className="flex items-center space-x-4 text-sm text-gray-500">
               <span>当前部门: {currentDept || '全部门概览'}</span>
               <span>•</span>
-              <span>最后更新: {new Date().toLocaleTimeString()}</span>
+              <span>最后更新: {new Date().toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}</span>
             </div>
             <div className="text-sm text-gray-500">
-              版本 v1.2.0
+              版本 v3.2.1_time-mcp-integration
             </div>
           </div>
         </div>

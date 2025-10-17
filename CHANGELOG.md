@@ -5,6 +5,21 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+**文档最后更新**: 2025-10-17 16:40:25 CST
+
+## [v3.2.1_time-mcp-integration] - 2025-10-17
+
+### 修复 (Fixed)
+- 🔧 **Time MCP 服务器时区配置** - 修复 Windows 环境下时区字符串截断问题
+- 🔧 **时区数据包依赖** - 安装 tzdata 包解决时区数据缺失
+- 🔧 **MCP 配置优化** - 将 TZ 环境变量改为 --local-timezone 命令行参数
+- 🔧 **时间服务集成** - 确保 Time MCP 服务器正常启动和运行
+
+### 技术改进 (Technical)
+- ⚙️ **MCP Inspector 集成** - 添加 Time MCP 服务的调试和监控支持
+- ⚙️ **时区标准化** - 统一使用 Asia/Shanghai 时区配置
+- ⚙️ **文档时间同步** - 更新所有项目文档的时间戳信息
+
 ## [v2.1.0] - 2024-01-XX
 
 ### 新增功能 (Added)
