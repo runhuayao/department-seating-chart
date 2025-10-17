@@ -3,6 +3,7 @@ import { Monitor, Server, Settings, Activity, Users, Shield, BarChart3, Terminal
 import { useAuth } from '../contexts/AuthContext';
 import ServerMonitor from '../components/ServerMonitor';
 import ServerDetails from '../components/ServerDetails';
+import { getCurrentCSTTime, getRandomPastTime, getFutureTime } from '../utils/timeUtils';
 import '../styles/m1-theme.css';
 
 interface NavigationItem {
@@ -22,7 +23,7 @@ const M1ServerManagement: React.FC = () => {
     connected: true,
     tables: 5,
     totalRecords: 1247,
-    lastSync: '2024-01-15 14:35:20'
+    lastSync: getCurrentCSTTime()
   });
 
   // 模拟连接状态
@@ -492,15 +493,15 @@ const DatabaseManagement: React.FC = () => {
         ];
       case 'users':
         return [
-          { id: 1, username: 'admin', role: 'admin', last_login: '2024-01-15 14:30:25' },
-          { id: 2, username: 'manager1', role: 'manager', last_login: '2024-01-15 13:45:10' },
-          { id: 3, username: 'user1', role: 'user', last_login: '2024-01-15 12:20:05' }
+          { id: 1, username: 'admin', role: 'admin', last_login: getRandomPastTime(5) },
+          { id: 2, username: 'manager1', role: 'manager', last_login: getRandomPastTime(45) },
+          { id: 3, username: 'user1', role: 'user', last_login: getRandomPastTime(130) }
         ];
       case 'audit_logs':
         return [
-          { id: 1, action: 'LOGIN', user: 'admin', timestamp: '2024-01-15 14:30:25', details: '管理员登录' },
-          { id: 2, action: 'UPDATE', user: 'manager1', timestamp: '2024-01-15 14:25:10', details: '更新工位信息' },
-          { id: 3, action: 'DELETE', user: 'admin', timestamp: '2024-01-15 14:20:05', details: '删除过期记录' }
+          { id: 1, action: 'LOGIN', user: 'admin', timestamp: getRandomPastTime(5), details: '管理员登录' },
+          { id: 2, action: 'UPDATE', user: 'manager1', timestamp: getRandomPastTime(10), details: '更新工位信息' },
+          { id: 3, action: 'DELETE', user: 'admin', timestamp: getRandomPastTime(15), details: '删除过期记录' }
         ];
       default:
         return [];
@@ -519,17 +520,17 @@ const DatabaseManagement: React.FC = () => {
 
   // 默认数据（当API不可用时）
   const defaultTables = [
-    { name: 'workstations', records: 156, size: '2.3MB', lastUpdate: '2024-01-15 14:30:25' },
-    { name: 'employees', records: 89, size: '1.8MB', lastUpdate: '2024-01-15 14:28:15' },
-    { name: 'departments', records: 12, size: '0.5MB', lastUpdate: '2024-01-15 14:25:10' },
-    { name: 'users', records: 45, size: '1.2MB', lastUpdate: '2024-01-15 14:20:05' },
-    { name: 'audit_logs', records: 945, size: '5.7MB', lastUpdate: '2024-01-15 14:35:20' }
+    { name: 'workstations', records: 156, size: '2.3MB', lastUpdate: getRandomPastTime(5) },
+    { name: 'employees', records: 89, size: '1.8MB', lastUpdate: getRandomPastTime(7) },
+    { name: 'departments', records: 12, size: '0.5MB', lastUpdate: getRandomPastTime(10) },
+    { name: 'users', records: 45, size: '1.2MB', lastUpdate: getRandomPastTime(15) },
+    { name: 'audit_logs', records: 945, size: '5.7MB', lastUpdate: getCurrentCSTTime() }
   ];
 
   const defaultSyncStatus = {
-    lastSync: '2024-01-15 14:35:20',
+    lastSync: getCurrentCSTTime(),
     status: 'success',
-    nextSync: '2024-01-15 14:40:20',
+    nextSync: getFutureTime(5),
     totalSynced: 1247
   };
 
@@ -733,10 +734,10 @@ const ProcessManagement: React.FC = () => {
 // 系统日志组件
 const SystemLogs: React.FC = () => {
   const [logs] = useState([
-    { id: 1, time: '2024-01-15 14:30:25', level: 'info', message: '服务器启动成功', source: 'system' },
-    { id: 2, time: '2024-01-15 14:28:15', level: 'warn', message: '检测到高内存使用率: 85%', source: 'monitor' },
-    { id: 3, time: '2024-01-15 14:25:10', level: 'error', message: '数据库连接失败', source: 'database' },
-    { id: 4, time: '2024-01-15 14:20:05', level: 'info', message: '系统监控激活', source: 'monitor' }
+    { id: 1, time: getRandomPastTime(2), level: 'info', message: '服务器启动成功', source: 'system' },
+    { id: 2, time: getRandomPastTime(5), level: 'info', message: '系统运行正常，内存使用率: 65%', source: 'monitor' },
+    { id: 3, time: getRandomPastTime(8), level: 'info', message: '数据库连接成功', source: 'database' },
+    { id: 4, time: getRandomPastTime(12), level: 'info', message: '系统监控激活', source: 'monitor' }
   ]);
 
   const getLevelBadge = (level: string) => {
