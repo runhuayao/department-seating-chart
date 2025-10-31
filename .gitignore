@@ -146,3 +146,70 @@ yarn.lock
 # Temporary folders
 temp*
 .temp*
+
+# Sensitive information and credentials
+*.key
+*.pem
+*.p12
+*.pfx
+pgpass.txt
+.env.*
+!.env.example
+
+# IDE and development tools
+.trae/
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Server logs and runtime files
+server_log.txt
+*.log
+*.pid
+
+# Database dumps and backups
+*.sql
+*.dump
+*.backup
+
+# Redis dumps
+dump.rdb
+*.rdb
+
+# Docker volumes and data
+docker-data/
+postgres-data/
+redis-data/
+
+# Build artifacts
+dist-server-management/
+deprecated/
+
+# Test and development files
+crawl-*.cjs
+*-report.json
+*-report.md
+claude-settings.json
+context*.json
+
+# OS and system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Large binary files and installers
+*.exe
+*.msi
+*.dll
+*.pdb
+Redis/
+
+# Monitoring and metrics
+prometheus-data/
+grafana-data/
+
+# Certificates and keys
+certificates/
+ssl/
+tls/

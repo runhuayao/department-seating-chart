@@ -149,7 +149,7 @@ function Check-DockerInstallation {
         Write-Host "   .\start-postgres-docker.ps1" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "2. 或者使用单行命令:" -ForegroundColor White
-        Write-Host "   docker run -d --name department-map-postgres -e POSTGRES_DB=department_map -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=113464 -p 5432:5432 -v postgres_data:/var/lib/postgresql/data postgres:15-alpine" -ForegroundColor Cyan
+        Write-Host "   docker run -d --name department-map-postgres -e POSTGRES_DB=department_map -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=\$DB_PASSWORD -p 5432:5432 -v postgres_data:/var/lib/postgresql/data postgres:15-alpine" -ForegroundColor Cyan
         Write-Host ""
     }
 
